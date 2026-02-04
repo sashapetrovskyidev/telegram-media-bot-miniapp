@@ -3,394 +3,372 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>WERYPEAS Vinyl Studio</title>
+  <title>Vinyl Studio</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <style>
     :root {
-      --bg-start: #0d001f;
-      --bg-end: #2a004f;
-      --accent: #ff4da6;
-      --accent-dark: #cc3399;
-      --text: #f0e6ff;
-      --card: rgba(40, 0, 80, 0.65);
-      --glow: rgba(255, 77, 166, 0.5);
+      --bg:        #0f0f13;
+      --surface:   #1a1a22;
+      --surface2:  #22222a;
+      --accent:    #a0a0ff;
+      --accent-dim:#7a7aff;
+      --text:      #f0f0f5;
+      --text-sec:  #a0a0b0;
+      --border:    rgba(255,255,255,0.08);
+      --shadow:    0 8px 32px rgba(0,0,0,0.55);
+      --glow:      0 0 20px rgba(160,160,255,0.18);
     }
-    * { margin:0; padding:0; box-sizing:border-box; }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 20px 16px;
-      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
+
     header {
       text-align: center;
-      margin: 16px 0 24px;
+      margin: 8px 0 28px;
     }
+
     h1 {
-      font-size: 2.4rem;
-      font-weight: 800;
-      letter-spacing: -1px;
-      background: linear-gradient(90deg, #ff99cc, #cc99ff);
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #e0e0ff, #c0c0ff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 20px var(--glow);
     }
+
     .tagline {
-      font-size: 1.05rem;
+      font-size: 0.96rem;
+      color: var(--text-sec);
+      margin-top: 6px;
       opacity: 0.9;
-      margin-top: 8px;
     }
-    .preview-box {
-      width: 280px;
-      height: 280px;
-      margin: 24px auto 32px;
+
+    .preview-container {
+      width: 100%;
+      max-width: 300px;
+      aspect-ratio: 1;
+      margin: 16px auto 32px;
       position: relative;
     }
-    .vinyl {
+
+    .vinyl-frame {
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      border: 12px solid #111;
-      box-shadow: 
-        0 0 50px rgba(0,0,0,0.8),
-        inset 0 0 30px rgba(0,0,0,0.9),
-        0 0 30px var(--glow);
-      background: #000 center/cover;
-      overflow: hidden;
+      background: radial-gradient(circle at 30% 30%, #2a2a38, #111116);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow), inset 0 2px 10px rgba(0,0,0,0.8);
       position: relative;
+      overflow: hidden;
     }
-    .vinyl::after {
+
+    .vinyl-frame::after {
       content: "";
       position: absolute;
       inset: 0;
       margin: auto;
-      width: 32px;
-      height: 32px;
-      background: radial-gradient(circle at 30% 30%, #333, #111);
+      width: 38px;
+      height: 38px;
+      background: radial-gradient(circle at 35% 35%, #444, #1a1a22);
       border-radius: 50%;
-      box-shadow: inset 0 0 12px #000;
-      z-index: 10;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: inset 0 2px 6px #000;
+      z-index: 5;
     }
+
     canvas {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       border-radius: 50%;
+      image-rendering: crisp-edges;
     }
+
     .controls {
       width: 100%;
       max-width: 380px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
     }
+
     .btn, select, input[type="file"] {
       width: 100%;
-      padding: 16px;
-      font-size: 1.1rem;
+      padding: 16px 20px;
+      font-size: 1.05rem;
       font-weight: 600;
       border: none;
-      border-radius: 50px;
-      background: var(--card);
-      color: white;
+      border-radius: 20px;
+      background: var(--surface);
+      color: var(--text);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      transition: all 0.22s ease;
       cursor: pointer;
-      transition: all 0.25s ease;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     }
-    .btn {
-      background: linear-gradient(90deg, var(--accent), var(--accent-dark));
-      box-shadow: 0 6px 20px var(--glow);
+
+    .btn.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+      color: #000;
+      font-weight: 700;
+      box-shadow: var(--glow), 0 6px 20px rgba(0,0,0,0.4);
     }
-    .btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 30px var(--glow);
+
+    .btn.primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(100,100,255,0.35);
     }
-    .btn:active {
+
+    .btn.primary:active {
       transform: translateY(1px);
     }
+
     .btn:disabled {
-      opacity: 0.5;
+      opacity: 0.38;
       cursor: not-allowed;
       transform: none;
+      box-shadow: none;
     }
+
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a0a0b0' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 16px center;
+      padding-right: 40px;
+    }
+
     #status {
-      margin: 24px 0;
-      font-size: 1.15rem;
+      margin: 28px 0 16px;
+      font-size: 1rem;
+      color: var(--text-sec);
       text-align: center;
-      min-height: 1.6em;
-      opacity: 0.95;
+      min-height: 1.5em;
+      opacity: 0.9;
+      transition: opacity 0.4s ease;
     }
+
     .social-bar {
       margin-top: auto;
-      padding: 20px 0;
+      padding: 24px 0 16px;
       display: flex;
       justify-content: center;
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
     }
+
     .social-link {
-      color: rgba(255,255,255,0.85);
+      color: var(--text-sec);
       text-decoration: none;
-      padding: 10px 18px;
-      border-radius: 50px;
-      background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(8px);
+      padding: 10px 16px;
+      border-radius: 999px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
       transition: all 0.2s;
     }
+
     .social-link:hover {
-      background: rgba(255,255,255,0.2);
-      transform: scale(1.05);
+      color: var(--text);
+      background: rgba(255,255,255,0.06);
+      transform: translateY(-1px);
     }
-    .debug-info {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      background: rgba(0,0,0,0.8);
-      color: #0f0;
-      padding: 8px;
-      border-radius: 8px;
-      font-size: 10px;
-      max-width: 150px;
-      word-break: break-all;
-      display: none;
+
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; transform: none !important; }
     }
   </style>
 </head>
 <body>
 
-  <div class="debug-info" id="debug"></div>
+<header>
+  <h1>Vinyl Studio</h1>
+  <div class="tagline">Turn your cover into spinning vinyl art</div>
+</header>
 
-  <header>
-    <h1>WERYPEAS Vinyl Studio</h1>
-    <div class="tagline">Create spinning vinyl magic in seconds 🫛💿</div>
-  </header>
-
-  <div class="preview-box">
-    <div class="vinyl" id="preview">
-      <canvas id="canvas" width="280" height="280"></canvas>
-    </div>
+<div class="preview-container">
+  <div class="vinyl-frame">
+    <canvas id="canvas" width="300" height="300"></canvas>
   </div>
+</div>
 
-  <div class="controls">
-    <input type="file" id="coverInput" accept="image/*" hidden />
-    <button class="btn" onclick="uploadCover()">
-      <i class="fas fa-image"></i> Upload Album Cover
-    </button>
+<div class="controls">
+  <input type="file" id="coverInput" accept="image/*" hidden />
+  <button class="btn" onclick="document.getElementById('coverInput').click()">
+    <i class="fa-solid fa-image"></i>  Choose Album Art
+  </button>
 
-    <select id="styleSelect">
-      <option value="classic">💿 Classic Black</option>
-      <option value="metall">🪙 Metallic</option>
-      <option value="gold">🌟 Gold</option>
-      <option value="rainbow">🌈 Rainbow</option>
-      <option value="red">🔴 Red</option>
-      <option value="pink">🎀 Pink</option>
-      <option value="pink_light">🌸 Pink Light</option>
-      <option value="glass_clear">💎 Glass Clear</option>
-      <option value="coke_bottle_clear">🍶 Coke Bottle</option>
-      <option value="nature">🌿 Nature</option>
-    </select>
+  <select id="styleSelect">
+    <option value="classic">      Classic Black</option>
+    <option value="metall">       Metallic Silver</option>
+    <option value="gold">         Gold</option>
+    <option value="rainbow">      Rainbow</option>
+    <option value="red">          Red</option>
+    <option value="pink">         Pink</option>
+    <option value="pink_light">   Light Pink</option>
+    <option value="glass_clear">  Glass Clear</option>
+    <option value="coke_bottle_clear"> Coke Bottle</option>
+    <option value="nature">       Nature</option>
+  </select>
 
-    <button class="btn" onclick="startPreview()" id="previewBtn" disabled>
-      <i class="fas fa-play"></i> Preview Spin
-    </button>
-    <button class="btn" onclick="sendToBot()" id="sendBtn" disabled>
-      <i class="fas fa-video"></i> Create Full Vinyl Video
-    </button>
-  </div>
+  <button class="btn primary" id="previewBtn" disabled onclick="togglePreview()">
+    <i class="fa-solid fa-play"></i> Preview Spin
+  </button>
 
-  <div id="status">Ready to spin your masterpiece… ✨</div>
+  <button class="btn primary" id="sendBtn" disabled onclick="sendToBot()">
+    <i class="fa-solid fa-video"></i> Create & Send to Bot
+  </button>
+</div>
 
-  <div class="social-bar">
-    <a href="https://werypeas.com" class="social-link" target="_blank">🌐 Website</a>
-    <a href="https://instagram.werypeas.com/" class="social-link" target="_blank">📱 Instagram</a>
-    <a href="https://youtube.werypeas.com/" class="social-link" target="_blank">💿 YouTube</a>
-    <a href="https://tiktok.werypeas.com/" class="social-link" target="_blank">💬 TikTok</a>
-  </div>
+<div id="status">Ready to create • Select cover to begin</div>
 
-  <script>
-    // Initialize Telegram WebApp
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-    
-    // Optional: Set theme colors
-    tg.setHeaderColor('#0d001f');
-    tg.setBackgroundColor('#0d001f');
+<div class="social-bar">
+  <a href="https://werypeas.com" class="social-link" target="_blank">Website</a>
+  <a href="https://instagram.werypeas.com/" class="social-link" target="_blank">Instagram</a>
+  <a href="https://youtube.werypeas.com/" class="social-link" target="_blank">YouTube</a>
+  <a href="https://tiktok.werypeas.com/" class="social-link" target="_blank">TikTok</a>
+</div>
 
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const statusDiv = document.getElementById('status');
-    const previewBtn = document.getElementById('previewBtn');
-    const sendBtn = document.getElementById('sendBtn');
-    
-    let coverImg = null;
-    let coverFile = null;
-    let rotation = 0;
-    let isSpinning = false;
-    let animationFrame = null;
+<script>
+// ── Telegram Web App ────────────────────────────────────────
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
 
-    // Debug helper (enable by uncommenting)
-    // document.getElementById('debug').style.display = 'block';
-    function debug(msg) {
-      console.log(msg);
-      // document.getElementById('debug').textContent = msg;
-    }
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const status = document.getElementById('status');
+const previewBtn = document.getElementById('previewBtn');
+const sendBtn    = document.getElementById('sendBtn');
 
-    debug('WebApp initialized');
+let coverImg  = null;
+let coverFile = null;
+let rotation  = 0;
+let spinning  = false;
+let animFrame = null;
 
-    // Upload handler
-    function uploadCover() {
-      document.getElementById('coverInput').click();
-    }
+function drawCover() {
+  if (!coverImg) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(canvas.width/2, canvas.height/2, canvas.width/2, 0, Math.PI*2);
+  ctx.clip();
 
-    document.getElementById('coverInput').onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      coverFile = file;
-      const reader = new FileReader();
-      
-      reader.onload = (ev) => {
-        coverImg = new Image();
-        coverImg.onload = () => {
-          statusDiv.textContent = '✅ Cover loaded! Choose style & preview.';
-          previewBtn.disabled = false;
-          sendBtn.disabled = false;
-          drawStatic();
-          debug('Cover loaded successfully');
-        };
-        coverImg.src = ev.target.result;
-      };
-      
-      reader.readAsDataURL(file);
+  const size = Math.min(coverImg.width, coverImg.height);
+  const sx = (coverImg.width  - size) / 2;
+  const sy = (coverImg.height - size) / 2;
+
+  ctx.drawImage(coverImg, sx, sy, size, size, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
+function animate() {
+  if (!spinning) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(canvas.width/2, canvas.height/2);
+  ctx.rotate(rotation * Math.PI / 180);
+  ctx.translate(-canvas.width/2, -canvas.height/2);
+  drawCover();
+  ctx.restore();
+
+  rotation += 1.6; // slightly slower & smoother feel
+  if (rotation >= 360) rotation -= 360;
+
+  animFrame = requestAnimationFrame(animate);
+}
+
+function togglePreview() {
+  if (!coverImg) {
+    tg.showAlert("Please select an album cover first.");
+    return;
+  }
+
+  spinning = !spinning;
+
+  if (spinning) {
+    previewBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Preview';
+    status.textContent = 'Spinning…';
+    animate();
+  } else {
+    previewBtn.innerHTML = '<i class="fa-solid fa-play"></i> Preview Spin';
+    status.textContent = 'Preview paused';
+    cancelAnimationFrame(animFrame);
+    drawCover();
+  }
+}
+
+document.getElementById('coverInput').onchange = e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  coverFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    coverImg = new Image();
+    coverImg.onload = () => {
+      drawCover();
+      previewBtn.disabled = false;
+      sendBtn.disabled    = false;
+      status.textContent  = 'Cover ready • Choose style & preview';
     };
+    coverImg.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+};
 
-    function drawStatic() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (coverImg) {
-        const size = Math.min(coverImg.width, coverImg.height);
-        const sx = (coverImg.width - size) / 2;
-        const sy = (coverImg.height - size) / 2;
-        ctx.drawImage(coverImg, sx, sy, size, size, 0, 0, canvas.width, canvas.height);
-      }
-    }
+async function sendToBot() {
+  if (!coverFile) {
+    tg.showAlert("No cover selected.");
+    return;
+  }
 
-    function spin() {
-      if (!isSpinning) return;
-      
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      if (coverImg) {
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(rotation * Math.PI / 180);
-        
-        const size = Math.min(coverImg.width, coverImg.height);
-        const sx = (coverImg.width - size) / 2;
-        const sy = (coverImg.height - size) / 2;
-        
-        ctx.drawImage(
-          coverImg, 
-          sx, sy, size, size, 
-          -canvas.width/2, -canvas.height/2, 
-          canvas.width, canvas.height
-        );
-        
-        ctx.restore();
-      }
-      
-      rotation += 1.8;
-      if (rotation >= 360) rotation -= 360;
-      
-      animationFrame = requestAnimationFrame(spin);
-    }
+  const style = document.getElementById('styleSelect').value;
 
-    function startPreview() {
-      if (!coverImg) {
-        tg.showAlert('Upload your album cover first!');
-        return;
-      }
-      
-      if (isSpinning) {
-        // Stop spinning
-        isSpinning = false;
-        if (animationFrame) cancelAnimationFrame(animationFrame);
-        previewBtn.innerHTML = '<i class="fas fa-play"></i> Preview Spin';
-        statusDiv.textContent = 'Preview stopped. Ready to create!';
-        drawStatic();
-      } else {
-        // Start spinning
-        isSpinning = true;
-        previewBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Preview';
-        statusDiv.textContent = 'Spinning your vinyl… 🎶✨';
-        spin();
-      }
-    }
+  status.textContent = 'Preparing…';
+  sendBtn.disabled = true;
+  previewBtn.disabled = true;
 
-    async function sendToBot() {
-      if (!coverImg || !coverFile) {
-        tg.showAlert('No cover uploaded!');
-        return;
-      }
-      
-      const style = document.getElementById('styleSelect').value;
-      
-      try {
-        statusDiv.textContent = '⏳ Preparing to send to bot...';
-        sendBtn.disabled = true;
-        
-        // Convert cover to base64
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const base64 = e.target.result;
-          
-          // Send data to bot using Telegram WebApp API
-          const data = JSON.stringify({
-            action: 'vinyl_from_webapp',
-            style: style,
-            cover: base64
-          });
-          
-          debug('Sending: ' + data.substring(0, 100) + '...');
-          tg.sendData(data);
-          
-          statusDiv.textContent = '✅ Sent to bot! Check your chat →';
-          
-          // Haptic feedback
-          if (tg.HapticFeedback) {
-            tg.HapticFeedback.notificationOccurred('success');
-          }
-          
-          // Close after a delay
-          setTimeout(() => {
-            tg.close();
-          }, 1500);
-        };
-        
-        reader.readAsDataURL(coverFile);
-        
-      } catch (error) {
-        console.error('Error:', error);
-        statusDiv.textContent = '❌ Error: ' + error.message;
-        sendBtn.disabled = false;
-        tg.showAlert('Error sending data: ' + error.message);
-      }
-    }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result;
 
-    // Initialize canvas
-    drawStatic();
-    
-    // Show ready alert (optional - you can remove this)
-    debug('App ready, user: ' + (tg.initDataUnsafe?.user?.first_name || 'Unknown'));
-  </script>
+    const payload = JSON.stringify({
+      action: 'vinyl_from_webapp',
+      style:  style,
+      cover:  base64
+    });
+
+    tg.sendData(payload);
+    status.textContent = 'Sent to bot! → Check your chat';
+    tg.HapticFeedback?.notificationOccurred('success');
+
+    setTimeout(() => tg.close(), 1400);
+  };
+  reader.readAsDataURL(coverFile);
+}
+
+// Init
+drawCover();
+</script>
 </body>
 </html>
