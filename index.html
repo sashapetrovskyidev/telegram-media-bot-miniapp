@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>WERYPEAS Vinyl Studio</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <style>
     :root {
@@ -116,6 +117,11 @@
     .btn:active {
       transform: translateY(1px);
     }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
     #status {
       margin: 24px 0;
       font-size: 1.15rem;
@@ -144,9 +150,24 @@
       background: rgba(255,255,255,0.2);
       transform: scale(1.05);
     }
+    .debug-info {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.8);
+      color: #0f0;
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 10px;
+      max-width: 150px;
+      word-break: break-all;
+      display: none;
+    }
   </style>
 </head>
 <body>
+
+  <div class="debug-info" id="debug"></div>
 
   <header>
     <h1>WERYPEAS Vinyl Studio</h1>
@@ -161,7 +182,7 @@
 
   <div class="controls">
     <input type="file" id="coverInput" accept="image/*" hidden />
-    <button class="btn" onclick="document.getElementById('coverInput').click()">
+    <button class="btn" onclick="uploadCover()">
       <i class="fas fa-image"></i> Upload Album Cover
     </button>
 
@@ -178,10 +199,10 @@
       <option value="nature">🌿 Nature</option>
     </select>
 
-    <button class="btn" onclick="startPreview()">
+    <button class="btn" onclick="startPreview()" id="previewBtn" disabled>
       <i class="fas fa-play"></i> Preview Spin
     </button>
-    <button class="btn" onclick="sendToBot()">
+    <button class="btn" onclick="sendToBot()" id="sendBtn" disabled>
       <i class="fas fa-video"></i> Create Full Vinyl Video
     </button>
   </div>
@@ -196,29 +217,60 @@
   </div>
 
   <script>
+    // Initialize Telegram WebApp
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
+    
+    // Optional: Set theme colors
+    tg.setHeaderColor('#0d001f');
+    tg.setBackgroundColor('#0d001f');
 
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+    const previewBtn = document.getElementById('previewBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    
     let coverImg = null;
+    let coverFile = null;
     let rotation = 0;
     let isSpinning = false;
+    let animationFrame = null;
 
-    // Upload
+    // Debug helper (enable by uncommenting)
+    // document.getElementById('debug').style.display = 'block';
+    function debug(msg) {
+      console.log(msg);
+      // document.getElementById('debug').textContent = msg;
+    }
+
+    debug('WebApp initialized');
+
+    // Upload handler
+    function uploadCover() {
+      document.getElementById('coverInput').click();
+    }
+
     document.getElementById('coverInput').onchange = (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      
+      coverFile = file;
       const reader = new FileReader();
+      
       reader.onload = (ev) => {
         coverImg = new Image();
         coverImg.onload = () => {
-          document.getElementById('status').textContent = 'Cover loaded! Choose style & preview.';
+          statusDiv.textContent = '✅ Cover loaded! Choose style & preview.';
+          previewBtn.disabled = false;
+          sendBtn.disabled = false;
           drawStatic();
+          debug('Cover loaded successfully');
         };
         coverImg.src = ev.target.result;
       };
+      
       reader.readAsDataURL(file);
     };
 
@@ -234,45 +286,111 @@
 
     function spin() {
       if (!isSpinning) return;
+      
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
       if (coverImg) {
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(rotation * Math.PI / 180);
+        
         const size = Math.min(coverImg.width, coverImg.height);
         const sx = (coverImg.width - size) / 2;
         const sy = (coverImg.height - size) / 2;
-        ctx.drawImage(coverImg, sx, sy, size, size, -canvas.width/2, -canvas.height/2, canvas.width, canvas.height);
+        
+        ctx.drawImage(
+          coverImg, 
+          sx, sy, size, size, 
+          -canvas.width/2, -canvas.height/2, 
+          canvas.width, canvas.height
+        );
+        
         ctx.restore();
       }
+      
       rotation += 1.8;
       if (rotation >= 360) rotation -= 360;
-      requestAnimationFrame(spin);
+      
+      animationFrame = requestAnimationFrame(spin);
     }
 
-    window.startPreview = () => {
-      if (!coverImg) return alert("Upload your album cover first!");
-      isSpinning = true;
-      spin();
-      document.getElementById('status').textContent = 'Spinning your vinyl… 🎶✨';
-    };
+    function startPreview() {
+      if (!coverImg) {
+        tg.showAlert('Upload your album cover first!');
+        return;
+      }
+      
+      if (isSpinning) {
+        // Stop spinning
+        isSpinning = false;
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        previewBtn.innerHTML = '<i class="fas fa-play"></i> Preview Spin';
+        statusDiv.textContent = 'Preview stopped. Ready to create!';
+        drawStatic();
+      } else {
+        // Start spinning
+        isSpinning = true;
+        previewBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Preview';
+        statusDiv.textContent = 'Spinning your vinyl… 🎶✨';
+        spin();
+      }
+    }
 
-    window.sendToBot = () => {
-      if (!coverImg) return alert("No cover uploaded!");
+    async function sendToBot() {
+      if (!coverImg || !coverFile) {
+        tg.showAlert('No cover uploaded!');
+        return;
+      }
+      
       const style = document.getElementById('styleSelect').value;
-      const base64 = canvas.toDataURL('image/png'); // send preview as base64
+      
+      try {
+        statusDiv.textContent = '⏳ Preparing to send to bot...';
+        sendBtn.disabled = true;
+        
+        // Convert cover to base64
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64 = e.target.result;
+          
+          // Send data to bot using Telegram WebApp API
+          const data = JSON.stringify({
+            action: 'vinyl_from_webapp',
+            style: style,
+            cover: base64
+          });
+          
+          debug('Sending: ' + data.substring(0, 100) + '...');
+          tg.sendData(data);
+          
+          statusDiv.textContent = '✅ Sent to bot! Check your chat →';
+          
+          // Haptic feedback
+          if (tg.HapticFeedback) {
+            tg.HapticFeedback.notificationOccurred('success');
+          }
+          
+          // Close after a delay
+          setTimeout(() => {
+            tg.close();
+          }, 1500);
+        };
+        
+        reader.readAsDataURL(coverFile);
+        
+      } catch (error) {
+        console.error('Error:', error);
+        statusDiv.textContent = '❌ Error: ' + error.message;
+        sendBtn.disabled = false;
+        tg.showAlert('Error sending data: ' + error.message);
+      }
+    }
 
-      tg.sendData(JSON.stringify({
-        action: "start_vinyl",
-        style: style,
-        coverBase64: base64.substring(22) // remove "data:image/png;base64,"
-      }));
-
-      document.getElementById('status').textContent = 'Sent to bot! Check your chat →';
-      setTimeout(() => tg.close(), 1800);
-    };
-
+    // Initialize canvas
     drawStatic();
+    
+    // Show ready alert (optional - you can remove this)
+    debug('App ready, user: ' + (tg.initDataUnsafe?.user?.first_name || 'Unknown'));
   </script>
 </body>
 </html>
