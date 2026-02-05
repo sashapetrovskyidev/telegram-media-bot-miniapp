@@ -1,89 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Send to Bot</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Music Visualizer</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      background: #0d1117;
-      color: #c9d1d9;
+    :root {
+      --bg: #0a0e17;
+      --accent: #a0a0ff;
+      --glow: rgba(160,160,255,0.4);
+    }
+    body, html {
       margin: 0;
-      padding: 40px 20px;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      font-family: system-ui, sans-serif;
+      color: white;
+    }
+    #container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      display: block;
+    }
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
       text-align: center;
     }
-    h1 { color: #58a6ff; margin-bottom: 8px; }
-    #status {
-      margin: 24px 0;
-      font-size: 1.2rem;
-      min-height: 2em;
-      color: #8b949e;
-    }
-    button {
-      padding: 16px 40px;
+    button, input {
+      padding: 12px 24px;
+      margin: 8px;
       font-size: 1.1rem;
-      background: #238636;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid var(--accent);
       color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
+      border-radius: 30px;
       cursor: pointer;
+      backdrop-filter: blur(10px);
     }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button:hover:not(:disabled) { background: #2ea043; }
+    button:hover { background: rgba(160,160,255,0.2); }
+    #status {
+      margin-top: 20px;
+      font-size: 1rem;
+      opacity: 0.8;
+    }
   </style>
 </head>
 <body>
+  <div id="container">
+    <canvas id="canvas"></canvas>
+  </div>
 
-  <h1>Test Connection</h1>
-  <div id="status">Waiting for Telegram Web App...</div>
-
-  <button id="sendBtn" disabled>Send Test Message to Bot</button>
+  <div id="controls">
+    <input type="file" id="audioFile" accept="audio/*" hidden />
+    <button onclick="document.getElementById('audioFile').click()">Upload Music</button>
+    <button id="micBtn">Use Mic</button>
+    <button id="pauseBtn" disabled>Pause</button>
+    <div id="status">Upload a song or use mic to start</div>
+  </div>
 
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
 
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
     const status = document.getElementById('status');
-    const sendBtn = document.getElementById('sendBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
 
-    if (tg.initDataUnsafe?.user) {
-      status.innerHTML = `Connected!<br>Hello ${tg.initDataUnsafe.user.first_name || 'user'} (ID: ${tg.initDataUnsafe.user.id})`;
-      sendBtn.disabled = false;
-    } else {
-      status.textContent = 'Not inside Telegram? Or initData missing → check BotFather URL';
+    let audioCtx, analyser, source, dataArray, freqData;
+    let particles = [];
+    let audioElement = new Audio();
+    let isPlaying = false;
+
+    // Particle class
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = canvas.width / 2;
+        this.y = canvas.height / 2;
+        this.size = Math.random() * 3 + 1;
+        this.speedX = Math.random() * 4 - 2;
+        this.speedY = Math.random() * 4 - 2;
+        this.life = 1;
+        this.hue = Math.random() * 60 + 180; // blues/purples
+      }
+      update(bass, mid, high) {
+        this.x += this.speedX * (bass / 50 + 0.5);
+        this.y += this.speedY * (mid / 80 + 0.3);
+        this.life -= 0.008;
+        if (this.life <= 0) this.reset();
+        this.hue = 180 + high * 0.5; // shift to cyan on highs
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 80%, 60%, ${this.life})`;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = `hsla(${this.hue}, 80%, 60%, 0.6)`;
+        ctx.fill();
+      }
     }
 
-    sendBtn.onclick = () => {
-      status.textContent = 'Sending test message...';
-      sendBtn.disabled = true;
+    // Init particles
+    for (let i = 0; i < 200; i++) particles.push(new Particle());
 
-      const testData = JSON.stringify({
-        action: 'miniapp_test',
-        time: new Date().toISOString(),
-        message: 'Hello from Mini App! This should appear in chat.'
+    // Resize canvas
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Draw loop
+    function draw() {
+      requestAnimationFrame(draw);
+
+      if (!analyser) {
+        ctx.fillStyle = 'rgba(10,14,23,0.05)';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        return;
+      }
+
+      analyser.getByteTimeDomainData(dataArray); // waveform
+      analyser.getByteFrequencyData(freqData);    // spectrum
+
+      // Fade background
+      ctx.fillStyle = 'rgba(10,14,23,0.08)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      // Waveform (center curve)
+      ctx.beginPath();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(160,160,255,0.7)';
+      const sliceWidth = canvas.width / dataArray.length;
+      let x = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = (v * canvas.height / 2) * (1 + freqData[i/10|0]/255 * 0.3);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+
+      // Particles react to frequencies
+      const bass = freqData.slice(0, 30).reduce((a,b)=>a+b,0) / 30;
+      const mid = freqData.slice(30, 150).reduce((a,b)=>a+b,0) / 120;
+      const high = freqData.slice(150).reduce((a,b)=>a+b,0) / (freqData.length - 150);
+
+      if (bass > 120) {
+        // Beat burst
+        for (let i = 0; i < 10; i++) {
+          const p = particles[Math.random()*particles.length|0];
+          p.reset();
+          p.speedX *= 1.5 + bass/100;
+          p.speedY *= 1.5 + bass/100;
+        }
+      }
+
+      particles.forEach(p => {
+        p.update(bass, mid, high);
+        p.draw();
       });
 
-      console.log('Trying to send:', testData);
-      console.log('Length:', testData.length);  // should be ~100–120 bytes
+      // Central glow orb
+      const avgVol = freqData.reduce((a,b)=>a+b,0) / freqData.length;
+      ctx.beginPath();
+      ctx.arc(canvas.width/2, canvas.height/2, 40 + avgVol*0.3, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(160,160,255,0.15)';
+      ctx.shadowBlur = 60;
+      ctx.shadowColor = 'rgba(160,160,255,0.6)';
+      ctx.fill();
+    }
+    draw();
 
+    // Start audio from file
+    document.getElementById('audioFile').onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      status.textContent = 'Loading...';
+      audioElement.src = URL.createObjectURL(file);
+      audioElement.onloadedmetadata = () => {
+        startAudio();
+        status.textContent = 'Playing: ' + file.name;
+        pauseBtn.disabled = false;
+      };
+    };
+
+    // Mic input
+    document.getElementById('micBtn').onclick = async () => {
       try {
-        tg.sendData(testData);
-        status.innerHTML = 'Message sent!<br>Mini App will close.<br>Check your private chat with the bot.';
-        setTimeout(() => tg.close(), 1800);
+        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+        audioElement = new Audio();
+        audioElement.srcObject = stream;
+        audioElement.play();
+        startAudio();
+        status.textContent = 'Live mic input active';
+        pauseBtn.disabled = false;
       } catch (err) {
-        status.textContent = 'sendData failed: ' + (err.message || 'unknown error');
+        status.textContent = 'Mic access denied';
         console.error(err);
-        sendBtn.disabled = false;
       }
     };
 
-    console.log('Mini App test loaded');
-    console.log('initDataUnsafe:', tg.initDataUnsafe);
-  </script>
+    // Common audio start
+    function startAudio() {
+      if (audioCtx) audioCtx.close();
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      freqData = new Uint8Array(analyser.frequencyBinCount);
 
+      source = audioCtx.createMediaElementSource(audioElement);
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      isPlaying = true;
+      audioElement.play();
+    }
+
+    // Pause/Resume
+    pauseBtn.onclick = () => {
+      if (isPlaying) {
+        audioElement.pause();
+        pauseBtn.textContent = 'Resume';
+      } else {
+        audioElement.play();
+        pauseBtn.textContent = 'Pause';
+      }
+      isPlaying = !isPlaying;
+    };
+
+    console.log('Music Visualizer ready — upload or mic to begin');
+  </script>
 </body>
 </html>
