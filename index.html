@@ -9,7 +9,7 @@
     :root {
       --bg: #0a0e17;
       --accent: #a0a0ff;
-      --glow: rgba(160,160,255,0.4);
+      --glow: rgba(160,160,255,0.5);
     }
     body, html {
       margin: 0;
@@ -17,7 +17,7 @@
       height: 100%;
       overflow: hidden;
       background: var(--bg);
-      font-family: system-ui, sans-serif;
+      font-family: system-ui, -apple-system, sans-serif;
       color: white;
     }
     #container {
@@ -30,28 +30,40 @@
     }
     #controls {
       position: absolute;
-      bottom: 20px;
+      bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 10;
       text-align: center;
-    }
-    button, input {
+      background: rgba(0,0,0,0.4);
       padding: 12px 24px;
-      margin: 8px;
-      font-size: 1.1rem;
-      background: rgba(255,255,255,0.1);
+      border-radius: 30px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(160,160,255,0.3);
+    }
+    button, label {
+      padding: 10px 20px;
+      margin: 6px;
+      font-size: 1rem;
+      background: rgba(160,160,255,0.15);
       border: 1px solid var(--accent);
       color: white;
-      border-radius: 30px;
+      border-radius: 999px;
       cursor: pointer;
-      backdrop-filter: blur(10px);
+      transition: all 0.2s;
     }
-    button:hover { background: rgba(160,160,255,0.2); }
+    button:hover, label:hover {
+      background: rgba(160,160,255,0.3);
+      transform: translateY(-1px);
+    }
+    input[type="file"] {
+      display: none;
+    }
     #status {
-      margin-top: 20px;
-      font-size: 1rem;
-      opacity: 0.8;
+      margin-top: 12px;
+      font-size: 0.95rem;
+      opacity: 0.85;
+      max-width: 280px;
     }
   </style>
 </head>
@@ -61,11 +73,11 @@
   </div>
 
   <div id="controls">
-    <input type="file" id="audioFile" accept="audio/*" hidden />
-    <button onclick="document.getElementById('audioFile').click()">Upload Music</button>
-    <button id="micBtn">Use Mic</button>
+    <label for="audioFile">Upload Song</label>
+    <input type="file" id="audioFile" accept="audio/*" />
+    <button id="micBtn">Live Mic</button>
     <button id="pauseBtn" disabled>Pause</button>
-    <div id="status">Upload a song or use mic to start</div>
+    <div id="status">Tap "Upload Song" or "Live Mic" to begin</div>
   </div>
 
   <script>
@@ -78,7 +90,11 @@
     const status = document.getElementById('status');
     const pauseBtn = document.getElementById('pauseBtn');
 
-    let audioCtx, analyser, source, dataArray, freqData;
+    let audioCtx = null;
+    let analyser = null;
+    let source = null;
+    let dataArray = null;
+    let freqData = null;
     let particles = [];
     let audioElement = new Audio();
     let isPlaying = false;
@@ -89,33 +105,33 @@
         this.reset();
       }
       reset() {
-        this.x = canvas.width / 2;
-        this.y = canvas.height / 2;
-        this.size = Math.random() * 3 + 1;
-        this.speedX = Math.random() * 4 - 2;
-        this.speedY = Math.random() * 4 - 2;
+        this.x = canvas.width / 2 + (Math.random() - 0.5) * 200;
+        this.y = canvas.height / 2 + (Math.random() - 0.5) * 200;
+        this.size = Math.random() * 6 + 2;
+        this.speedX = Math.random() * 8 - 4;
+        this.speedY = Math.random() * 8 - 4;
         this.life = 1;
-        this.hue = Math.random() * 60 + 180; // blues/purples
+        this.hue = 190 + Math.random() * 80; // cyan-blue-purple
       }
       update(bass, mid, high) {
-        this.x += this.speedX * (bass / 50 + 0.5);
-        this.y += this.speedY * (mid / 80 + 0.3);
-        this.life -= 0.008;
+        this.x += this.speedX * (1 + bass / 60);
+        this.y += this.speedY * (1 + mid / 90);
+        this.life -= 0.012 + high / 4000;
         if (this.life <= 0) this.reset();
-        this.hue = 180 + high * 0.5; // shift to cyan on highs
+        this.hue = 180 + high * 1.2; // more cyan on highs
       }
       draw() {
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${this.hue}, 80%, 60%, ${this.life})`;
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = `hsla(${this.hue}, 80%, 60%, 0.6)`;
+        ctx.arc(this.x, this.y, this.size * this.life * 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 90%, 70%, ${this.life * 0.9})`;
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = `hsla(${this.hue}, 90%, 70%, 0.8)`;
         ctx.fill();
       }
     }
 
-    // Init particles
-    for (let i = 0; i < 200; i++) particles.push(new Particle());
+    // Create particles
+    for (let i = 0; i < 350; i++) particles.push(new Particle());
 
     // Resize canvas
     function resize() {
@@ -129,28 +145,39 @@
     function draw() {
       requestAnimationFrame(draw);
 
-      if (!analyser) {
-        ctx.fillStyle = 'rgba(10,14,23,0.05)';
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-        return;
+      // Gentle fade for trails
+      ctx.fillStyle = 'rgba(10,14,23,0.10)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (!analyser || !isPlaying) return;
+
+      analyser.getByteTimeDomainData(dataArray);
+      analyser.getByteFrequencyData(freqData);
+
+      // Frequency groups
+      const bass = freqData.slice(0, 30).reduce((a,b)=>a+b,0) / 30;
+      const mid  = freqData.slice(30, 150).reduce((a,b)=>a+b,0) / 120;
+      const high = freqData.slice(150).reduce((a,b)=>a+b,0) / (freqData.length - 150);
+
+      // Strong beat → particle burst
+      if (bass > 145) {
+        for (let i = 0; i < 18; i++) {
+          const p = particles[Math.floor(Math.random() * particles.length)];
+          p.reset();
+          p.speedX *= 2 + bass / 90;
+          p.speedY *= 2 + bass / 90;
+        }
       }
 
-      analyser.getByteTimeDomainData(dataArray); // waveform
-      analyser.getByteFrequencyData(freqData);    // spectrum
-
-      // Fade background
-      ctx.fillStyle = 'rgba(10,14,23,0.08)';
-      ctx.fillRect(0,0,canvas.width,canvas.height);
-
-      // Waveform (center curve)
+      // Central waveform
       ctx.beginPath();
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = 'rgba(160,160,255,0.7)';
+      ctx.lineWidth = 6 + bass / 35;
+      ctx.strokeStyle = `rgba(160,160,255,${0.65 + bass/280})`;
       const sliceWidth = canvas.width / dataArray.length;
       let x = 0;
       for (let i = 0; i < dataArray.length; i++) {
         const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height / 2) * (1 + freqData[i/10|0]/255 * 0.3);
+        const y = (v * canvas.height / 2) * (1 + mid / 140);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
         x += sliceWidth;
@@ -158,95 +185,111 @@
       ctx.lineTo(canvas.width, canvas.height / 2);
       ctx.stroke();
 
-      // Particles react to frequencies
-      const bass = freqData.slice(0, 30).reduce((a,b)=>a+b,0) / 30;
-      const mid = freqData.slice(30, 150).reduce((a,b)=>a+b,0) / 120;
-      const high = freqData.slice(150).reduce((a,b)=>a+b,0) / (freqData.length - 150);
-
-      if (bass > 120) {
-        // Beat burst
-        for (let i = 0; i < 10; i++) {
-          const p = particles[Math.random()*particles.length|0];
-          p.reset();
-          p.speedX *= 1.5 + bass/100;
-          p.speedY *= 1.5 + bass/100;
-        }
-      }
-
+      // Particles
       particles.forEach(p => {
         p.update(bass, mid, high);
         p.draw();
       });
 
-      // Central glow orb
-      const avgVol = freqData.reduce((a,b)=>a+b,0) / freqData.length;
+      // Pulsing central orb
+      const vol = freqData.reduce((a,b)=>a+b,0) / freqData.length;
       ctx.beginPath();
-      ctx.arc(canvas.width/2, canvas.height/2, 40 + avgVol*0.3, 0, Math.PI*2);
+      ctx.arc(canvas.width/2, canvas.height/2, 60 + vol * 0.45, 0, Math.PI*2);
       ctx.fillStyle = 'rgba(160,160,255,0.15)';
-      ctx.shadowBlur = 60;
-      ctx.shadowColor = 'rgba(160,160,255,0.6)';
+      ctx.shadowBlur = 100;
+      ctx.shadowColor = 'rgba(160,160,255,0.9)';
       ctx.fill();
     }
     draw();
 
-    // Start audio from file
+    // File upload
     document.getElementById('audioFile').onchange = e => {
-      const file = e.target.files[0];
+      const file = e.target.files?.[0];
       if (!file) return;
-      status.textContent = 'Loading...';
+
+      status.textContent = 'Loading track...';
       audioElement.src = URL.createObjectURL(file);
       audioElement.onloadedmetadata = () => {
+        status.textContent = 'Starting visualization... tap if needed';
         startAudio();
-        status.textContent = 'Playing: ' + file.name;
         pauseBtn.disabled = false;
+      };
+      audioElement.onerror = () => {
+        status.textContent = 'Cannot play this file — try MP3';
       };
     };
 
     // Mic input
     document.getElementById('micBtn').onclick = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
-        audioElement = new Audio();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioElement.srcObject = stream;
-        audioElement.play();
-        startAudio();
-        status.textContent = 'Live mic input active';
-        pauseBtn.disabled = false;
+        audioElement.onloadedmetadata = () => {
+          audioElement.play().catch(() => {
+            status.textContent = 'Tap screen to start mic';
+          });
+          startAudio();
+          status.textContent = 'Live mic active — make sound!';
+          pauseBtn.disabled = false;
+        };
       } catch (err) {
-        status.textContent = 'Mic access denied';
+        status.textContent = 'Mic access denied — check Telegram settings';
         console.error(err);
       }
     };
 
-    // Common audio start
-    function startAudio() {
-      if (audioCtx) audioCtx.close();
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Start / resume audio context
+    async function startAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      // Resume if suspended (very important in Mini Apps!)
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 2048;
       dataArray = new Uint8Array(analyser.frequencyBinCount);
       freqData = new Uint8Array(analyser.frequencyBinCount);
 
-      source = audioCtx.createMediaElementSource(audioElement);
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
+      if (!source) {
+        source = audioCtx.createMediaElementSource(audioElement);
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+      }
+
       isPlaying = true;
-      audioElement.play();
+      audioElement.play().catch(e => {
+        console.log("Play blocked:", e);
+        status.textContent = 'Tap anywhere on screen to start sound';
+      });
     }
 
-    // Pause/Resume
+    // Pause / Resume
     pauseBtn.onclick = () => {
       if (isPlaying) {
         audioElement.pause();
         pauseBtn.textContent = 'Resume';
+        status.textContent = 'Paused';
       } else {
-        audioElement.play();
+        audioElement.play().catch(() => {});
         pauseBtn.textContent = 'Pause';
+        status.textContent = 'Playing';
       }
       isPlaying = !isPlaying;
     };
 
-    console.log('Music Visualizer ready — upload or mic to begin');
+    // Tap anywhere to resume audio context (fixes Mini App blocks)
+    document.addEventListener('touchstart', async () => {
+      if (audioCtx && audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+        status.textContent = 'Audio context resumed — playing!';
+      }
+    }, { once: true });
+
+    console.log('Music Visualizer loaded — tap Upload or Mic to begin');
   </script>
 </body>
 </html>
