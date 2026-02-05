@@ -3,13 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>Music Visualizer</title>
+  <title>Supreme Visualizer</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      --bg: #0a0e17;
-      --accent: #a0a0ff;
-      --glow: rgba(160,160,255,0.5);
+      --bg: #03050c;
+      --cyan: #00f0ff;
+      --purple: #c300ff;
+      --glow-cyan: rgba(0,240,255,0.8);
+      --glow-purple: rgba(195,0,255,0.7);
     }
     body, html {
       margin: 0;
@@ -18,66 +20,67 @@
       overflow: hidden;
       background: var(--bg);
       font-family: system-ui, -apple-system, sans-serif;
-      color: white;
+      color: #e0f8ff;
     }
-    #container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
-    canvas {
-      display: block;
-    }
+    canvas { display: block; }
     #controls {
       position: absolute;
-      bottom: 30px;
+      bottom: 40px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 10;
+      z-index: 30;
+      background: rgba(0,0,0,0.6);
+      padding: 16px 36px;
+      border-radius: 50px;
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(0,240,255,0.4);
+      box-shadow: 0 0 40px rgba(0,240,255,0.25);
       text-align: center;
-      background: rgba(0,0,0,0.4);
-      padding: 12px 24px;
-      border-radius: 30px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(160,160,255,0.3);
     }
     button, label {
-      padding: 10px 20px;
-      margin: 6px;
-      font-size: 1rem;
-      background: rgba(160,160,255,0.15);
-      border: 1px solid var(--accent);
+      padding: 12px 26px;
+      margin: 8px 4px;
+      font-size: 1.1rem;
+      background: rgba(0,240,255,0.18);
+      border: 1px solid var(--cyan);
       color: white;
       border-radius: 999px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s;
+      text-shadow: 0 0 8px var(--glow-cyan);
     }
     button:hover, label:hover {
-      background: rgba(160,160,255,0.3);
-      transform: translateY(-1px);
+      background: rgba(0,240,255,0.4);
+      box-shadow: 0 0 30px var(--glow-cyan);
+      transform: scale(1.05);
     }
-    input[type="file"] {
-      display: none;
-    }
+    input[type="file"] { display: none; }
     #status {
-      margin-top: 12px;
-      font-size: 0.95rem;
-      opacity: 0.85;
-      max-width: 280px;
+      margin-top: 14px;
+      font-size: 1.05rem;
+      text-shadow: 0 0 12px rgba(0,240,255,0.6);
+      max-width: 320px;
+    }
+    .shake {
+      animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(4px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
     }
   </style>
 </head>
 <body>
-  <div id="container">
-    <canvas id="canvas"></canvas>
-  </div>
+  <canvas id="canvas"></canvas>
 
   <div id="controls">
-    <label for="audioFile">Upload Song</label>
+    <label for="audioFile">Load Beat</label>
     <input type="file" id="audioFile" accept="audio/*" />
     <button id="micBtn">Live Mic</button>
     <button id="pauseBtn" disabled>Pause</button>
-    <div id="status">Tap "Upload Song" or "Live Mic" to begin</div>
+    <div id="status">Drop a track or tap Live Mic to swing</div>
   </div>
 
   <script>
@@ -96,44 +99,60 @@
     let dataArray = null;
     let freqData = null;
     let particles = [];
+    let smokeTrails = [];
     let audioElement = new Audio();
     let isPlaying = false;
+    let lastBass = 0;
+    let shakeIntensity = 0;
 
-    // Particle class
+    // Advanced Particle with trails
     class Particle {
       constructor() {
         this.reset();
       }
       reset() {
-        this.x = canvas.width / 2 + (Math.random() - 0.5) * 200;
-        this.y = canvas.height / 2 + (Math.random() - 0.5) * 200;
-        this.size = Math.random() * 6 + 2;
-        this.speedX = Math.random() * 8 - 4;
-        this.speedY = Math.random() * 8 - 4;
-        this.life = 1;
-        this.hue = 190 + Math.random() * 80; // cyan-blue-purple
+        this.x = canvas.width / 2;
+        this.y = canvas.height / 2;
+        this.size = Math.random() * 7 + 3;
+        this.speedX = Math.random() * 12 - 6;
+        this.speedY = Math.random() * 12 - 6;
+        this.life = 1.4;
+        this.hue = 180 + Math.random() * 140;
+        this.trail = [];
       }
       update(bass, mid, high) {
-        this.x += this.speedX * (1 + bass / 60);
-        this.y += this.speedY * (1 + mid / 90);
-        this.life -= 0.012 + high / 4000;
+        this.trail.push({x: this.x, y: this.y, life: this.life});
+        if (this.trail.length > 25) this.trail.shift();
+
+        this.x += this.speedX * (1 + bass / 45);
+        this.y += this.speedY * (1 + mid / 65);
+        this.life -= 0.014 + high / 4500;
         if (this.life <= 0) this.reset();
-        this.hue = 180 + high * 1.2; // more cyan on highs
+        this.hue = 180 + high * 1.8;
       }
       draw() {
+        // Smoke trail
+        for (let i = 0; i < this.trail.length; i++) {
+          const t = this.trail[i];
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, this.size * t.life * 0.8, 0, Math.PI*2);
+          ctx.fillStyle = `hsla(${this.hue}, 90%, 60%, ${t.life * 0.25})`;
+          ctx.fill();
+        }
+
+        // Main particle with bloom
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * this.life * 1.8, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${this.hue}, 90%, 70%, ${this.life * 0.9})`;
-        ctx.shadowBlur = 30;
-        ctx.shadowColor = `hsla(${this.hue}, 90%, 70%, 0.8)`;
+        ctx.arc(this.x, this.y, this.size * this.life * 2.5, 0, Math.PI*2);
+        ctx.fillStyle = `hsla(${this.hue}, 100%, 75%, ${this.life * 0.95})`;
+        ctx.shadowBlur = 50;
+        ctx.shadowColor = `hsla(${this.hue}, 100%, 75%, 0.95)`;
         ctx.fill();
       }
     }
 
     // Create particles
-    for (let i = 0; i < 350; i++) particles.push(new Particle());
+    for (let i = 0; i < 600; i++) particles.push(new Particle());
 
-    // Resize canvas
     function resize() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -141,43 +160,68 @@
     window.addEventListener('resize', resize);
     resize();
 
-    // Draw loop
     function draw() {
       requestAnimationFrame(draw);
 
-      // Gentle fade for trails
-      ctx.fillStyle = 'rgba(10,14,23,0.10)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Heavy fade + vignette
+      ctx.fillStyle = 'rgba(5,7,15,0.18)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+
+      // Vignette
+      const grad = ctx.createRadialGradient(
+        canvas.width/2, canvas.height/2, canvas.width*0.3,
+        canvas.width/2, canvas.height/2, canvas.width*0.8
+      );
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.7)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
 
       if (!analyser || !isPlaying) return;
 
       analyser.getByteTimeDomainData(dataArray);
       analyser.getByteFrequencyData(freqData);
 
-      // Frequency groups
-      const bass = freqData.slice(0, 30).reduce((a,b)=>a+b,0) / 30;
-      const mid  = freqData.slice(30, 150).reduce((a,b)=>a+b,0) / 120;
-      const high = freqData.slice(150).reduce((a,b)=>a+b,0) / (freqData.length - 150);
+      const bass = freqData.slice(0, 40).reduce((a,b)=>a+b,0) / 40;
+      const mid  = freqData.slice(40, 180).reduce((a,b)=>a+b,0) / 140;
+      const high = freqData.slice(180).reduce((a,b)=>a+b,0) / (freqData.length - 180);
 
-      // Strong beat → particle burst
-      if (bass > 145) {
-        for (let i = 0; i < 18; i++) {
+      // Beat detection + explosion + shake
+      const beatDelta = bass - lastBass;
+      if (bass > 140 && beatDelta > 50) {
+        shakeIntensity = 12;
+        for (let i = 0; i < 40; i++) {
           const p = particles[Math.floor(Math.random() * particles.length)];
           p.reset();
-          p.speedX *= 2 + bass / 90;
-          p.speedY *= 2 + bass / 90;
+          p.speedX *= 3 + bass / 70;
+          p.speedY *= 3 + bass / 70;
+          p.hue = 180 + high * 2;
         }
+        // Flash
+        ctx.fillStyle = 'rgba(0,240,255,0.12)';
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+      }
+      lastBass = bass;
+
+      // Apply shake
+      if (shakeIntensity > 0) {
+        const shakeX = (Math.random() - 0.5) * shakeIntensity;
+        const shakeY = (Math.random() - 0.5) * shakeIntensity;
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+        shakeIntensity *= 0.75;
       }
 
-      // Central waveform
+      // Central waveform with distortion
       ctx.beginPath();
-      ctx.lineWidth = 6 + bass / 35;
-      ctx.strokeStyle = `rgba(160,160,255,${0.65 + bass/280})`;
+      ctx.lineWidth = 10 + bass / 25;
+      ctx.strokeStyle = `rgba(0,240,255,${0.75 + bass/180})`;
       const sliceWidth = canvas.width / dataArray.length;
       let x = 0;
       for (let i = 0; i < dataArray.length; i++) {
         const v = dataArray[i] / 128.0;
-        const y = (v * canvas.height / 2) * (1 + mid / 140);
+        const distort = mid / 80 + high / 200;
+        const y = canvas.height / 2 + (v - 1) * (canvas.height / 2) * (1 + distort);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
         x += sliceWidth;
@@ -191,14 +235,25 @@
         p.draw();
       });
 
-      // Pulsing central orb
+      // Double pulsing orbs
       const vol = freqData.reduce((a,b)=>a+b,0) / freqData.length;
+      // Inner cyan
       ctx.beginPath();
-      ctx.arc(canvas.width/2, canvas.height/2, 60 + vol * 0.45, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba(160,160,255,0.15)';
-      ctx.shadowBlur = 100;
-      ctx.shadowColor = 'rgba(160,160,255,0.9)';
+      ctx.arc(canvas.width/2, canvas.height/2, 90 + vol * 0.7 + bass * 0.5, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,240,255,0.22)';
+      ctx.shadowBlur = 140;
+      ctx.shadowColor = 'rgba(0,240,255,1)';
       ctx.fill();
+
+      // Outer purple
+      ctx.beginPath();
+      ctx.arc(canvas.width/2, canvas.height/2, 140 + mid * 0.8 + high * 0.6, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(195,0,255,0.12)';
+      ctx.shadowBlur = 180;
+      ctx.shadowColor = 'rgba(195,0,255,0.9)';
+      ctx.fill();
+
+      if (shakeIntensity > 0) ctx.restore();
     }
     draw();
 
@@ -206,45 +261,36 @@
     document.getElementById('audioFile').onchange = e => {
       const file = e.target.files?.[0];
       if (!file) return;
-
-      status.textContent = 'Loading track...';
+      status.textContent = 'Loading beat...';
       audioElement.src = URL.createObjectURL(file);
       audioElement.onloadedmetadata = () => {
-        status.textContent = 'Starting visualization... tap if needed';
+        status.textContent = 'Ready — tap screen if silent';
         startAudio();
         pauseBtn.disabled = false;
       };
-      audioElement.onerror = () => {
-        status.textContent = 'Cannot play this file — try MP3';
-      };
+      audioElement.onerror = () => status.textContent = 'Cannot play — try smaller MP3';
     };
 
-    // Mic input
+    // Mic
     document.getElementById('micBtn').onclick = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioElement.srcObject = stream;
         audioElement.onloadedmetadata = () => {
-          audioElement.play().catch(() => {
-            status.textContent = 'Tap screen to start mic';
-          });
+          audioElement.play().catch(() => status.textContent = 'Tap to start mic');
           startAudio();
-          status.textContent = 'Live mic active — make sound!';
+          status.textContent = 'Mic live — drop the energy!';
           pauseBtn.disabled = false;
         };
       } catch (err) {
-        status.textContent = 'Mic access denied — check Telegram settings';
-        console.error(err);
+        status.textContent = 'Mic access blocked';
       }
     };
 
-    // Start / resume audio context
     async function startAudio() {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
-
-      // Resume if suspended (very important in Mini Apps!)
       if (audioCtx.state === 'suspended') {
         await audioCtx.resume();
       }
@@ -261,13 +307,11 @@
       }
 
       isPlaying = true;
-      audioElement.play().catch(e => {
-        console.log("Play blocked:", e);
-        status.textContent = 'Tap anywhere on screen to start sound';
+      audioElement.play().catch(() => {
+        status.textContent = 'Tap anywhere to unlock audio';
       });
     }
 
-    // Pause / Resume
     pauseBtn.onclick = () => {
       if (isPlaying) {
         audioElement.pause();
@@ -276,20 +320,20 @@
       } else {
         audioElement.play().catch(() => {});
         pauseBtn.textContent = 'Pause';
-        status.textContent = 'Playing';
+        status.textContent = 'Back in the mix';
       }
       isPlaying = !isPlaying;
     };
 
-    // Tap anywhere to resume audio context (fixes Mini App blocks)
+    // Tap to resume audio context
     document.addEventListener('touchstart', async () => {
       if (audioCtx && audioCtx.state === 'suspended') {
         await audioCtx.resume();
-        status.textContent = 'Audio context resumed — playing!';
+        status.textContent = 'Audio unlocked — feel the swing';
       }
     }, { once: true });
 
-    console.log('Music Visualizer loaded — tap Upload or Mic to begin');
+    console.log('Supreme Visualizer v2 — ready to swing');
   </script>
 </body>
 </html>
