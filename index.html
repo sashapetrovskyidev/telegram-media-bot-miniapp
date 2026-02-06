@@ -26,7 +26,7 @@
     // --- 1. MENU SCENE ---
     class MenuScene extends Phaser.Scene {
         constructor() { super('MenuScene'); }
-        preload() { this.load.image('menuBg', 'room1.jpg'); }
+        preload() { this.load.image('menuBg', 'room1.png'); }
         create() {
             this.add.image(540, 960, 'menuBg').setDisplaySize(1080, 1920).setAlpha(0.4);
             let btn = this.add.text(540, 960, '[ START GAME ]', { fontSize: '80px', fill: '#0f0', fontStyle: 'bold' })
@@ -129,7 +129,7 @@
     // --- 4. STUDIO SCENE ---
     class StudioScene extends BaseRoom {
         constructor() { super('StudioScene'); }
-        preload() { this.load.image('bg2', 'room2.jpg'); }
+        preload() { this.load.image('bg2', 'room2.png'); }
 
         create() {
             this.add.image(540, 960, 'bg2').setDisplaySize(1080, 1920);
