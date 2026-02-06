@@ -295,38 +295,44 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // --- КОЛЛИЗИИ (блокируем только мебель, а не пол) ---
+            // --- КОЛЛИЗИИ (блокируем только мебель) ---
             
-            // Диван справа
-            let sofa = this.add.rectangle(roomWidth * 0.72, roomHeight * 0.68, 
-                350 * scale, 200 * scale, 0xff0000, 0);
+            // Диван (слева внизу - большой)
+            let sofa = this.add.rectangle(roomWidth * 0.2, roomHeight * 0.77, 
+                420 * scale, 260 * scale, 0xff0000, 0);
             this.physics.add.existing(sofa, true);
             this.physics.add.collider(this.player, sofa);
 
             // Тумба с TV (верх по центру)
-            let tvStand = this.add.rectangle(roomWidth * 0.52, roomHeight * 0.35, 
-                380 * scale, 180 * scale, 0x00ff00, 0);
+            let tvStand = this.add.rectangle(roomWidth * 0.55, roomHeight * 0.38, 
+                420 * scale, 200 * scale, 0x00ff00, 0);
             this.physics.add.existing(tvStand, true);
             this.physics.add.collider(this.player, tvStand);
 
-            // Пуфик (центр)
-            let ottoman = this.add.rectangle(roomWidth * 0.35, roomHeight * 0.62, 
-                150 * scale, 120 * scale, 0x0000ff, 0);
+            // Пуфик (центр пола)
+            let ottoman = this.add.rectangle(roomWidth * 0.38, roomHeight * 0.65, 
+                170 * scale, 140 * scale, 0x0000ff, 0);
             this.physics.add.existing(ottoman, true);
             this.physics.add.collider(this.player, ottoman);
 
             // Левая стена (штора + гитара)
-            let leftWall = this.add.rectangle(roomWidth * 0.12, roomHeight * 0.5, 
-                180 * scale, roomHeight * 0.6, 0xffff00, 0);
+            let leftWall = this.add.rectangle(roomWidth * 0.08, roomHeight * 0.5, 
+                200 * scale, roomHeight * 0.7, 0xffff00, 0);
             this.physics.add.existing(leftWall, true);
             this.physics.add.collider(this.player, leftWall);
 
+            // Верхняя стена (над TV)
+            let topWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.15, 
+                roomWidth * 0.8, 200 * scale, 0xff00ff, 0);
+            this.physics.add.existing(topWall, true);
+            this.physics.add.collider(this.player, topWall);
+
             // --- ДВЕРЬ СПРАВА (ЗАБЛОКИРОВАНА) ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.92, roomHeight * 0.58, 
-                100, 200 * scale, 0xffff00, 0);
+            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.95, roomHeight * 0.45, 
+                120, 250 * scale, 0xffffff, 0);
             this.physics.add.existing(this.lockedDoorZone, true);
 
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.92, roomHeight * 0.45, 
+            this.lockedDoorMessage = this.add.text(roomWidth * 0.95, roomHeight * 0.3, 
                 'Еще не время', {
                 fontSize: '48px',
                 fontFamily: 'Courier New',
@@ -359,14 +365,35 @@
                 }
             }, null, this);
 
-            // --- ДИАГОНАЛЬНАЯ ЛИНИЯ ПЕРЕХОДА / ---
-            // Простая зона в правой части пола
-            this.transitionZone = this.add.rectangle(
-                roomWidth * 0.7, roomHeight * 0.65,
-                roomWidth * 0.25, 200,
+            // --- ДИАГОНАЛЬНАЯ ЛИНИЯ ПЕРЕХОДА ---
+            // От края дивана (левый верх) до угла двери (правый низ)
+            // Создаем полигон для диагональной зоны
+            
+            const line = new Phaser.Geom.Line(
+                roomWidth * 0.4,  // Край дивана X
+                roomWidth * 0.62, // Край дивана Y
+                roomWidth * 0.88, // Угол у двери X
+                roomHeight * 0.48  // Угол у двери Y
+            );
+            
+            // Создаем толстую диагональную зону перехода
+            this.transitionZone = this.add.polygon(
+                0, 0,
+                [
+                    roomWidth * 0.38, roomHeight * 0.62,  // Начало линии (от дивана)
+                    roomWidth * 0.42, roomHeight * 0.62,  // Толщина линии
+                    roomWidth * 0.92, roomHeight * 0.48,  // Конец линии (к двери)
+                    roomWidth * 0.88, roomHeight * 0.48   // Толщина линии
+                ],
                 0x00ff00, 0
             );
             this.physics.add.existing(this.transitionZone, true);
+
+            // Визуальная линия для отладки
+            const debugLine = this.add.graphics();
+            debugLine.lineStyle(4, 0x00ff00, 0.8);
+            debugLine.strokeLineShape(line);
+            debugLine.setAlpha(0); // Скрыта по умолчанию
 
             let angleChangeTriggered = false;
             this.physics.add.overlap(this.player, this.transitionZone, () => {
@@ -384,10 +411,12 @@
             }, null, this);
 
             // Debug - раскомментируй чтобы видеть зоны
+            debugLine.setAlpha(1); // Включи чтобы видеть линию перехода
             // sofa.setAlpha(0.3);
             // tvStand.setAlpha(0.3);
             // ottoman.setAlpha(0.3);
             // leftWall.setAlpha(0.3);
+            // topWall.setAlpha(0.3);
             // this.transitionZone.setAlpha(0.3);
             // this.lockedDoorZone.setAlpha(0.3);
         }
