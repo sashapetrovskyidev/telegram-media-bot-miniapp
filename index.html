@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Studio Quest - Real Move</title>
+    <title>My Studio - Real Logic</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; overflow: hidden; }
@@ -14,11 +14,13 @@
 <script>
     let popup;
 
-    function showNotice(scene, text) {
+    // Функция для всплывающего уведомления (надписи)
+    function showMsg(scene, text) {
         if (popup) popup.destroy();
-        popup = scene.add.text(scene.cameras.main.worldView.centerX, scene.cameras.main.worldView.centerY - 100, text, {
-            fontSize: '40px', fill: '#fff', backgroundColor: '#e74c3c', padding: { x: 20, y: 10 }
-        }).setOrigin(0.5).setDepth(2000).setScrollFactor(0); // Текст зафиксирован на экране
+        // Привязываем текст к камере, чтобы он всегда был по центру экрана
+        popup = scene.add.text(540, 500, text, {
+            fontSize: '48px', fill: '#fff', backgroundColor: '#e74c3c', padding: { x: 20, y: 10 }
+        }).setOrigin(0.5).setDepth(2000).setScrollFactor(0);
         
         scene.time.delayedCall(2000, () => { if (popup) popup.destroy(); });
     }
@@ -27,28 +29,26 @@
     class BaseRoom extends Phaser.Scene {
         constructor(key) { super(key); }
 
-        createRoom(bgKey, spawnX, spawnY) {
-            // Рисуем фон без растягивания
+        initRoom(bgKey, spawnX, spawnY) {
+            // Загружаем фон в оригинальном размере
             const bg = this.add.image(0, 0, bgKey).setOrigin(0, 0);
             
-            // Настраиваем границы мира по размеру картинки
+            // Границы мира равны размеру картинки
             this.physics.world.setBounds(0, 0, bg.width, bg.height);
             
-            // Спавним героя
+            // Персонаж (нарезанный спрайт)
             this.player = this.physics.add.sprite(spawnX, spawnY, 'player');
-            this.player.setScale(3); // Отрегулируй масштаб под размер комнаты
-            this.player.setCollideWorldBounds(true);
+            this.player.setScale(2).setCollideWorldBounds(true);
             this.playerDirection = 'down';
 
             // Настройка камеры
             this.cameras.main.setBounds(0, 0, bg.width, bg.height);
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-            this.cameras.main.setZoom(1); // Можно увеличить зум, если комната слишком большая
 
-            // Анимации
+            // Анимации (4x4)
             if (!this.anims.exists('walk-down')) {
-                const dirs = ['down', 'left', 'right', 'up'];
-                dirs.forEach((dir, i) => {
+                const directions = ['down', 'left', 'right', 'up'];
+                directions.forEach((dir, i) => {
                     this.anims.create({
                         key: `walk-${dir}`,
                         frames: this.anims.generateFrameNumbers('player', { start: i * 4, end: i * 4 + 3 }),
@@ -65,8 +65,10 @@
             });
         }
 
-        updateHero() {
+        updateLogic() {
+            if (!this.player.body) return;
             const vel = this.player.body.velocity;
+
             if (vel.x !== 0 || vel.y !== 0) {
                 const deg = Phaser.Math.RadToDeg(Math.atan2(vel.y, vel.x));
                 if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
@@ -77,14 +79,14 @@
                 this.player.anims.play('idle-' + this.playerDirection, true);
             }
 
-            if (this.targetX && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY) < 10) {
+            if (this.targetX && Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY) < 15) {
                 this.player.body.reset(this.player.x, this.player.y);
                 this.targetX = null;
             }
         }
     }
 
-    // --- ГОСТИНАЯ ---
+    // --- ГОСТИНАЯ (ЗОНА 1) ---
     class MainScene extends BaseRoom {
         constructor() { super('MainScene'); }
         preload() {
@@ -92,49 +94,48 @@
             this.load.spritesheet('player', 'person_model.png', { frameWidth: 64, frameHeight: 64 });
         }
         create() {
-            const spawnX = this.scene.settings.data.fromStudio ? 800 : 300;
-            this.createRoom('room1', spawnX, 600); // Координаты спавна внутри большой картинки
+            const spawnX = this.scene.settings.data.fromStudio ? 1000 : 400;
+            this.initRoom('room1', spawnX, 1500);
 
-            // Дверь (просто текст)
-            this.door = this.add.rectangle(100, 300, 100, 200, 0x000, 0);
+            // ДВЕРЬ (только текст)
+            this.door = this.add.rectangle(150, 1000, 200, 400, 0x000, 0);
             this.physics.add.existing(this.door, true);
-            this.physics.add.overlap(this.player, this.door, () => showNotice(this, "Нам сейчас не сюда"));
+            this.physics.add.overlap(this.player, this.door, () => showMsg(this, "Нам сейчас не сюда"));
 
-            // Зона перехода на ламинате (справа)
-            const worldWidth = this.physics.world.bounds.width;
-            const worldHeight = this.physics.world.bounds.height;
-            this.trigger = this.add.rectangle(worldWidth - 50, worldHeight - 150, 100, 200, 0x000, 0);
+            // ПЕРЕХОД НА ЛАМИНАТЕ (справа внизу)
+            const bgWidth = this.textures.get('room1').getSourceImage().width;
+            this.trigger = this.add.rectangle(bgWidth - 50, 1600, 100, 400, 0x000, 0);
             this.physics.add.existing(this.trigger, true);
             this.physics.add.overlap(this.player, this.trigger, () => this.scene.start('StudioScene', { fromMain: true }));
         }
-        update() { this.updateHero(); }
+        update() { this.updateLogic(); }
     }
 
-    // --- СТУДИЯ ---
+    // --- СТУДИЯ (ЗОНА 2) ---
     class StudioScene extends BaseRoom {
         constructor() { super('StudioScene'); }
         preload() { this.load.image('room2', 'room2.png'); }
         create() {
-            const worldHeight = 800; // Примерная высота
-            this.createRoom('room2', 150, 600);
+            this.initRoom('room2', 150, 1600); // Появляемся на ламинате слева
 
-            // Дверь (просто текст)
-            this.door2 = this.add.rectangle(800, 300, 100, 200, 0x000, 0);
+            // ДВЕРЬ (только текст)
+            this.door2 = this.add.rectangle(950, 1000, 200, 400, 0x000, 0);
             this.physics.add.existing(this.door2, true);
-            this.physics.add.overlap(this.player, this.door2, () => showNotice(this, "Нам сейчас не сюда"));
+            this.physics.add.overlap(this.player, this.door2, () => showMsg(this, "Нам сейчас не сюда"));
 
-            // Зона возврата на ламинате (слева)
-            this.triggerBack = this.add.rectangle(50, 600, 100, 200, 0x000, 0);
+            // ВОЗВРАТ НА ЛАМИНАТЕ (слева внизу)
+            this.triggerBack = this.add.rectangle(10, 1600, 100, 400, 0x000, 0);
             this.physics.add.existing(this.triggerBack, true);
             this.physics.add.overlap(this.player, this.triggerBack, () => this.scene.start('MainScene', { fromStudio: true }));
         }
-        update() { this.updateHero(); }
+        update() { this.updateLogic(); }
     }
 
+    // --- КОНФИГ ДЛЯ ТЕЛЕГРАМА ---
     const config = {
         type: Phaser.AUTO,
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 1080, height: 1920 },
-        physics: { default: 'arcade', arcade: { debug: false } }, // Включи debug: true, чтобы увидеть зоны
+        physics: { default: 'arcade', arcade: { debug: false } }, // Поставь true, чтобы увидеть квадраты на полу и дверях
         scene: [MainScene, StudioScene]
     };
     new Phaser.Game(config);
