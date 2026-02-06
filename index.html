@@ -23,9 +23,6 @@ class MenuScene extends Phaser.Scene {
     constructor() { super('MenuScene'); }
     preload() {
         this.load.image('menuBg', 'room1.png');
-        this.load.on('loaderror', (file) => {
-            console.error('Ошибка загрузки: ' + file.key);
-        });
     }
     create() {
         const { width, height } = this.scale;
@@ -152,32 +149,36 @@ class MenuScene extends Phaser.Scene {
     }
 }
 
-// --- ГЛАВНАЯ СЦЕНА (ГОСТИНАЯ) ---
-class MainScene extends Phaser.Scene {
-    constructor() { super('MainScene'); }
+// --- ОБЩАЯ ЛОГИКА ДЛЯ КОМНАТ ---
+class RoomScene extends Phaser.Scene {
+    constructor(key, roomKey) {
+        super(key);
+        this.roomKey = roomKey;
+    }
+
     preload() {
-        this.load.image('room1', 'room1.png');
+        this.load.image(this.roomKey, this.roomKey + '.png');
         this.load.spritesheet('playerSprite', 'person_model.png', {
             frameWidth: 64,
             frameHeight: 64
         });
-        this.load.on('loaderror', (file) => {
-            console.error('Ошибка загрузки: ' + file.key);
-        });
     }
-    create() {
+
+    create(data) {
         const screenWidth = this.scale.width;
         const screenHeight = this.scale.height;
 
-        const bg = this.add.image(0, 0, 'room1').setOrigin(0, 0);
+        const bg = this.add.image(0, 0, this.roomKey).setOrigin(0, 0);
         const scaleX = screenWidth / bg.width;
         const scaleY = screenHeight / bg.height;
         const scale = Math.max(scaleX, scaleY);
         bg.setScale(scale);
+
         const roomWidth = bg.width * scale;
         const roomHeight = bg.height * scale;
         this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
 
+        // Анимации (создаём один раз)
         if (!this.anims.exists('walk-down')) {
             this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('playerSprite', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
             this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNumbers('playerSprite', { start: 4, end: 7 }), frameRate: 10, repeat: -1 });
@@ -189,24 +190,26 @@ class MainScene extends Phaser.Scene {
             this.anims.create({ key: 'idle-up', frames: [{ key: 'playerSprite', frame: 13 }], frameRate: 1 });
         }
 
-        const fromStudio = this.scene.settings.data?.fromStudio;
-        this.player = this.physics.add.sprite(
-            roomWidth * 0.5,
-            fromStudio ? roomHeight * 0.35 : roomHeight * 0.75,
-            'playerSprite'
-        ).setScale(3);
-
-        // Крисп пиксель-арт для персонажа + круглый хитбокс (убирает "квадратность")
+        // Персонаж
+        this.player = this.physics.add.sprite(roomWidth * 0.5, roomHeight * 0.5, 'playerSprite').setScale(2.8);
         this.player.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
         this.player.setCollideWorldBounds(true);
-        this.player.body.setCircle(22, 0, 22);
+        this.player.body.setCircle(20);
 
-        this.player.anims.play('idle-down');
-        this.playerDirection = 'down';
+        // Тень под персонажем — чтобы «стоял на полу»
+        this.shadow = this.add.ellipse(this.player.x, this.player.y + 45, 55, 25, 0x000000, 0.35);
+        this.shadow.setDepth(-1);
 
-        this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
+        // Камера: чуть отзумлена, плавное следование, deadzone чтобы не дёргалась при мелких движениях
+        this.cameras.main.setZoom(0.85); // видно больше комнаты
+        this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
+        this.cameras.main.setDeadzone(150, 200);
         this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-        this.cameras.main.fadeIn(1000, 0, 0, 0);
+        this.cameras.main.roundPixels = true;
+        this.cameras.main.fadeIn(1000);
+
+        this.playerDirection = 'down';
+        this.player.anims.play('idle-down');
 
         this.targetX = null;
         this.targetY = null;
@@ -217,73 +220,16 @@ class MainScene extends Phaser.Scene {
             const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
             this.targetX = worldPoint.x;
             this.targetY = worldPoint.y;
-            this.physics.moveToObject(this.player, worldPoint, 300);
+            this.physics.moveToObject(this.player, worldPoint, 380); // быстрее и отзывчивее
         });
 
-        // Коллизии мебели
-        const obstacles = [
-            { x: roomWidth * 0.22, y: roomHeight * 0.72, w: 450 * scale, h: 250 * scale }, // диван
-            { x: roomWidth * 0.52, y: roomHeight * 0.35, w: 400 * scale, h: 200 * scale }, // тумба с TV
-            { x: roomWidth * 0.45, y: roomHeight * 0.58, w: 180 * scale, h: 140 * scale }, // пуфик
-            { x: roomWidth * 0.08, y: roomHeight * 0.32, w: 80 * scale, h: 150 * scale }, // гитара
-            { x: roomWidth * 0.15, y: roomHeight * 0.45, w: 150 * scale, h: 400 * scale }  // шторы
-        ];
-
-        obstacles.forEach(obs => {
-            let rect = this.add.rectangle(obs.x, obs.y, obs.w, obs.h);
-            this.physics.add.existing(rect, true);
-            this.physics.add.collider(this.player, rect);
-        });
-
-        // Заблокированная дверь справа
-        this.createLockedDoor(roomWidth * 0.92, roomHeight * 0.45, 100, 280 * scale);
-
-        // Зона перехода в студию (тоньше — как "линия на полу")
-        this.createTransitionZone(roomWidth * 0.5, roomHeight * 0.15, roomWidth * 0.6, 80, 'StudioScene', { fromLiving: true });
-    }
-
-    createLockedDoor(x, y, w, h) {
-        let zone = this.add.rectangle(x, y, w, h, 0xffff00, 0);
-        this.physics.add.existing(zone, true);
-        let message = this.add.text(x, y - 100, 'Еще не время', {
-            fontSize: '48px',
-            fontFamily: 'Courier New',
-            color: '#ffffff',
-            backgroundColor: '#000000',
-            padding: { x: 25, y: 12 },
-            alpha: 0
-        }).setOrigin(0.5);
-
-        let shown = false;
-        this.physics.add.overlap(this.player, zone, () => {
-            if (!shown) {
-                shown = true;
-                this.tweens.add({ targets: message, alpha: 1, duration: 300 });
-                this.time.delayedCall(2500, () => {
-                    this.tweens.add({ targets: message, alpha: 0, duration: 300, onComplete: () => shown = false });
-                });
-            }
-        });
-    }
-
-    createTransitionZone(x, y, w, h, targetScene, data) {
-        let zone = this.add.rectangle(x, y, w, h, 0x00ff00, 0);
-        this.physics.add.existing(zone, true);
-        let triggered = false;
-        this.physics.add.overlap(this.player, zone, () => {
-            if (!this.isTransitioning && !triggered) {
-                triggered = true;
-                this.isTransitioning = true;
-                this.player.body.setVelocity(0, 0);
-                this.cameras.main.fadeOut(800, 0, 0, 0);
-                this.time.delayedCall(800, () => {
-                    this.scene.start(targetScene, data);
-                });
-            }
-        });
+        this.setupScene(roomWidth, roomHeight, scale, data);
     }
 
     update() {
+        // Тень всегда под персонажем
+        this.shadow.setPosition(this.player.x, this.player.y + 45);
+
         const speed = this.player.body.velocity.length();
         if (speed > 10) {
             const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
@@ -298,7 +244,7 @@ class MainScene extends Phaser.Scene {
 
         if (this.targetX !== null && this.targetY !== null) {
             const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
-            if (distance < 12) {
+            if (distance < 15) {
                 this.player.body.setVelocity(0, 0);
                 this.targetX = null;
                 this.targetY = null;
@@ -307,63 +253,28 @@ class MainScene extends Phaser.Scene {
     }
 }
 
-// --- СТУДИЯ ---
-class StudioScene extends Phaser.Scene {
-    constructor() { super('StudioScene'); }
-    preload() {
-        this.load.image('room2', 'room2.png');
-    }
-    create() {
-        const screenWidth = this.scale.width;
-        const screenHeight = this.scale.height;
+// --- ГОСТИНАЯ ---
+class MainScene extends RoomScene {
+    constructor() { super('MainScene', 'room1'); }
 
-        const bg = this.add.image(0, 0, 'room2').setOrigin(0, 0);
-        const scaleX = screenWidth / bg.width;
-        const scaleY = screenHeight / bg.height;
-        const scale = Math.max(scaleX, scaleY);
-        bg.setScale(scale);
-        const roomWidth = bg.width * scale;
-        const roomHeight = bg.height * scale;
-        this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
+    setupScene(roomWidth, roomHeight, scale, data) {
+        const fromStudio = data?.fromStudio;
+        if (fromStudio) {
+            this.player.setPosition(roomWidth * 0.5, roomHeight * 0.35);
+            this.player.anims.play('idle-down');
+            this.playerDirection = 'down';
+        } else {
+            this.player.setPosition(roomWidth * 0.5, roomHeight * 0.75);
+            this.player.anims.play('idle-down');
+        }
 
-        const fromLiving = this.scene.settings.data?.fromLiving;
-        this.player = this.physics.add.sprite(
-            roomWidth * 0.5,
-            fromLiving ? roomHeight * 0.8 : roomHeight * 0.6,
-            'playerSprite'
-        ).setScale(3);
-
-        this.player.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
-        this.player.setCollideWorldBounds(true);
-        this.player.body.setCircle(22, 0, 22);
-
-        this.player.anims.play('idle-up');
-        this.playerDirection = 'up';
-
-        this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
-        this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-        this.cameras.main.fadeIn(1000, 0, 0, 0);
-
-        this.targetX = null;
-        this.targetY = null;
-        this.isTransitioning = false;
-
-        this.input.on('pointerdown', (pointer) => {
-            if (this.isTransitioning) return;
-            const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-            this.targetX = worldPoint.x;
-            this.targetY = worldPoint.y;
-            this.physics.moveToObject(this.player, worldPoint, 300);
-        });
-
-        // Коллизии мебели
+        // Мебель
         const obstacles = [
-            { x: roomWidth * 0.3, y: roomHeight * 0.45, w: 380 * scale, h: 220 * scale }, // стол
-            { x: roomWidth * 0.3, y: roomHeight * 0.6, w: 120 * scale, h: 120 * scale }, // стул
-            { x: roomWidth * 0.3, y: roomHeight * 0.28, w: 250 * scale, h: 180 * scale }, // стеллаж
-            { x: roomWidth * 0.75, y: roomHeight * 0.7, w: 350 * scale, h: 220 * scale }, // диван
-            { x: roomWidth * 0.15, y: roomHeight * 0.7, w: 140 * scale, h: 180 * scale }, // клавиши
-            { x: roomWidth * 0.78, y: roomHeight * 0.4, w: 80 * scale, h: 100 * scale }   // растение
+            { x: roomWidth * 0.22, y: roomHeight * 0.72, w: 450 * scale, h: 250 * scale },
+            { x: roomWidth * 0.52, y: roomHeight * 0.35, w: 400 * scale, h: 200 * scale },
+            { x: roomWidth * 0.45, y: roomHeight * 0.58, w: 180 * scale, h: 140 * scale },
+            { x: roomWidth * 0.08, y: roomHeight * 0.32, w: 80 * scale, h: 150 * scale },
+            { x: roomWidth * 0.15, y: roomHeight * 0.45, w: 150 * scale, h: 400 * scale }
         ];
 
         obstacles.forEach(obs => {
@@ -372,15 +283,92 @@ class StudioScene extends Phaser.Scene {
             this.physics.add.collider(this.player, rect);
         });
 
-        // Заблокированная дверь слева
-        this.createLockedDoor(roomWidth * 0.05, roomHeight * 0.5, 100, 280 * scale);
+        // Заблокированная дверь
+        this.createLockedDoor(roomWidth * 0.92, roomHeight * 0.45, 100, 280 * scale);
 
-        // Зона возврата в гостиную (тоньше)
-        this.createTransitionZone(roomWidth * 0.5, roomHeight * 0.88, roomWidth * 0.6, 80, 'MainScene', { fromStudio: true });
+        // Переход в студию — широкая зона в верхней части (чувствуется как «пересечение линии»)
+        this.createTransitionZone(roomWidth * 0.5, roomHeight * 0.22, roomWidth * 0.85, 250, 'StudioScene', { fromLiving: true });
     }
 
     createLockedDoor(x, y, w, h) {
-        let zone = this.add.rectangle(x, y, w, h, 0xffff00, 0);
+        let zone = this.add.rectangle(x, y, w, h).setAlpha(0);
+        this.physics.add.existing(zone, true);
+        let message = this.add.text(x, y - 120, 'Еще не время', {
+            fontSize: '48px',
+            fontFamily: 'Courier New',
+            color: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 25, y: 12 },
+            alpha: 0
+        }).setOrigin(0.5);
+
+        let shown = false;
+        this.physics.add.overlap(this.player, zone, () => {
+            if (!shown) {
+                shown = true;
+                this.tweens.add({ targets: message, alpha: 1, duration: 300 });
+                this.time.delayedCall(2500, () => {
+                    this.tweens.add({ targets: message, alpha: 0, duration: 300, onComplete: () => shown = false });
+                });
+            }
+        });
+    }
+
+    createTransitionZone(x, y, w, h, targetScene, data) {
+        let zone = this.add.rectangle(x, y, w, h).setAlpha(0);
+        this.physics.add.existing(zone, true);
+        let triggered = false;
+        this.physics.add.overlap(this.player, zone, () => {
+            if (!this.isTransitioning && !triggered) {
+                triggered = true;
+                this.isTransitioning = true;
+                this.player.body.setVelocity(0, 0);
+                this.cameras.main.fadeOut(800, 0, 0, 0);
+                this.time.delayedCall(800, () => this.scene.start(targetScene, data));
+            }
+        });
+    }
+}
+
+// --- СТУДИЯ ---
+class StudioScene extends RoomScene {
+    constructor() { super('StudioScene', 'room2'); }
+
+    setupScene(roomWidth, roomHeight, scale, data) {
+        const fromLiving = data?.fromLiving;
+        if (fromLiving) {
+            this.player.setPosition(roomWidth * 0.5, roomHeight * 0.78);
+            this.player.anims.play('idle-up');
+            this.playerDirection = 'up';
+        } else {
+            this.player.setPosition(roomWidth * 0.5, roomHeight * 0.5);
+        }
+
+        // Мебель
+        const obstacles = [
+            { x: roomWidth * 0.3, y: roomHeight * 0.45, w: 380 * scale, h: 220 * scale },
+            { x: roomWidth * 0.3, y: roomHeight * 0.6, w: 120 * scale, h: 120 * scale },
+            { x: roomWidth * 0.3, y: roomHeight * 0.28, w: 250 * scale, h: 180 * scale },
+            { x: roomWidth * 0.75, y: roomHeight * 0.7, w: 350 * scale, h: 220 * scale },
+            { x: roomWidth * 0.15, y: roomHeight * 0.7, w: 140 * scale, h: 180 * scale },
+            { x: roomWidth * 0.78, y: roomHeight * 0.4, w: 80 * scale, h: 100 * scale }
+        ];
+
+        obstacles.forEach(obs => {
+            let rect = this.add.rectangle(obs.x, obs.y, obs.w, obs.h);
+            this.physics.add.existing(rect, true);
+            this.physics.add.collider(this.player, rect);
+        });
+
+        // Заблокированная дверь
+        this.createLockedDoor(roomWidth * 0.05, roomHeight * 0.5, 100, 280 * scale);
+
+        // Переход обратно — широкая зона в нижней части
+        this.createTransitionZone(roomWidth * 0.5, roomHeight * 0.78, roomWidth * 0.85, 250, 'MainScene', { fromStudio: true });
+    }
+
+    createLockedDoor(x, y, w, h) {
+        let zone = this.add.rectangle(x, y, w, h).setAlpha(0);
         this.physics.add.existing(zone, true);
         let message = this.add.text(x, y - 100, 'Еще не время', {
             fontSize: '48px',
@@ -404,7 +392,7 @@ class StudioScene extends Phaser.Scene {
     }
 
     createTransitionZone(x, y, w, h, targetScene, data) {
-        let zone = this.add.rectangle(x, y, w, h, 0xff0000, 0);
+        let zone = this.add.rectangle(x, y, w, h).setAlpha(0);
         this.physics.add.existing(zone, true);
         let triggered = false;
         this.physics.add.overlap(this.player, zone, () => {
@@ -413,34 +401,9 @@ class StudioScene extends Phaser.Scene {
                 this.isTransitioning = true;
                 this.player.body.setVelocity(0, 0);
                 this.cameras.main.fadeOut(800, 0, 0, 0);
-                this.time.delayedCall(800, () => {
-                    this.scene.start(targetScene, data);
-                });
+                this.time.delayedCall(800, () => this.scene.start(targetScene, data));
             }
         });
-    }
-
-    update() {
-        const speed = this.player.body.velocity.length();
-        if (speed > 10) {
-            const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
-            const deg = Phaser.Math.RadToDeg(angle);
-            if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
-            else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
-            else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
-            else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
-        } else {
-            this.player.anims.play('idle-' + this.playerDirection, true);
-        }
-
-        if (this.targetX !== null && this.targetY !== null) {
-            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
-            if (distance < 12) {
-                this.player.body.setVelocity(0, 0);
-                this.targetX = null;
-                this.targetY = null;
-            }
-        }
     }
 }
 
