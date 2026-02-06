@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Studio Quest</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<script>
+    // Настройки для Telegram Mini App (9:16)
+    const config = {
+        type: Phaser.AUTO,
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+            width: 1080,
+            height: 1920
+        },
+        physics: {
+            default: 'arcade',
+            arcade: { debug: false } // Поставь true, чтобы видеть границы стен
+        },
+        scene: [MainScene, StudioScene]
+    };
+
+    const game = new Phaser.Game(config);
+
+    // --- ПЕРВАЯ КОМНАТА (ГОСТИНАЯ) ---
+    class MainScene extends Phaser.Scene {
+        constructor() { super('MainScene'); }
+
+        preload() {
+            this.load.image('room1', 'room1.png'); // Твоя картинка с диваном
+            this.load.image('player', 'player.png'); // Твой скин персонажа
+        }
+
+        create() {
+            // Фон
+            this.add.image(540, 960, 'room1').setDisplaySize(1080, 1920);
+
+            // Персонаж
+            this.player = this.physics.add.sprite(540, 1500, 'player').setScale(0.8);
+            this.player.setCollideWorldBounds(true);
+
+            // Управление тапом
+            this.input.on('pointerdown', (pointer) => {
+                this.physics.moveToObject(this.player, pointer, 400);
+            });
+
+            // Зона перехода в студию (справа)
+            this.exitZone = this.add.rectangle(1050, 960, 100, 1920, 0xff0000, 0);
+            this.physics.add.existing(this.exitZone, true);
+
+            this.physics.add.overlap(this.player, this.exitZone, () => {
+                this.scene.start('StudioScene');
+            });
+
+            // --- КОЛЛИЗИИ (СТЕНЫ) ---
+            // Пример: создаем невидимую стену для дивана
+            let sofaObstacle = this.add.rectangle(540, 1400, 600, 200, 0x000, 0);
+            this.physics.add.existing(sofaObstacle, true);
+            this.physics.add.collider(this.player, sofaObstacle);
+        }
+
+        update() {
+            // Остановка персонажа, когда он дошел до точки нажатия
+            let distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.input.activePointer.worldX, this.input.activePointer.worldY);
+            if (this.player.body.speed > 0 && distance < 10) {
+                this.player.body.reset(this.player.x, this.player.y);
+            }
+        }
+    }
+
+    // --- ВТОРАЯ КОМНАТА (СТУДИЯ) ---
+    class StudioScene extends Phaser.Scene {
+        constructor() { super('StudioScene'); }
+
+        preload() {
+            this.load.image('room2', 'room2.png');
+        }
+
+        create() {
+            this.add.image(540, 960, 'room2').setDisplaySize(1080, 1920);
+            
+            // Появляемся слева
+            this.player = this.physics.add.sprite(100, 960, 'player').setScale(0.8);
+            
+            this.input.on('pointerdown', (pointer) => {
+                this.physics.moveToObject(this.player, pointer, 400);
+            });
+
+            // Зона возврата (слева)
+            this.backZone = this.add.rectangle(30, 960, 100, 1920, 0xff0000, 0);
+            this.physics.add.existing(this.backZone, true);
+
+            this.physics.add.overlap(this.player, this.backZone, () => {
+                this.scene.start('MainScene');
+            });
+        }
+
+        update() {
+            let distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.input.activePointer.worldX, this.input.activePointer.worldY);
+            if (this.player.body.speed > 0 && distance < 10) {
+                this.player.body.reset(this.player.x, this.player.y);
+            }
+        }
+    }
+</script>
+</body>
+</html>
