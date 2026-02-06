@@ -1,691 +1,469 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Studio</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
-    <style>
-        body { 
-            margin: 0; 
-            padding: 0; 
-            background: #1a1a1a; 
-            overflow: hidden;
-            font-family: 'Courier New', monospace;
-        }
-        canvas { display: block; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>My Studio</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<style>
+body {
+margin: 0;
+padding: 0;
+background: #1a1a1a;
+overflow: hidden;
+font-family: 'Courier New', monospace;
+}
+canvas { display: block; }
+</style>
 </head>
 <body>
 <script>
-    // --- START MENU SCENE ---
-    class MenuScene extends Phaser.Scene {
-        constructor() { super('MenuScene'); }
+// --- START MENU SCENE ---
+class MenuScene extends Phaser.Scene {
+    constructor() { super('MenuScene'); }
+    preload() {
+        this.load.image('menuBg', 'room1.png');
+        this.load.on('loaderror', (file) => {
+            console.error('Ошибка загрузки: ' + file.key);
+        });
+    }
+    create() {
+        const { width, height } = this.scale;
+        this.add.image(width / 2, height / 2, 'menuBg')
+            .setDisplaySize(width, height)
+            .setAlpha(0.3);
 
-        preload() {
-            // Load menu background (living room preview)
-            this.load.image('menuBg', 'room1.png');
-            
-            this.load.on('loaderror', (file) => {
-                console.error('Ошибка загрузки: ' + file.key);
-            });
-        }
+        const overlay = this.add.graphics();
+        overlay.fillGradientStyle(0x0a0a0a, 0x0a0a0a, 0x1a1a2e, 0x1a1a2e, 0.85);
+        overlay.fillRect(0, 0, width, height);
 
-        create() {
-            const { width, height } = this.scale;
+        const menuBox = this.add.graphics();
+        menuBox.lineStyle(8, 0x4a5568, 1);
+        menuBox.strokeRect(width / 2 - 380, height / 2 - 250, 760, 500);
+        menuBox.lineStyle(4, 0x6b7280, 1);
+        menuBox.strokeRect(width / 2 - 390, height / 2 - 260, 780, 520);
 
-            // Темный оверлей поверх фона студии
-            this.add.image(width / 2, height / 2, 'menuBg')
-                .setDisplaySize(width, height)
-                .setAlpha(0.3);
+        const menuBg = this.add.graphics();
+        menuBg.fillStyle(0x1e293b, 0.95);
+        menuBg.fillRect(width / 2 - 380, height / 2 - 250, 760, 500);
 
-            // Темный градиент
-            const overlay = this.add.graphics();
-            overlay.fillGradientStyle(0x0a0a0a, 0x0a0a0a, 0x1a1a2e, 0x1a1a2e, 0.85);
-            overlay.fillRect(0, 0, width, height);
+        const title = this.add.text(width / 2, height / 2 - 150, 'MY STUDIO', {
+            fontSize: '96px',
+            fontFamily: 'Courier New, monospace',
+            color: '#94a3b8',
+            fontStyle: 'bold',
+            stroke: '#1e293b',
+            strokeThickness: 12
+        }).setOrigin(0.5);
 
-            // Рамка меню в стиле пиксель-арт
-            const menuBox = this.add.graphics();
-            menuBox.lineStyle(8, 0x4a5568, 1);
-            menuBox.strokeRect(width / 2 - 380, height / 2 - 250, 760, 500);
-            menuBox.lineStyle(4, 0x6b7280, 1);
-            menuBox.strokeRect(width / 2 - 390, height / 2 - 260, 780, 520);
+        this.tweens.add({
+            targets: title,
+            alpha: { from: 0.8, to: 1 },
+            scale: { from: 0.98, to: 1.02 },
+            duration: 2000,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
 
-            // Фон для рамки
-            const menuBg = this.add.graphics();
-            menuBg.fillStyle(0x1e293b, 0.95);
-            menuBg.fillRect(width / 2 - 380, height / 2 - 250, 760, 500);
+        const startBtnY = height / 2 + 20;
+        this.createPixelButton(
+            width / 2,
+            startBtnY,
+            'START GAME',
+            () => {
+                this.cameras.main.fadeOut(500, 0, 0, 0);
+                this.time.delayedCall(500, () => {
+                    this.scene.start('MainScene');
+                });
+            }
+        );
 
-            // Заголовок "MY STUDIO"
-            const title = this.add.text(width / 2, height / 2 - 150, 'MY STUDIO', {
-                fontSize: '96px',
-                fontFamily: 'Courier New, monospace',
-                color: '#94a3b8',
-                fontStyle: 'bold',
-                stroke: '#1e293b',
-                strokeThickness: 12
-            }).setOrigin(0.5);
+        const optionsBtnY = height / 2 + 130;
+        this.createPixelButton(
+            width / 2,
+            optionsBtnY,
+            'OPTIONS',
+            () => {
+                this.cameras.main.shake(200, 0.002);
+            }
+        );
 
-            // Пульсация заголовка
+        const hint = this.add.text(width / 2, height - 120, 'Нажмите на экран для движения', {
+            fontSize: '28px',
+            fontFamily: 'Courier New',
+            color: '#64748b',
+            alpha: 0.7
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: hint,
+            alpha: { from: 0.4, to: 0.9 },
+            duration: 1500,
+            yoyo: true,
+            repeat: -1
+        });
+
+        this.cameras.main.fadeIn(800, 10, 10, 30);
+    }
+    createPixelButton(x, y, text, callback) {
+        const btnWidth = 500;
+        const btnHeight = 90;
+
+        const outerBorder = this.add.graphics();
+        outerBorder.lineStyle(6, 0x64748b, 1);
+        outerBorder.strokeRect(x - btnWidth/2, y - btnHeight/2, btnWidth, btnHeight);
+
+        const innerBorder = this.add.graphics();
+        innerBorder.lineStyle(3, 0x475569, 1);
+        innerBorder.strokeRect(x - btnWidth/2 + 8, y - btnHeight/2 + 8, btnWidth - 16, btnHeight - 16);
+
+        const buttonBg = this.add.rectangle(x, y, btnWidth - 16, btnHeight - 16, 0x334155)
+            .setInteractive({ useHandCursor: true });
+
+        const buttonText = this.add.text(x, y, text, {
+            fontSize: '42px',
+            fontFamily: 'Courier New',
+            color: '#cbd5e1',
+            fontStyle: 'bold'
+        }).setOrigin(0.5);
+
+        const buttonGroup = [outerBorder, innerBorder, buttonBg, buttonText];
+
+        buttonBg.on('pointerover', () => {
+            buttonBg.setFillStyle(0x475569);
+            buttonText.setColor('#f1f5f9');
+            this.tweens.add({ targets: buttonGroup, scale: 1.05, duration: 150 });
+        });
+        buttonBg.on('pointerout', () => {
+            buttonBg.setFillStyle(0x334155);
+            buttonText.setColor('#cbd5e1');
+            this.tweens.add({ targets: buttonGroup, scale: 1.0, duration: 150 });
+        });
+        buttonBg.on('pointerdown', () => {
             this.tweens.add({
-                targets: title,
-                alpha: { from: 0.8, to: 1 },
-                scale: { from: 0.98, to: 1.02 },
-                duration: 2000,
+                targets: buttonGroup,
+                scale: 0.95,
+                duration: 100,
                 yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
+                onComplete: callback
             });
+        });
+    }
+}
 
-            // Кнопка START GAME
-            const startBtnY = height / 2 + 20;
-            this.createPixelButton(
-                width / 2, 
-                startBtnY, 
-                'START GAME',
-                () => {
-                    this.cameras.main.fadeOut(500, 0, 0, 0);
-                    this.time.delayedCall(500, () => {
-                        this.scene.start('MainScene');
-                    });
-                }
-            );
+// --- ГЛАВНАЯ СЦЕНА (ГОСТИНАЯ) ---
+class MainScene extends Phaser.Scene {
+    constructor() { super('MainScene'); }
+    preload() {
+        this.load.image('room1', 'room1.png');
+        this.load.spritesheet('playerSprite', 'person_model.png', {
+            frameWidth: 64,
+            frameHeight: 64
+        });
+        this.load.on('loaderror', (file) => {
+            console.error('Ошибка загрузки: ' + file.key);
+        });
+    }
+    create() {
+        const screenWidth = this.scale.width;
+        const screenHeight = this.scale.height;
 
-            // Кнопка OPTIONS
-            const optionsBtnY = height / 2 + 130;
-            this.createPixelButton(
-                width / 2, 
-                optionsBtnY, 
-                'OPTIONS',
-                () => {
-                    // Пока просто анимация
-                    this.cameras.main.shake(200, 0.002);
-                }
-            );
+        const bg = this.add.image(0, 0, 'room1').setOrigin(0, 0);
+        const scaleX = screenWidth / bg.width;
+        const scaleY = screenHeight / bg.height;
+        const scale = Math.max(scaleX, scaleY);
+        bg.setScale(scale);
+        const roomWidth = bg.width * scale;
+        const roomHeight = bg.height * scale;
+        this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
 
-            // Подсказка внизу
-            const hint = this.add.text(width / 2, height - 120, 'Нажмите на экран для движения', {
-                fontSize: '28px',
-                fontFamily: 'Courier New',
-                color: '#64748b',
-                alpha: 0.7
-            }).setOrigin(0.5);
-
-            // Мигание подсказки
-            this.tweens.add({
-                targets: hint,
-                alpha: { from: 0.4, to: 0.9 },
-                duration: 1500,
-                yoyo: true,
-                repeat: -1
-            });
-
-            // Появление меню
-            this.cameras.main.fadeIn(800, 10, 10, 30);
+        if (!this.anims.exists('walk-down')) {
+            this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('playerSprite', { start: 0, end: 3 }), frameRate: 10, repeat: -1 });
+            this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNumbers('playerSprite', { start: 4, end: 7 }), frameRate: 10, repeat: -1 });
+            this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNumbers('playerSprite', { start: 8, end: 11 }), frameRate: 10, repeat: -1 });
+            this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNumbers('playerSprite', { start: 12, end: 15 }), frameRate: 10, repeat: -1 });
+            this.anims.create({ key: 'idle-down', frames: [{ key: 'playerSprite', frame: 1 }], frameRate: 1 });
+            this.anims.create({ key: 'idle-left', frames: [{ key: 'playerSprite', frame: 5 }], frameRate: 1 });
+            this.anims.create({ key: 'idle-right', frames: [{ key: 'playerSprite', frame: 9 }], frameRate: 1 });
+            this.anims.create({ key: 'idle-up', frames: [{ key: 'playerSprite', frame: 13 }], frameRate: 1 });
         }
 
-        createPixelButton(x, y, text, callback) {
-            const btnWidth = 500;
-            const btnHeight = 90;
+        const fromStudio = this.scene.settings.data?.fromStudio;
+        this.player = this.physics.add.sprite(
+            roomWidth * 0.5,
+            fromStudio ? roomHeight * 0.35 : roomHeight * 0.75,
+            'playerSprite'
+        ).setScale(3);
 
-            // Внешняя рамка
-            const outerBorder = this.add.graphics();
-            outerBorder.lineStyle(6, 0x64748b, 1);
-            outerBorder.strokeRect(x - btnWidth/2, y - btnHeight/2, btnWidth, btnHeight);
+        // Крисп пиксель-арт для персонажа + круглый хитбокс (убирает "квадратность")
+        this.player.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+        this.player.setCollideWorldBounds(true);
+        this.player.body.setCircle(22, 0, 22);
 
-            // Внутренняя рамка
-            const innerBorder = this.add.graphics();
-            innerBorder.lineStyle(3, 0x475569, 1);
-            innerBorder.strokeRect(x - btnWidth/2 + 8, y - btnHeight/2 + 8, btnWidth - 16, btnHeight - 16);
+        this.player.anims.play('idle-down');
+        this.playerDirection = 'down';
 
-            // Фон кнопки
-            const buttonBg = this.add.rectangle(x, y, btnWidth - 16, btnHeight - 16, 0x334155)
-                .setInteractive({ useHandCursor: true });
+        this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
+        this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
+        this.cameras.main.fadeIn(1000, 0, 0, 0);
 
-            // Текст кнопки
-            const buttonText = this.add.text(x, y, text, {
-                fontSize: '42px',
-                fontFamily: 'Courier New',
-                color: '#cbd5e1',
-                fontStyle: 'bold'
-            }).setOrigin(0.5);
+        this.targetX = null;
+        this.targetY = null;
+        this.isTransitioning = false;
 
-            // Группа элементов кнопки
-            const buttonGroup = [outerBorder, innerBorder, buttonBg, buttonText];
+        this.input.on('pointerdown', (pointer) => {
+            if (this.isTransitioning) return;
+            const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+            this.targetX = worldPoint.x;
+            this.targetY = worldPoint.y;
+            this.physics.moveToObject(this.player, worldPoint, 300);
+        });
 
-            // Эффекты
-            buttonBg.on('pointerover', () => {
-                buttonBg.setFillStyle(0x475569);
-                buttonText.setColor('#f1f5f9');
-                this.tweens.add({
-                    targets: buttonGroup,
-                    scale: 1.05,
-                    duration: 150
-                });
-            });
+        // Коллизии мебели
+        const obstacles = [
+            { x: roomWidth * 0.22, y: roomHeight * 0.72, w: 450 * scale, h: 250 * scale }, // диван
+            { x: roomWidth * 0.52, y: roomHeight * 0.35, w: 400 * scale, h: 200 * scale }, // тумба с TV
+            { x: roomWidth * 0.45, y: roomHeight * 0.58, w: 180 * scale, h: 140 * scale }, // пуфик
+            { x: roomWidth * 0.08, y: roomHeight * 0.32, w: 80 * scale, h: 150 * scale }, // гитара
+            { x: roomWidth * 0.15, y: roomHeight * 0.45, w: 150 * scale, h: 400 * scale }  // шторы
+        ];
 
-            buttonBg.on('pointerout', () => {
-                buttonBg.setFillStyle(0x334155);
-                buttonText.setColor('#cbd5e1');
-                this.tweens.add({
-                    targets: buttonGroup,
-                    scale: 1.0,
-                    duration: 150
-                });
-            });
+        obstacles.forEach(obs => {
+            let rect = this.add.rectangle(obs.x, obs.y, obs.w, obs.h);
+            this.physics.add.existing(rect, true);
+            this.physics.add.collider(this.player, rect);
+        });
 
-            buttonBg.on('pointerdown', () => {
-                this.tweens.add({
-                    targets: buttonGroup,
-                    scale: 0.95,
-                    duration: 100,
-                    yoyo: true,
-                    onComplete: callback
-                });
-            });
-        }
+        // Заблокированная дверь справа
+        this.createLockedDoor(roomWidth * 0.92, roomHeight * 0.45, 100, 280 * scale);
+
+        // Зона перехода в студию (тоньше — как "линия на полу")
+        this.createTransitionZone(roomWidth * 0.5, roomHeight * 0.15, roomWidth * 0.6, 80, 'StudioScene', { fromLiving: true });
     }
 
-    // --- ГЛАВНАЯ СЦЕНА (ГОСТИНАЯ) ---
-    class MainScene extends Phaser.Scene {
-        constructor() { super('MainScene'); }
+    createLockedDoor(x, y, w, h) {
+        let zone = this.add.rectangle(x, y, w, h, 0xffff00, 0);
+        this.physics.add.existing(zone, true);
+        let message = this.add.text(x, y - 100, 'Еще не время', {
+            fontSize: '48px',
+            fontFamily: 'Courier New',
+            color: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 25, y: 12 },
+            alpha: 0
+        }).setOrigin(0.5);
 
-        preload() {
-            this.load.image('room1', 'room1.png');
-            this.load.spritesheet('playerSprite', 'person_model.png', {
-                frameWidth: 64,
-                frameHeight: 64
-            });
+        let shown = false;
+        this.physics.add.overlap(this.player, zone, () => {
+            if (!shown) {
+                shown = true;
+                this.tweens.add({ targets: message, alpha: 1, duration: 300 });
+                this.time.delayedCall(2500, () => {
+                    this.tweens.add({ targets: message, alpha: 0, duration: 300, onComplete: () => shown = false });
+                });
+            }
+        });
+    }
 
-            this.load.on('loaderror', (file) => {
-                console.error('Ошибка загрузки: ' + file.key);
-            });
+    createTransitionZone(x, y, w, h, targetScene, data) {
+        let zone = this.add.rectangle(x, y, w, h, 0x00ff00, 0);
+        this.physics.add.existing(zone, true);
+        let triggered = false;
+        this.physics.add.overlap(this.player, zone, () => {
+            if (!this.isTransitioning && !triggered) {
+                triggered = true;
+                this.isTransitioning = true;
+                this.player.body.setVelocity(0, 0);
+                this.cameras.main.fadeOut(800, 0, 0, 0);
+                this.time.delayedCall(800, () => {
+                    this.scene.start(targetScene, data);
+                });
+            }
+        });
+    }
+
+    update() {
+        const speed = this.player.body.velocity.length();
+        if (speed > 10) {
+            const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
+            const deg = Phaser.Math.RadToDeg(angle);
+            if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
+            else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
+            else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
+            else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
+        } else {
+            this.player.anims.play('idle-' + this.playerDirection, true);
         }
 
-        create() {
-            const screenWidth = this.scale.width;
-            const screenHeight = this.scale.height;
-
-            // Фон - ракурс гостиной (2K качество)
-            const bg = this.add.image(0, 0, 'room1').setOrigin(0, 0);
-            
-            const scaleX = screenWidth / bg.width;
-            const scaleY = screenHeight / bg.height;
-            const scale = Math.max(scaleX, scaleY);
-            
-            bg.setScale(scale);
-            
-            const roomWidth = bg.width * scale;
-            const roomHeight = bg.height * scale;
-
-            this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
-
-            // Создание анимаций (только если еще не созданы)
-            if (!this.anims.exists('walk-down')) {
-                this.anims.create({
-                    key: 'walk-down',
-                    frames: this.anims.generateFrameNumbers('playerSprite', { start: 0, end: 3 }),
-                    frameRate: 10,
-                    repeat: -1
-                });
-
-                this.anims.create({
-                    key: 'walk-left',
-                    frames: this.anims.generateFrameNumbers('playerSprite', { start: 4, end: 7 }),
-                    frameRate: 10,
-                    repeat: -1
-                });
-
-                this.anims.create({
-                    key: 'walk-right',
-                    frames: this.anims.generateFrameNumbers('playerSprite', { start: 8, end: 11 }),
-                    frameRate: 10,
-                    repeat: -1
-                });
-
-                this.anims.create({
-                    key: 'walk-up',
-                    frames: this.anims.generateFrameNumbers('playerSprite', { start: 12, end: 15 }),
-                    frameRate: 10,
-                    repeat: -1
-                });
-
-                this.anims.create({
-                    key: 'idle-down',
-                    frames: [{ key: 'playerSprite', frame: 1 }],
-                    frameRate: 1
-                });
-
-                this.anims.create({
-                    key: 'idle-left',
-                    frames: [{ key: 'playerSprite', frame: 5 }],
-                    frameRate: 1
-                });
-
-                this.anims.create({
-                    key: 'idle-right',
-                    frames: [{ key: 'playerSprite', frame: 9 }],
-                    frameRate: 1
-                });
-
-                this.anims.create({
-                    key: 'idle-up',
-                    frames: [{ key: 'playerSprite', frame: 13 }],
-                    frameRate: 1
-                });
-            }
-
-            // Персонаж - позиция зависит от того, откуда пришел
-            const fromStudio = this.scene.settings.data?.fromStudio;
-            
-            if (fromStudio) {
-                // Пришел со студийного ракурса - появляется в верхней части (от задней стены)
-                this.player = this.physics.add.sprite(roomWidth * 0.5, roomHeight * 0.35, 'playerSprite')
-                    .setScale(3);
-            } else {
-                // Первый запуск - появляется внизу по центру
-                this.player = this.physics.add.sprite(roomWidth * 0.5, roomHeight * 0.75, 'playerSprite')
-                    .setScale(3);
-            }
-            
-            this.player.setCollideWorldBounds(true);
-            this.player.body.setSize(32, 24);
-            this.player.body.setOffset(16, 36);
-            this.player.anims.play('idle-down');
-            
-            this.playerDirection = 'down';
-
-            // КАМЕРА
-            this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-            this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.fadeIn(1000, 0, 0, 0);
-
-            this.targetX = null;
-            this.targetY = null;
-            this.isTransitioning = false;
-
-            this.input.on('pointerdown', (pointer) => {
-                if (this.isTransitioning) return;
-                
-                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                this.targetX = worldPoint.x;
-                this.targetY = worldPoint.y;
-                this.physics.moveToObject(this.player, worldPoint, 250);
-            });
-
-            // --- КОЛЛИЗИИ (мебель в гостиной) ---
-            
-            // Диван (внизу слева)
-            let sofa = this.add.rectangle(roomWidth * 0.22, roomHeight * 0.72, 
-                450 * scale, 250 * scale, 0x000000, 0);
-            this.physics.add.existing(sofa, true);
-            this.physics.add.collider(this.player, sofa);
-
-            // Тумба с TV (по центру вверху)
-            let tvStand = this.add.rectangle(roomWidth * 0.52, roomHeight * 0.35, 
-                400 * scale, 200 * scale, 0x000000, 0);
-            this.physics.add.existing(tvStand, true);
-            this.physics.add.collider(this.player, tvStand);
-
-            // Пуфик (по центру)
-            let ottoman = this.add.rectangle(roomWidth * 0.45, roomHeight * 0.58, 
-                180 * scale, 140 * scale, 0x000000, 0);
-            this.physics.add.existing(ottoman, true);
-            this.physics.add.collider(this.player, ottoman);
-
-            // Гитара на стене (препятствие слева вверху)
-            let guitar = this.add.rectangle(roomWidth * 0.08, roomHeight * 0.32, 
-                80 * scale, 150 * scale, 0x000000, 0);
-            this.physics.add.existing(guitar, true);
-            this.physics.add.collider(this.player, guitar);
-
-            // Стена со шторами (слева)
-            let curtainWall = this.add.rectangle(roomWidth * 0.15, roomHeight * 0.45, 
-                150 * scale, 400 * scale, 0x000000, 0);
-            this.physics.add.existing(curtainWall, true);
-            this.physics.add.collider(this.player, curtainWall);
-
-            // --- ДВЕРЬ СПРАВА (ЗАБЛОКИРОВАНА) - "Еще не время" ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.92, roomHeight * 0.45, 
-                100, 280 * scale, 0xffff00, 0);
-            this.physics.add.existing(this.lockedDoorZone, true);
-
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.92, roomHeight * 0.25, 
-                'Еще не время', {
-                fontSize: '48px',
-                fontFamily: 'Courier New',
-                color: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 25, y: 12 },
-                alpha: 0
-            }).setOrigin(0.5);
-
-            let lockedMessageShown = false;
-            this.physics.add.overlap(this.player, this.lockedDoorZone, () => {
-                if (!lockedMessageShown) {
-                    lockedMessageShown = true;
-                    this.tweens.add({
-                        targets: this.lockedDoorMessage,
-                        alpha: 1,
-                        duration: 300
-                    });
-                    
-                    this.time.delayedCall(2500, () => {
-                        this.tweens.add({
-                            targets: this.lockedDoorMessage,
-                            alpha: 0,
-                            duration: 300,
-                            onComplete: () => {
-                                lockedMessageShown = false;
-                            }
-                        });
-                    });
-                }
-            }, null, this);
-
-            // --- ЗОНА СМЕНЫ РАКУРСА (переход к студийному виду) ---
-            // Это зона у задней стены (верхняя часть комнаты)
-            this.angleChangeZone = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.15, 
-                roomWidth * 0.6, 150, 0x00ff00, 0);
-            this.physics.add.existing(this.angleChangeZone, true);
-
-            let angleChangeTriggered = false;
-            this.physics.add.overlap(this.player, this.angleChangeZone, () => {
-                if (!this.isTransitioning && !angleChangeTriggered) {
-                    angleChangeTriggered = true;
-                    this.isTransitioning = true;
-                    this.player.body.setVelocity(0, 0);
-                    
-                    // Плавная смена ракурса
-                    this.cameras.main.fadeOut(800, 0, 0, 0);
-                    
-                    this.time.delayedCall(800, () => {
-                        this.scene.start('StudioScene', { fromLiving: true });
-                    });
-                }
-            }, null, this);
-
-            // Debug
-            // sofa.setAlpha(0.3);
-            // tvStand.setAlpha(0.3);
-            // ottoman.setAlpha(0.3);
-            // guitar.setAlpha(0.3);
-            // curtainWall.setAlpha(0.3);
-            // this.lockedDoorZone.setAlpha(0.3);
-            // this.angleChangeZone.setAlpha(0.3);
-        }
-
-        update() {
-            const speed = this.player.body.velocity.length();
-
-            if (speed > 10) {
-                // Определяем направление движения
-                const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
-                const deg = Phaser.Math.RadToDeg(angle);
-
-                if (deg > -45 && deg <= 45) {
-                    this.player.anims.play('walk-right', true);
-                    this.playerDirection = 'right';
-                } else if (deg > 45 && deg <= 135) {
-                    this.player.anims.play('walk-down', true);
-                    this.playerDirection = 'down';
-                } else if (deg > 135 || deg <= -135) {
-                    this.player.anims.play('walk-left', true);
-                    this.playerDirection = 'left';
-                } else {
-                    this.player.anims.play('walk-up', true);
-                    this.playerDirection = 'up';
-                }
-            } else {
-                // Стоп-анимация
-                this.player.anims.play('idle-' + this.playerDirection, true);
-            }
-
-            // Остановка у цели
-            if (this.targetX !== null && this.targetY !== null) {
-                const distance = Phaser.Math.Distance.Between(
-                    this.player.x, this.player.y, 
-                    this.targetX, this.targetY
-                );
-
-                if (distance < 10) {
-                    this.player.body.setVelocity(0, 0);
-                    this.targetX = null;
-                    this.targetY = null;
-                }
+        if (this.targetX !== null && this.targetY !== null) {
+            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
+            if (distance < 12) {
+                this.player.body.setVelocity(0, 0);
+                this.targetX = null;
+                this.targetY = null;
             }
         }
     }
+}
 
-    // --- СТУДИЯ (Другой ракурс той же комнаты) ---
-    class StudioScene extends Phaser.Scene {
-        constructor() { super('StudioScene'); }
+// --- СТУДИЯ ---
+class StudioScene extends Phaser.Scene {
+    constructor() { super('StudioScene'); }
+    preload() {
+        this.load.image('room2', 'room2.png');
+    }
+    create() {
+        const screenWidth = this.scale.width;
+        const screenHeight = this.scale.height;
 
-        preload() {
-            this.load.image('room2', 'room2.png');
+        const bg = this.add.image(0, 0, 'room2').setOrigin(0, 0);
+        const scaleX = screenWidth / bg.width;
+        const scaleY = screenHeight / bg.height;
+        const scale = Math.max(scaleX, scaleY);
+        bg.setScale(scale);
+        const roomWidth = bg.width * scale;
+        const roomHeight = bg.height * scale;
+        this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
+
+        const fromLiving = this.scene.settings.data?.fromLiving;
+        this.player = this.physics.add.sprite(
+            roomWidth * 0.5,
+            fromLiving ? roomHeight * 0.8 : roomHeight * 0.6,
+            'playerSprite'
+        ).setScale(3);
+
+        this.player.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+        this.player.setCollideWorldBounds(true);
+        this.player.body.setCircle(22, 0, 22);
+
+        this.player.anims.play('idle-up');
+        this.playerDirection = 'up';
+
+        this.cameras.main.startFollow(this.player, true, 0.15, 0.15);
+        this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
+        this.cameras.main.fadeIn(1000, 0, 0, 0);
+
+        this.targetX = null;
+        this.targetY = null;
+        this.isTransitioning = false;
+
+        this.input.on('pointerdown', (pointer) => {
+            if (this.isTransitioning) return;
+            const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+            this.targetX = worldPoint.x;
+            this.targetY = worldPoint.y;
+            this.physics.moveToObject(this.player, worldPoint, 300);
+        });
+
+        // Коллизии мебели
+        const obstacles = [
+            { x: roomWidth * 0.3, y: roomHeight * 0.45, w: 380 * scale, h: 220 * scale }, // стол
+            { x: roomWidth * 0.3, y: roomHeight * 0.6, w: 120 * scale, h: 120 * scale }, // стул
+            { x: roomWidth * 0.3, y: roomHeight * 0.28, w: 250 * scale, h: 180 * scale }, // стеллаж
+            { x: roomWidth * 0.75, y: roomHeight * 0.7, w: 350 * scale, h: 220 * scale }, // диван
+            { x: roomWidth * 0.15, y: roomHeight * 0.7, w: 140 * scale, h: 180 * scale }, // клавиши
+            { x: roomWidth * 0.78, y: roomHeight * 0.4, w: 80 * scale, h: 100 * scale }   // растение
+        ];
+
+        obstacles.forEach(obs => {
+            let rect = this.add.rectangle(obs.x, obs.y, obs.w, obs.h);
+            this.physics.add.existing(rect, true);
+            this.physics.add.collider(this.player, rect);
+        });
+
+        // Заблокированная дверь слева
+        this.createLockedDoor(roomWidth * 0.05, roomHeight * 0.5, 100, 280 * scale);
+
+        // Зона возврата в гостиную (тоньше)
+        this.createTransitionZone(roomWidth * 0.5, roomHeight * 0.88, roomWidth * 0.6, 80, 'MainScene', { fromStudio: true });
+    }
+
+    createLockedDoor(x, y, w, h) {
+        let zone = this.add.rectangle(x, y, w, h, 0xffff00, 0);
+        this.physics.add.existing(zone, true);
+        let message = this.add.text(x, y - 100, 'Еще не время', {
+            fontSize: '48px',
+            fontFamily: 'Courier New',
+            color: '#ffffff',
+            backgroundColor: '#000000',
+            padding: { x: 25, y: 12 },
+            alpha: 0
+        }).setOrigin(0.5);
+
+        let shown = false;
+        this.physics.add.overlap(this.player, zone, () => {
+            if (!shown) {
+                shown = true;
+                this.tweens.add({ targets: message, alpha: 1, duration: 300 });
+                this.time.delayedCall(2500, () => {
+                    this.tweens.add({ targets: message, alpha: 0, duration: 300, onComplete: () => shown = false });
+                });
+            }
+        });
+    }
+
+    createTransitionZone(x, y, w, h, targetScene, data) {
+        let zone = this.add.rectangle(x, y, w, h, 0xff0000, 0);
+        this.physics.add.existing(zone, true);
+        let triggered = false;
+        this.physics.add.overlap(this.player, zone, () => {
+            if (!this.isTransitioning && !triggered) {
+                triggered = true;
+                this.isTransitioning = true;
+                this.player.body.setVelocity(0, 0);
+                this.cameras.main.fadeOut(800, 0, 0, 0);
+                this.time.delayedCall(800, () => {
+                    this.scene.start(targetScene, data);
+                });
+            }
+        });
+    }
+
+    update() {
+        const speed = this.player.body.velocity.length();
+        if (speed > 10) {
+            const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
+            const deg = Phaser.Math.RadToDeg(angle);
+            if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
+            else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
+            else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
+            else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
+        } else {
+            this.player.anims.play('idle-' + this.playerDirection, true);
         }
 
-        create() {
-            const screenWidth = this.scale.width;
-            const screenHeight = this.scale.height;
-
-            // Фон - ракурс студии (2K качество)
-            const bg = this.add.image(0, 0, 'room2').setOrigin(0, 0);
-            
-            const scaleX = screenWidth / bg.width;
-            const scaleY = screenHeight / bg.height;
-            const scale = Math.max(scaleX, scaleY);
-            
-            bg.setScale(scale);
-            
-            const roomWidth = bg.width * scale;
-            const roomHeight = bg.height * scale;
-
-            this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
-
-            // Персонаж появляется внизу (пришел из гостиной)
-            const fromLiving = this.scene.settings.data?.fromLiving;
-            
-            if (fromLiving) {
-                this.player = this.physics.add.sprite(roomWidth * 0.5, roomHeight * 0.8, 'playerSprite')
-                    .setScale(3);
-            } else {
-                this.player = this.physics.add.sprite(roomWidth * 0.4, roomHeight * 0.6, 'playerSprite')
-                    .setScale(3);
-            }
-            
-            this.player.setCollideWorldBounds(true);
-            this.player.body.setSize(32, 24);
-            this.player.body.setOffset(16, 36);
-            this.player.anims.play('idle-up');
-            
-            this.playerDirection = 'up';
-
-            // КАМЕРА
-            this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-            this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.fadeIn(1000, 0, 0, 0);
-
-            this.targetX = null;
-            this.targetY = null;
-            this.isTransitioning = false;
-
-            this.input.on('pointerdown', (pointer) => {
-                if (this.isTransitioning) return;
-                
-                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                this.targetX = worldPoint.x;
-                this.targetY = worldPoint.y;
-                this.physics.moveToObject(this.player, worldPoint, 250);
-            });
-
-            // --- КОЛЛИЗИИ (мебель в студийной части) ---
-            
-            // Рабочий стол (слева по центру)
-            let desk = this.add.rectangle(roomWidth * 0.3, roomHeight * 0.45, 
-                380 * scale, 220 * scale, 0x000000, 0);
-            this.physics.add.existing(desk, true);
-            this.physics.add.collider(this.player, desk);
-
-            // Стул перед столом
-            let chair = this.add.rectangle(roomWidth * 0.3, roomHeight * 0.6, 
-                120 * scale, 120 * scale, 0x000000, 0);
-            this.physics.add.existing(chair, true);
-            this.physics.add.collider(this.player, chair);
-
-            // Стеллаж (слева вверху за столом)
-            let shelf = this.add.rectangle(roomWidth * 0.3, roomHeight * 0.28, 
-                250 * scale, 180 * scale, 0x000000, 0);
-            this.physics.add.existing(shelf, true);
-            this.physics.add.collider(this.player, shelf);
-
-            // Диван (справа внизу)
-            let couch = this.add.rectangle(roomWidth * 0.75, roomHeight * 0.7, 
-                350 * scale, 220 * scale, 0x000000, 0);
-            this.physics.add.existing(couch, true);
-            this.physics.add.collider(this.player, couch);
-
-            // Клавиши (слева внизу)
-            let keyboard = this.add.rectangle(roomWidth * 0.15, roomHeight * 0.7, 
-                140 * scale, 180 * scale, 0x000000, 0);
-            this.physics.add.existing(keyboard, true);
-            this.physics.add.collider(this.player, keyboard);
-
-            // Растение (справа вверху)
-            let plant = this.add.rectangle(roomWidth * 0.78, roomHeight * 0.4, 
-                80 * scale, 100 * scale, 0x000000, 0);
-            this.physics.add.existing(plant, true);
-            this.physics.add.collider(this.player, plant);
-
-            // --- ДВЕРЬ СЛЕВА (ЗАБЛОКИРОВАНА) - "Еще не время" ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.05, roomHeight * 0.5, 
-                100, 280 * scale, 0xffff00, 0);
-            this.physics.add.existing(this.lockedDoorZone, true);
-
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.05, roomHeight * 0.3, 
-                'Еще не время', {
-                fontSize: '48px',
-                fontFamily: 'Courier New',
-                color: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 25, y: 12 },
-                alpha: 0
-            }).setOrigin(0.5);
-
-            let lockedMessageShown = false;
-            this.physics.add.overlap(this.player, this.lockedDoorZone, () => {
-                if (!lockedMessageShown) {
-                    lockedMessageShown = true;
-                    this.tweens.add({
-                        targets: this.lockedDoorMessage,
-                        alpha: 1,
-                        duration: 300
-                    });
-                    
-                    this.time.delayedCall(2500, () => {
-                        this.tweens.add({
-                            targets: this.lockedDoorMessage,
-                            alpha: 0,
-                            duration: 300,
-                            onComplete: () => {
-                                lockedMessageShown = false;
-                            }
-                        });
-                    });
-                }
-            }, null, this);
-
-            // --- ЗОНА СМЕНЫ РАКУРСА (возврат к гостиной) ---
-            // Нижняя часть комнаты - переход обратно к гостиной
-            this.angleChangeZone = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.88, 
-                roomWidth * 0.6, 150, 0xff0000, 0);
-            this.physics.add.existing(this.angleChangeZone, true);
-
-            let angleChangeTriggered = false;
-            this.physics.add.overlap(this.player, this.angleChangeZone, () => {
-                if (!this.isTransitioning && !angleChangeTriggered) {
-                    angleChangeTriggered = true;
-                    this.isTransitioning = true;
-                    this.player.body.setVelocity(0, 0);
-                    
-                    this.cameras.main.fadeOut(800, 0, 0, 0);
-                    
-                    this.time.delayedCall(800, () => {
-                        this.scene.start('MainScene', { fromStudio: true });
-                    });
-                }
-            }, null, this);
-
-            // Debug
-            // desk.setAlpha(0.3);
-            // chair.setAlpha(0.3);
-            // shelf.setAlpha(0.3);
-            // couch.setAlpha(0.3);
-            // keyboard.setAlpha(0.3);
-            // plant.setAlpha(0.3);
-            // this.lockedDoorZone.setAlpha(0.3);
-            // this.angleChangeZone.setAlpha(0.3);
-        }
-
-        update() {
-            const speed = this.player.body.velocity.length();
-
-            if (speed > 10) {
-                const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
-                const deg = Phaser.Math.RadToDeg(angle);
-
-                if (deg > -45 && deg <= 45) {
-                    this.player.anims.play('walk-right', true);
-                    this.playerDirection = 'right';
-                } else if (deg > 45 && deg <= 135) {
-                    this.player.anims.play('walk-down', true);
-                    this.playerDirection = 'down';
-                } else if (deg > 135 || deg <= -135) {
-                    this.player.anims.play('walk-left', true);
-                    this.playerDirection = 'left';
-                } else {
-                    this.player.anims.play('walk-up', true);
-                    this.playerDirection = 'up';
-                }
-            } else {
-                this.player.anims.play('idle-' + this.playerDirection, true);
-            }
-
-            if (this.targetX !== null && this.targetY !== null) {
-                const distance = Phaser.Math.Distance.Between(
-                    this.player.x, this.player.y, 
-                    this.targetX, this.targetY
-                );
-
-                if (distance < 10) {
-                    this.player.body.setVelocity(0, 0);
-                    this.targetX = null;
-                    this.targetY = null;
-                }
+        if (this.targetX !== null && this.targetY !== null) {
+            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
+            if (distance < 12) {
+                this.player.body.setVelocity(0, 0);
+                this.targetX = null;
+                this.targetY = null;
             }
         }
     }
+}
 
-    // --- КОНФИГУРАЦИЯ ИГРЫ ---
-    const config = {
-        type: Phaser.AUTO,
-        scale: {
-            mode: Phaser.Scale.FIT,
-            autoCenter: Phaser.Scale.CENTER_BOTH,
-            width: 1080,
-            height: 1920
-        },
-        physics: {
-            default: 'arcade',
-            arcade: {
-                debug: false, // Измени на true для просмотра коллизий
-                gravity: { y: 0 }
-            }
-        },
-        scene: [MenuScene, MainScene, StudioScene]
-    };
+// --- КОНФИГУРАЦИЯ ---
+const config = {
+    type: Phaser.AUTO,
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: 1080,
+        height: 1920
+    },
+    physics: {
+        default: 'arcade',
+        arcade: {
+            debug: false,
+            gravity: { y: 0 }
+        }
+    },
+    scene: [MenuScene, MainScene, StudioScene]
+};
 
-    const game = new Phaser.Game(config);
+const game = new Phaser.Game(config);
 </script>
 </body>
 </html>
