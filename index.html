@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -12,47 +12,34 @@
 </head>
 <body>
 <script>
-    // Настройки для Telegram Mini App (9:16)
-    const config = {
-        type: Phaser.AUTO,
-        scale: {
-            mode: Phaser.Scale.FIT,
-            autoCenter: Phaser.Scale.CENTER_BOTH,
-            width: 1080,
-            height: 1920
-        },
-        physics: {
-            default: 'arcade',
-            arcade: { debug: false } // Поставь true, чтобы видеть границы стен
-        },
-        scene: [MainScene, StudioScene]
-    };
-
-    const game = new Phaser.Game(config);
-
     // --- ПЕРВАЯ КОМНАТА (ГОСТИНАЯ) ---
     class MainScene extends Phaser.Scene {
         constructor() { super('MainScene'); }
 
         preload() {
-            this.load.image('room1', 'room1.png'); // Твоя картинка с диваном
-            this.load.image('player', 'player.png'); // Твой скин персонажа
+            // Относительные пути для GitHub Pages
+            this.load.image('room1', 'room1.png'); 
+            this.load.image('player', 'player.png');
+            
+            this.load.on('loaderror', (file) => {
+                console.error('Ошибка загрузки файла: ' + file.key);
+            });
         }
 
         create() {
-            // Фон
+            // Фон (центр экрана 540, 960 при разрешении 1080x1920)
             this.add.image(540, 960, 'room1').setDisplaySize(1080, 1920);
 
             // Персонаж
             this.player = this.physics.add.sprite(540, 1500, 'player').setScale(0.8);
             this.player.setCollideWorldBounds(true);
 
-            // Управление тапом
+            // Управление тапом (куда нажал - туда и пошел)
             this.input.on('pointerdown', (pointer) => {
                 this.physics.moveToObject(this.player, pointer, 400);
             });
 
-            // Зона перехода в студию (справа)
+            // Зона перехода в студию (невидимый прямоугольник справа)
             this.exitZone = this.add.rectangle(1050, 960, 100, 1920, 0xff0000, 0);
             this.physics.add.existing(this.exitZone, true);
 
@@ -60,17 +47,23 @@
                 this.scene.start('StudioScene');
             });
 
-            // --- КОЛЛИЗИИ (СТЕНЫ) ---
-            // Пример: создаем невидимую стену для дивана
-            let sofaObstacle = this.add.rectangle(540, 1400, 600, 200, 0x000, 0);
+            // --- КОЛЛИЗИИ (СТЕНЫ И МЕБЕЛЬ) ---
+            // Пример: невидимая стена для дивана, чтобы не ходить сквозь него
+            let sofaObstacle = this.add.rectangle(540, 1400, 600, 200, 0x000000, 0);
             this.physics.add.existing(sofaObstacle, true);
             this.physics.add.collider(this.player, sofaObstacle);
         }
 
         update() {
-            // Остановка персонажа, когда он дошел до точки нажатия
-            let distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.input.activePointer.worldX, this.input.activePointer.worldY);
-            if (this.player.body.speed > 0 && distance < 10) {
+            // Остановка персонажа в точке нажатия
+            let distance = Phaser.Math.Distance.Between(
+                this.player.x, 
+                this.player.y, 
+                this.input.activePointer.worldX, 
+                this.input.activePointer.worldY
+            );
+
+            if (this.player.body.speed > 0 && distance < 15) {
                 this.player.body.reset(this.player.x, this.player.y);
             }
         }
@@ -87,14 +80,15 @@
         create() {
             this.add.image(540, 960, 'room2').setDisplaySize(1080, 1920);
             
-            // Появляемся слева
+            // Появляемся слева (как будто зашли из гостиной)
             this.player = this.physics.add.sprite(100, 960, 'player').setScale(0.8);
+            this.player.setCollideWorldBounds(true);
             
             this.input.on('pointerdown', (pointer) => {
                 this.physics.moveToObject(this.player, pointer, 400);
             });
 
-            // Зона возврата (слева)
+            // Зона возврата в гостиную (невидимый прямоугольник слева)
             this.backZone = this.add.rectangle(30, 960, 100, 1920, 0xff0000, 0);
             this.physics.add.existing(this.backZone, true);
 
@@ -104,12 +98,38 @@
         }
 
         update() {
-            let distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.input.activePointer.worldX, this.input.activePointer.worldY);
-            if (this.player.body.speed > 0 && distance < 10) {
+            let distance = Phaser.Math.Distance.Between(
+                this.player.x, 
+                this.player.y, 
+                this.input.activePointer.worldX, 
+                this.input.activePointer.worldY
+            );
+
+            if (this.player.body.speed > 0 && distance < 15) {
                 this.player.body.reset(this.player.x, this.player.y);
             }
         }
     }
+
+    // --- ИНИЦИАЛИЗАЦИЯ ИГРЫ (После объявления всех классов) ---
+    const config = {
+        type: Phaser.AUTO,
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+            width: 1080,
+            height: 1920
+        },
+        physics: {
+            default: 'arcade',
+            arcade: { 
+                debug: false // Измени на true, если хочешь видеть границы стен и зон перехода
+            }
+        },
+        scene: [MainScene, StudioScene]
+    };
+
+    const game = new Phaser.Game(config);
 </script>
 </body>
 </html>
