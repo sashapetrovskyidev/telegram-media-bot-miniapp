@@ -179,7 +179,16 @@
             });
 
             this.load.on('loaderror', (file) => {
-                console.error('Ошибка загрузки файла: ' + file.key);
+                console.error('❌ Ошибка загрузки файла: ' + file.key);
+                console.error('Путь:', file.src);
+            });
+            
+            this.load.on('complete', () => {
+                console.log('✅ Все файлы загружены');
+            });
+            
+            this.load.on('filecomplete-spritesheet-playerSprite', () => {
+                console.log('✅ Спрайтшит персонажа загружен!');
             });
         }
 
@@ -267,9 +276,10 @@
             this.player.anims.play('idle-down');
             this.playerDirection = 'down';
 
-            // КАМЕРА ВСЕГДА СЛЕДУЕТ ЗА ПЕРСОНАЖЕМ
+            // КАМЕРА ВСЕГДА СЛЕДУЕТ ЗА ПЕРСОНАЖЕМ + ЗУМ
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
+            this.cameras.main.setZoom(1.4); // Увеличиваем зум
             this.cameras.main.fadeIn(1000, 0, 0, 0);
 
             this.targetX = null;
@@ -285,35 +295,31 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // --- ПОЛ - только по полу можно ходить ---
-            // Ограничиваем зону ходьбы полом (нижние 50% комнаты)
-            const floorY = roomHeight * 0.5;
-            this.player.body.setCollideWorldBounds(true);
+            // --- КОЛЛИЗИИ (блокируем только мебель, а не пол) ---
             
-            // Верхняя граница пола (невидимая стена)
-            let floorBoundary = this.add.rectangle(roomWidth / 2, floorY - 50, roomWidth, 100, 0x000000, 0);
-            this.physics.add.existing(floorBoundary, true);
-            this.physics.add.collider(this.player, floorBoundary);
-
-            // --- КОЛЛИЗИИ (мебель) ---
-            
-            // Диван
-            let sofa = this.add.rectangle(roomWidth * 0.18, roomHeight * 0.75, 
-                380 * scale, 220 * scale, 0x000000, 0);
+            // Диван справа
+            let sofa = this.add.rectangle(roomWidth * 0.72, roomHeight * 0.68, 
+                350 * scale, 200 * scale, 0xff0000, 0);
             this.physics.add.existing(sofa, true);
             this.physics.add.collider(this.player, sofa);
 
-            // Тумба с TV
-            let tvStand = this.add.rectangle(roomWidth * 0.52, roomHeight * 0.55, 
-                350 * scale, 150 * scale, 0x000000, 0);
+            // Тумба с TV (верх по центру)
+            let tvStand = this.add.rectangle(roomWidth * 0.52, roomHeight * 0.35, 
+                380 * scale, 180 * scale, 0x00ff00, 0);
             this.physics.add.existing(tvStand, true);
             this.physics.add.collider(this.player, tvStand);
 
-            // Пуфик
-            let ottoman = this.add.rectangle(roomWidth * 0.38, roomHeight * 0.68, 
-                140 * scale, 110 * scale, 0x000000, 0);
+            // Пуфик (центр)
+            let ottoman = this.add.rectangle(roomWidth * 0.35, roomHeight * 0.62, 
+                150 * scale, 120 * scale, 0x0000ff, 0);
             this.physics.add.existing(ottoman, true);
             this.physics.add.collider(this.player, ottoman);
+
+            // Левая стена (штора + гитара)
+            let leftWall = this.add.rectangle(roomWidth * 0.12, roomHeight * 0.5, 
+                180 * scale, roomHeight * 0.6, 0xffff00, 0);
+            this.physics.add.existing(leftWall, true);
+            this.physics.add.collider(this.player, leftWall);
 
             // --- ДВЕРЬ СПРАВА (ЗАБЛОКИРОВАНА) ---
             this.lockedDoorZone = this.add.rectangle(roomWidth * 0.92, roomHeight * 0.58, 
@@ -353,28 +359,14 @@
                 }
             }, null, this);
 
-            // --- ДИАГОНАЛЬНАЯ ЛИНИЯ ПЕРЕХОДА / (от левого низа к правому верху) ---
-            // Создаем полигон для диагональной зоны перехода
-            this.transitionZone = this.add.polygon(
-                roomWidth * 0.65, roomHeight * 0.7,
-                [
-                    roomWidth * 0.1, roomHeight * 0.25,  // правый верх линии
-                    roomWidth * 0.2, roomHeight * 0.25,  // ширина зоны
-                    roomWidth * 0.2, roomHeight * 0.15,  // ширина зоны
-                    roomWidth * 0.1, roomHeight * 0.15   // левый низ линии
-                ],
+            // --- ДИАГОНАЛЬНАЯ ЛИНИЯ ПЕРЕХОДА / ---
+            // Простая зона в правой части пола
+            this.transitionZone = this.add.rectangle(
+                roomWidth * 0.7, roomHeight * 0.65,
+                roomWidth * 0.25, 200,
                 0x00ff00, 0
             );
             this.physics.add.existing(this.transitionZone, true);
-
-            // Рисуем визуальную линию для отладки (можно удалить потом)
-            const debugLine = this.add.graphics();
-            debugLine.lineStyle(3, 0x00ff00, 0.5);
-            debugLine.beginPath();
-            debugLine.moveTo(roomWidth * 0.52, roomHeight * 0.52);
-            debugLine.lineTo(roomWidth * 0.75, roomHeight * 0.75);
-            debugLine.strokePath();
-            debugLine.setAlpha(0); // Скрываем после теста
 
             let angleChangeTriggered = false;
             this.physics.add.overlap(this.player, this.transitionZone, () => {
@@ -392,11 +384,11 @@
             }, null, this);
 
             // Debug - раскомментируй чтобы видеть зоны
-            // debugLine.setAlpha(1);
             // sofa.setAlpha(0.3);
             // tvStand.setAlpha(0.3);
             // ottoman.setAlpha(0.3);
-            // floorBoundary.setAlpha(0.3);
+            // leftWall.setAlpha(0.3);
+            // this.transitionZone.setAlpha(0.3);
             // this.lockedDoorZone.setAlpha(0.3);
         }
 
@@ -480,9 +472,10 @@
             this.player.anims.play('idle-down');
             this.playerDirection = 'down';
 
-            // КАМЕРА
+            // КАМЕРА + ЗУМ
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
+            this.cameras.main.setZoom(1.4); // Увеличиваем зум
             this.cameras.main.fadeIn(1000, 0, 0, 0);
 
             this.targetX = null;
@@ -498,43 +491,43 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // --- ПОЛ ---
-            const floorY = roomHeight * 0.5;
-            let floorBoundary = this.add.rectangle(roomWidth / 2, floorY - 50, roomWidth, 100, 0x000000, 0);
-            this.physics.add.existing(floorBoundary, true);
-            this.physics.add.collider(this.player, floorBoundary);
-
-            // --- КОЛЛИЗИИ ---
+            // --- КОЛЛИЗИИ (блокируем только мебель) ---
             
-            // Рабочий стол
-            let desk = this.add.rectangle(roomWidth * 0.28, roomHeight * 0.6, 
-                340 * scale, 200 * scale, 0x000000, 0);
+            // Рабочий стол слева
+            let desk = this.add.rectangle(roomWidth * 0.28, roomHeight * 0.45, 
+                380 * scale, 220 * scale, 0xff0000, 0);
             this.physics.add.existing(desk, true);
             this.physics.add.collider(this.player, desk);
 
             // Стул
-            let chair = this.add.rectangle(roomWidth * 0.28, roomHeight * 0.72, 
-                100 * scale, 100 * scale, 0x000000, 0);
+            let chair = this.add.rectangle(roomWidth * 0.28, roomHeight * 0.65, 
+                120 * scale, 120 * scale, 0x00ff00, 0);
             this.physics.add.existing(chair, true);
             this.physics.add.collider(this.player, chair);
 
-            // Стеллаж
-            let shelf = this.add.rectangle(roomWidth * 0.28, roomHeight * 0.5, 
-                220 * scale, 130 * scale, 0x000000, 0);
+            // Стеллаж сверху
+            let shelf = this.add.rectangle(roomWidth * 0.28, roomHeight * 0.28, 
+                250 * scale, 150 * scale, 0x0000ff, 0);
             this.physics.add.existing(shelf, true);
             this.physics.add.collider(this.player, shelf);
 
-            // Диван
-            let couch = this.add.rectangle(roomWidth * 0.75, roomHeight * 0.72, 
-                320 * scale, 200 * scale, 0x000000, 0);
+            // Диван справа
+            let couch = this.add.rectangle(roomWidth * 0.75, roomHeight * 0.68, 
+                350 * scale, 220 * scale, 0xffff00, 0);
             this.physics.add.existing(couch, true);
             this.physics.add.collider(this.player, couch);
 
-            // Клавиши
-            let keyboard = this.add.rectangle(roomWidth * 0.12, roomHeight * 0.72, 
-                120 * scale, 160 * scale, 0x000000, 0);
+            // Клавиши слева внизу
+            let keyboard = this.add.rectangle(roomWidth * 0.12, roomHeight * 0.7, 
+                140 * scale, 180 * scale, 0xff00ff, 0);
             this.physics.add.existing(keyboard, true);
             this.physics.add.collider(this.player, keyboard);
+
+            // Растение справа
+            let plant = this.add.rectangle(roomWidth * 0.78, roomHeight * 0.48, 
+                80 * scale, 100 * scale, 0x00ffff, 0);
+            this.physics.add.existing(plant, true);
+            this.physics.add.collider(this.player, plant);
 
             // --- ДВЕРЬ СЛЕВА (ЗАБЛОКИРОВАНА) ---
             this.lockedDoorZone = this.add.rectangle(roomWidth * 0.05, roomHeight * 0.6, 
@@ -574,27 +567,13 @@
                 }
             }, null, this);
 
-            // --- ДИАГОНАЛЬНАЯ ЛИНИЯ ПЕРЕХОДА \ (от правого низа к левому верху) ---
-            this.transitionZone = this.add.polygon(
-                roomWidth * 0.35, roomHeight * 0.7,
-                [
-                    roomWidth * -0.1, roomHeight * 0.25,
-                    roomWidth * 0, roomHeight * 0.25,
-                    roomWidth * 0, roomHeight * 0.15,
-                    roomWidth * -0.1, roomHeight * 0.15
-                ],
+            // --- ЗОНА ПЕРЕХОДА обратно ---
+            this.transitionZone = this.add.rectangle(
+                roomWidth * 0.35, roomHeight * 0.65,
+                roomWidth * 0.25, 200,
                 0xff0000, 0
             );
             this.physics.add.existing(this.transitionZone, true);
-
-            // Визуальная линия
-            const debugLine = this.add.graphics();
-            debugLine.lineStyle(3, 0xff0000, 0.5);
-            debugLine.beginPath();
-            debugLine.moveTo(roomWidth * 0.25, roomHeight * 0.52);
-            debugLine.lineTo(roomWidth * 0.48, roomHeight * 0.75);
-            debugLine.strokePath();
-            debugLine.setAlpha(0);
 
             let angleChangeTriggered = false;
             this.physics.add.overlap(this.player, this.transitionZone, () => {
@@ -611,14 +590,14 @@
                 }
             }, null, this);
 
-            // Debug
-            // debugLine.setAlpha(1);
+            // Debug - раскомментируй чтобы видеть зоны
             // desk.setAlpha(0.3);
             // chair.setAlpha(0.3);
             // shelf.setAlpha(0.3);
             // couch.setAlpha(0.3);
             // keyboard.setAlpha(0.3);
-            // floorBoundary.setAlpha(0.3);
+            // plant.setAlpha(0.3);
+            // this.transitionZone.setAlpha(0.3);
             // this.lockedDoorZone.setAlpha(0.3);
         }
 
