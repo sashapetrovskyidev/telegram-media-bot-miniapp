@@ -23,7 +23,7 @@
         constructor() { super('MenuScene'); }
 
         preload() {
-            this.load.image('menuBg', 'room1.png');
+            this.load.image('menuBg', 'room1_right_size.png');
             
             this.load.on('loaderror', (file) => {
                 console.error('Ошибка загрузки: ' + file.key);
@@ -174,10 +174,10 @@
         preload() {
             console.log('🔄 Начинаем загрузку ресурсов...');
             
-            this.load.image('room1', 'room1_right_size.png');
+            this.load.image('room1', 'room1.png');
             
             // КРИТИЧНО: Проверяем загрузку спрайтшита
-            this.load.spritesheet('playerSprite', 'person_model_right.png', {
+            this.load.spritesheet('playerSprite', 'person_model_r.png', {
                 frameWidth: 64,
                 frameHeight: 64
             });
