@@ -172,23 +172,34 @@
         constructor() { super('MainScene'); }
 
         preload() {
+            console.log('🔄 Начинаем загрузку ресурсов...');
+            
             this.load.image('room1', 'room1.png');
+            
+            // КРИТИЧНО: Проверяем загрузку спрайтшита
             this.load.spritesheet('playerSprite', 'person_model.png', {
                 frameWidth: 64,
                 frameHeight: 64
             });
 
             this.load.on('loaderror', (file) => {
-                console.error('❌ Ошибка загрузки файла: ' + file.key);
-                console.error('Путь:', file.src);
+                console.error('❌ ОШИБКА загрузки файла: ' + file.key);
+                console.error('❌ Путь к файлу:', file.url);
+                console.error('❌ Тип файла:', file.type);
             });
             
             this.load.on('complete', () => {
-                console.log('✅ Все файлы загружены');
+                console.log('✅ Все файлы загружены успешно!');
             });
             
-            this.load.on('filecomplete-spritesheet-playerSprite', () => {
+            this.load.on('filecomplete-spritesheet-playerSprite', (key, type, data) => {
                 console.log('✅ Спрайтшит персонажа загружен!');
+                console.log('📊 Размер:', data.width, 'x', data.height);
+                console.log('📊 Должно быть: 256x256 (4x4 frames по 64px)');
+            });
+            
+            this.load.on('filecomplete-image-room1', () => {
+                console.log('✅ Комната загружена!');
             });
         }
 
@@ -269,12 +280,24 @@
                 this.player = this.physics.add.sprite(roomWidth * 0.4, roomHeight * 0.75, 'playerSprite');
             }
             
+            console.log('👤 Создание персонажа...');
+            console.log('👤 Texture exists?', this.textures.exists('playerSprite'));
+            
+            // ВАЖНО: Убираем цветной фон, оставляем только прозрачность
             this.player.setScale(3);
+            this.player.setOrigin(0.5, 0.5); // Центр спрайта
             this.player.setCollideWorldBounds(true);
-            this.player.body.setSize(32, 24);
-            this.player.body.setOffset(16, 36);
+            
+            // ФИКС: Правильный hitbox - МЕНЬШЕ чем спрайт
+            this.player.body.setSize(20, 20);  // Маленький хитбокс только для ног
+            this.player.body.setOffset(22, 44); // Смещение вниз к ногам
+            
             this.player.anims.play('idle-down');
             this.playerDirection = 'down';
+            
+            console.log('👤 Персонаж создан на позиции:', this.player.x, this.player.y);
+            console.log('👤 Размер спрайта:', this.player.width, 'x', this.player.height);
+            console.log('👤 Frame size:', this.player.frame.width, 'x', this.player.frame.height);
 
             // КАМЕРА ВСЕГДА СЛЕДУЕТ ЗА ПЕРСОНАЖЕМ + ЗУМ
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
@@ -500,9 +523,10 @@
             }
             
             this.player.setScale(3);
+            this.player.setOrigin(0.5, 0.5);
             this.player.setCollideWorldBounds(true);
-            this.player.body.setSize(32, 24);
-            this.player.body.setOffset(16, 36);
+            this.player.body.setSize(20, 20);
+            this.player.body.setOffset(22, 44);
             this.player.anims.play('idle-down');
             this.playerDirection = 'down';
 
@@ -704,6 +728,7 @@
     // --- КОНФИГУРАЦИЯ ---
     const config = {
         type: Phaser.AUTO,
+        backgroundColor: 'transparent', // ВАЖНО: прозрачный фон для Canvas
         scale: {
             mode: Phaser.Scale.FIT,
             autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -716,6 +741,11 @@
                 debug: false,
                 gravity: { y: 0 }
             }
+        },
+        render: {
+            antialias: false,  // Отключаем антиалиасинг для пиксель-арта
+            pixelArt: true,    // КРИТИЧНО: включаем режим пиксель-арта
+            transparent: true  // Прозрачность
         },
         scene: [MenuScene, MainScene, StudioScene]
     };
