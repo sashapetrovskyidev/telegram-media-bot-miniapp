@@ -388,53 +388,59 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // --- ТОЧНЫЕ КРАСНЫЕ ЛИНИИ (ГРАНИЦЫ ДВИЖЕНИЯ) ---
-            
-            // Рисуем ТОЛЬКО красные линии из твоей схемы
-            const boundaries = this.add.graphics();
-            boundaries.lineStyle(4, 0xff0000, 1);
-            
-            // Рисуем точный контур по красным линиям из room1_movements.png
-            boundaries.beginPath();
-            boundaries.moveTo(roomWidth * 0.20, roomHeight * 0.95);  // Левый низ
-            boundaries.lineTo(roomWidth * 0.20, roomHeight * 0.52);  // Вверх слева (диван)
-            boundaries.lineTo(roomWidth * 0.45, roomHeight * 0.52);  // Вправо
-            boundaries.lineTo(roomWidth * 0.45, roomHeight * 0.57);  // Вокруг пуфика
-            boundaries.lineTo(roomWidth * 0.28, roomHeight * 0.57);  
-            boundaries.lineTo(roomWidth * 0.28, roomHeight * 0.73);  
-            boundaries.lineTo(roomWidth * 0.45, roomHeight * 0.73);  
-            boundaries.lineTo(roomWidth * 0.45, roomHeight * 0.50);  // Вверх к TV
-            boundaries.lineTo(roomWidth * 0.67, roomHeight * 0.50);  // Вдоль TV
-            boundaries.lineTo(roomWidth * 0.67, roomHeight * 0.95);  // Вниз справа
-            boundaries.strokePath();
-            
-            // Верхняя часть (над TV до двери)
-            boundaries.beginPath();
-            boundaries.moveTo(roomWidth * 0.67, roomHeight * 0.50);
-            boundaries.lineTo(roomWidth * 0.67, roomHeight * 0.30);  // Вверх
-            boundaries.lineTo(roomWidth * 0.88, roomHeight * 0.30);  // К двери
-            boundaries.lineTo(roomWidth * 0.88, roomHeight * 0.95);  // Вниз вдоль двери
-            boundaries.strokePath();
-            
-            // Коллизии мебели (невидимые)
-            let sofa = this.add.rectangle(roomWidth * 0.14, roomHeight * 0.78, 250, 380, 0x000000, 0);
-            this.physics.add.existing(sofa, true);
-            this.physics.add.collider(this.player, sofa);
-            
-            let ottoman = this.add.rectangle(roomWidth * 0.365, roomHeight * 0.65, 170, 160, 0x000000, 0);
-            this.physics.add.existing(ottoman, true);
-            this.physics.add.collider(this.player, ottoman);
-            
-            let tvStand = this.add.rectangle(roomWidth * 0.56, roomHeight * 0.40, 220, 200, 0x000000, 0);
-            this.physics.add.existing(tvStand, true);
-            this.physics.add.collider(this.player, tvStand);
+            // === COLLISION WALLS matching red boundary from movement image ===
+            // Red boundary = player CANNOT cross these lines
+            // We create thin static rectangles along each red line segment
+
+            const wallThickness = 20;
+            const walls = this.physics.add.staticGroup();
+
+            // Helper: create a wall segment between two points
+            const addWall = (x, y, w, h) => {
+                const wall = this.add.rectangle(x, y, w, h, 0xff0000, 0);
+                this.physics.add.existing(wall, true);
+                walls.add(wall);
+            };
+
+            // --- RED BOUNDARY (Room 1 - Living Room) ---
+            // From the image: red rectangle goes around the walkable floor area
+            // The walkable zone is roughly bounded by:
+            //   Top-left: sofa back (left wall side)
+            //   Top: behind ottoman / in front of TV stand
+            //   Right: near the door
+            //   Bottom: front edge of the room floor
+
+            // Coordinates traced from the movement image:
+            // Red rect corners (approximate % of room):
+            //   Top-left:     (0.18, 0.52)
+            //   Top-right:    (0.62, 0.52)
+            //   Bottom-right: (0.62, 0.88)
+            //   Bottom-left:  (0.18, 0.88)
+            // Plus the ottoman island in the middle: (0.32, 0.60) to (0.44, 0.72)
+
+            // LEFT wall (sofa side) - vertical
+            addWall(roomWidth * 0.18, roomHeight * 0.70, wallThickness, roomHeight * 0.36);
+
+            // TOP wall (behind sofa/ottoman toward TV) - horizontal
+            addWall(roomWidth * 0.40, roomHeight * 0.52, roomWidth * 0.44, wallThickness);
+
+            // RIGHT wall (room edge before door) - vertical
+            addWall(roomWidth * 0.62, roomHeight * 0.70, wallThickness, roomHeight * 0.36);
+
+            // BOTTOM wall (front edge of floor) - horizontal
+            addWall(roomWidth * 0.40, roomHeight * 0.88, roomWidth * 0.44, wallThickness);
+
+            // OTTOMAN (island in center) - solid block
+            addWall(roomWidth * 0.38, roomHeight * 0.66, roomWidth * 0.12, roomHeight * 0.12);
+
+            this.physics.add.collider(this.player, walls);
 
             // --- ДВЕРЬ СПРАВА (ЗАБЛОКИРОВАНА) ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.93, roomHeight * 0.45, 
+            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.93, roomHeight * 0.45,
                 140, 280 * scale, 0xffffff, 0);
             this.physics.add.existing(this.lockedDoorZone, true);
 
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.75, roomHeight * 0.3, 
+            this.lockedDoorMessage = this.add.text(roomWidth * 0.75, roomHeight * 0.3,
                 'Еще не время', {
                 fontSize: '48px',
                 fontFamily: 'Courier New',
@@ -453,7 +459,7 @@
                         alpha: 1,
                         duration: 300
                     });
-                    
+
                     this.time.delayedCall(2500, () => {
                         this.tweens.add({
                             targets: this.lockedDoorMessage,
@@ -467,61 +473,74 @@
                 }
             }, null, this);
 
-            // --- ЗЕЛЕНАЯ ДИАГОНАЛЬНАЯ ЛИНИЯ ПЕРЕХОДА / ---
-            // От правого нижнего угла пола к верхнему углу у двери
-            
-            const line = new Phaser.Geom.Line(
-                roomWidth * 0.56,  // Начало линии X (центр пола)
-                roomHeight * 0.80, // Начало линии Y (низ)
-                roomWidth * 0.91,  // Конец линии X (у двери)
-                roomHeight * 0.53  // Конец линии Y (верх)
-            );
-            
-            // Создаем толстую диагональную зону перехода - ВИДИМАЯ
-            this.transitionZone = this.add.rectangle(
-                roomWidth * 0.735, 
-                roomHeight * 0.665,
-                roomWidth * 0.42,
-                150,
-                0x00ff00, 0.4
-            );
-            this.transitionZone.rotation = -0.52; // Поворот на 30 градусов
-            this.physics.add.existing(this.transitionZone, true);
+            // --- GREEN TRANSITION LINE (diagonal / from bottom-center to upper-right) ---
+            // From the image: green line goes from ~(0.48, 0.86) to ~(0.72, 0.62)
+            // This is the diagonal "/" line near the right side of the room
 
-            // Визуальная линия для отладки (зеленая)
-            const debugLine = this.add.graphics();
-            debugLine.lineStyle(6, 0x00ff00, 1);
-            debugLine.strokeLineShape(line);
+            this.transitionZone = this.add.rectangle(
+                roomWidth * 0.60,
+                roomHeight * 0.74,
+                roomWidth * 0.30,
+                60,
+                0x00ff00, 0
+            );
+            this.transitionZone.rotation = -0.78; // ~45 degree diagonal /
+            this.physics.add.existing(this.transitionZone, true);
 
             this.physics.add.overlap(this.player, this.transitionZone, () => {
                 if (!this.isTransitioning) {
-                    console.log('🟢 ПЕРЕХОД В СТУДИЮ - TRIGGERED');
                     this.isTransitioning = true;
                     this.player.body.setVelocity(0, 0);
-                    
+
                     this.cameras.main.fadeOut(800, 0, 0, 0);
-                    
+
                     this.time.delayedCall(800, () => {
-                        console.log('🔄 Запуск студии...');
                         this.scene.start('StudioScene', { fromLiving: true });
                     });
                 }
             }, null, this);
-
-            // Debug - раскомментируй чтобы видеть зоны
-            debugLine.setAlpha(1); // Включи чтобы видеть линию перехода
-            // sofa.setAlpha(0.3);
-            // tvStand.setAlpha(0.3);
-            // ottoman.setAlpha(0.3);
-            // leftWall.setAlpha(0.3);
-            // topWall.setAlpha(0.3);
-            // this.transitionZone.setAlpha(0.3);
-            // this.lockedDoorZone.setAlpha(0.3);
         }
 
         update() {
-            const speed = this.player.body.velocity.length();
+            const moveSpeed = 250;
+            let vx = 0;
+            let vy = 0;
 
+            // WASD + arrow keys + virtual buttons
+            const left = this.wasd.left.isDown || this.cursors.left.isDown || this.virtualInput.left;
+            const right = this.wasd.right.isDown || this.cursors.right.isDown || this.virtualInput.right;
+            const up = this.wasd.up.isDown || this.cursors.up.isDown || this.virtualInput.up;
+            const down = this.wasd.down.isDown || this.cursors.down.isDown || this.virtualInput.down;
+
+            if (left) vx = -moveSpeed;
+            else if (right) vx = moveSpeed;
+            if (up) vy = -moveSpeed;
+            else if (down) vy = moveSpeed;
+
+            const usingKeyboard = left || right || up || down;
+
+            if (usingKeyboard) {
+                // Cancel click-to-move when using keyboard
+                this.targetX = null;
+                this.targetY = null;
+                this.player.body.setVelocity(vx, vy);
+            }
+
+            // Click-to-move: stop when close to target
+            if (this.targetX !== null && this.targetY !== null) {
+                const distance = Phaser.Math.Distance.Between(
+                    this.player.x, this.player.y,
+                    this.targetX, this.targetY
+                );
+                if (distance < 10) {
+                    this.player.body.setVelocity(0, 0);
+                    this.targetX = null;
+                    this.targetY = null;
+                }
+            }
+
+            // Animation based on velocity
+            const speed = this.player.body.velocity.length();
             if (speed > 10) {
                 const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
                 const deg = Phaser.Math.RadToDeg(angle);
@@ -539,21 +558,14 @@
                     this.player.anims.play('walk-up', true);
                     this.playerDirection = 'up';
                 }
-            } else {
+            } else if (!usingKeyboard) {
                 this.player.anims.play('idle-' + this.playerDirection, true);
             }
 
-            if (this.targetX !== null && this.targetY !== null) {
-                const distance = Phaser.Math.Distance.Between(
-                    this.player.x, this.player.y, 
-                    this.targetX, this.targetY
-                );
-
-                if (distance < 10) {
-                    this.player.body.setVelocity(0, 0);
-                    this.targetX = null;
-                    this.targetY = null;
-                }
+            // Stop keyboard movement when keys released
+            if (!usingKeyboard && this.targetX === null) {
+                this.player.body.setVelocity(0, 0);
+                this.player.anims.play('idle-' + this.playerDirection, true);
             }
         }
     }
@@ -603,82 +615,131 @@
             // КАМЕРА + ЗУМ
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.setZoom(1.4); // Увеличиваем зум
+            this.cameras.main.setZoom(1.4);
             this.cameras.main.fadeIn(1000, 0, 0, 0);
 
             this.targetX = null;
             this.targetY = null;
             this.isTransitioning = false;
 
+            // --- WASD УПРАВЛЕНИЕ ---
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.wasd = this.input.keyboard.addKeys({
+                up: Phaser.Input.Keyboard.KeyCodes.W,
+                down: Phaser.Input.Keyboard.KeyCodes.S,
+                left: Phaser.Input.Keyboard.KeyCodes.A,
+                right: Phaser.Input.Keyboard.KeyCodes.D
+            });
+
+            // --- ВИРТУАЛЬНЫЕ СТРЕЛКИ (для мобильных) ---
+            const buttonSize = 80;
+            const buttonAlpha = 0.6;
+            const buttonColor = 0x444444;
+
+            this.btnLeft = this.add.circle(120, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
+            this.btnLeft.setScrollFactor(0).setInteractive();
+            this.add.text(120, screenHeight - 150, '◄', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
+
+            this.btnRight = this.add.circle(280, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
+            this.btnRight.setScrollFactor(0).setInteractive();
+            this.add.text(280, screenHeight - 150, '►', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
+
+            this.btnUp = this.add.circle(screenWidth - 120, screenHeight - 230, buttonSize/2, buttonColor, buttonAlpha);
+            this.btnUp.setScrollFactor(0).setInteractive();
+            this.add.text(screenWidth - 120, screenHeight - 230, '▲', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
+
+            this.btnDown = this.add.circle(screenWidth - 120, screenHeight - 70, buttonSize/2, buttonColor, buttonAlpha);
+            this.btnDown.setScrollFactor(0).setInteractive();
+            this.add.text(screenWidth - 120, screenHeight - 70, '▼', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
+
+            this.virtualInput = { left: false, right: false, up: false, down: false };
+
+            this.btnLeft.on('pointerdown', () => { this.virtualInput.left = true; });
+            this.btnLeft.on('pointerup', () => { this.virtualInput.left = false; });
+            this.btnLeft.on('pointerout', () => { this.virtualInput.left = false; });
+            this.btnRight.on('pointerdown', () => { this.virtualInput.right = true; });
+            this.btnRight.on('pointerup', () => { this.virtualInput.right = false; });
+            this.btnRight.on('pointerout', () => { this.virtualInput.right = false; });
+            this.btnUp.on('pointerdown', () => { this.virtualInput.up = true; });
+            this.btnUp.on('pointerup', () => { this.virtualInput.up = false; });
+            this.btnUp.on('pointerout', () => { this.virtualInput.up = false; });
+            this.btnDown.on('pointerdown', () => { this.virtualInput.down = true; });
+            this.btnDown.on('pointerup', () => { this.virtualInput.down = false; });
+            this.btnDown.on('pointerout', () => { this.virtualInput.down = false; });
+
+            // Клик по карте
             this.input.on('pointerdown', (pointer) => {
                 if (this.isTransitioning) return;
-                
+                if (pointer.y > screenHeight - 300) return;
+
                 const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
                 this.targetX = worldPoint.x;
                 this.targetY = worldPoint.y;
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // --- ТОЧНЫЕ КРАСНЫЕ ЛИНИИ (ГРАНИЦЫ ДВИЖЕНИЯ) ---
-            
-            // Рисуем ТОЛЬКО красные линии из room2_movements.png
-            const boundaries = this.add.graphics();
-            boundaries.lineStyle(4, 0xff0000, 1);
-            
-            // Контур свободной зоны в студии
-            boundaries.beginPath();
-            boundaries.moveTo(roomWidth * 0.08, roomHeight * 0.95);  // Левый низ
-            boundaries.lineTo(roomWidth * 0.08, roomHeight * 0.77);  // Вверх (клавиши)
-            boundaries.lineTo(roomWidth * 0.18, roomHeight * 0.77);  
-            boundaries.lineTo(roomWidth * 0.18, roomHeight * 0.60);  // Обход стула
-            boundaries.lineTo(roomWidth * 0.40, roomHeight * 0.60);  
-            boundaries.lineTo(roomWidth * 0.40, roomHeight * 0.77);  
-            boundaries.lineTo(roomWidth * 0.59, roomHeight * 0.77);  // К правой части
-            boundaries.lineTo(roomWidth * 0.59, roomHeight * 0.60);  
-            boundaries.lineTo(roomWidth * 0.72, roomHeight * 0.60);  // Обход дивана
-            boundaries.lineTo(roomWidth * 0.72, roomHeight * 0.95);  // Вниз справа
-            boundaries.strokePath();
-            
-            // Верхняя часть
-            boundaries.beginPath();
-            boundaries.moveTo(roomWidth * 0.08, roomHeight * 0.42);
-            boundaries.lineTo(roomWidth * 0.42, roomHeight * 0.42);  // Вверху слева
-            boundaries.lineTo(roomWidth * 0.42, roomHeight * 0.60);  // Вниз
-            boundaries.strokePath();
-            
-            boundaries.beginPath();
-            boundaries.moveTo(roomWidth * 0.59, roomHeight * 0.42);
-            boundaries.lineTo(roomWidth * 0.77, roomHeight * 0.42);  // Вверху справа
-            boundaries.lineTo(roomWidth * 0.77, roomHeight * 0.60);  // Вниз к дивану
-            boundaries.strokePath();
-            
-            // Коллизии мебели (невидимые)
-            let desk = this.add.rectangle(roomWidth * 0.21, roomHeight * 0.51, 320, 240, 0x000000, 0);
-            this.physics.add.existing(desk, true);
-            this.physics.add.collider(this.player, desk);
-            
-            let chair = this.add.rectangle(roomWidth * 0.29, roomHeight * 0.69, 180, 160, 0x000000, 0);
-            this.physics.add.existing(chair, true);
-            this.physics.add.collider(this.player, chair);
-            
-            let shelf = this.add.rectangle(roomWidth * 0.21, roomHeight * 0.28, 320, 220, 0x000000, 0);
-            this.physics.add.existing(shelf, true);
-            this.physics.add.collider(this.player, shelf);
-            
-            let couch = this.add.rectangle(roomWidth * 0.82, roomHeight * 0.78, 320, 280, 0x000000, 0);
-            this.physics.add.existing(couch, true);
-            this.physics.add.collider(this.player, couch);
-            
-            let plant = this.add.rectangle(roomWidth * 0.87, roomHeight * 0.51, 100, 120, 0x000000, 0);
-            this.physics.add.existing(plant, true);
-            this.physics.add.collider(this.player, plant);
+            // === COLLISION WALLS matching red boundary from movement image ===
+            // Red boundary = player CANNOT cross these lines
+            // Room 2 has an L-shaped walkable area
+
+            const wallThickness = 20;
+            const walls = this.physics.add.staticGroup();
+
+            const addWall = (x, y, w, h) => {
+                const wall = this.add.rectangle(x, y, w, h, 0xff0000, 0);
+                this.physics.add.existing(wall, true);
+                walls.add(wall);
+            };
+
+            // --- RED BOUNDARY (Room 2 - Studio) ---
+            // From the image: L-shaped red outline around the walkable floor
+            // The walkable area has two parts:
+            //   Left corridor (near desk/chair): narrow vertical strip
+            //   Bottom area (in front of couch): wider horizontal strip
+            //
+            // Red line corners traced from image:
+            //   Starts bottom-left:  (0.10, 0.92)
+            //   Up to door area:     (0.10, 0.68)
+            //   Right step (desk):   (0.30, 0.68)
+            //   Up around chair:     (0.30, 0.58)
+            //   Right to middle:     (0.52, 0.58)
+            //   Down step:           (0.52, 0.68)
+            //   Right along couch:   (0.70, 0.68)
+            //   Down to bottom:      (0.70, 0.92)
+            //   Back to start
+
+            // LEFT wall - vertical (door side)
+            addWall(roomWidth * 0.10, roomHeight * 0.80, wallThickness, roomHeight * 0.24);
+
+            // LEFT-TOP horizontal (above left corridor)
+            addWall(roomWidth * 0.20, roomHeight * 0.68, roomWidth * 0.20, wallThickness);
+
+            // STEP UP - vertical (desk edge)
+            addWall(roomWidth * 0.30, roomHeight * 0.63, wallThickness, roomHeight * 0.10);
+
+            // TOP wall - horizontal (behind chair area)
+            addWall(roomWidth * 0.41, roomHeight * 0.58, roomWidth * 0.22, wallThickness);
+
+            // STEP DOWN - vertical (after desk area)
+            addWall(roomWidth * 0.52, roomHeight * 0.63, wallThickness, roomHeight * 0.10);
+
+            // RIGHT-TOP horizontal (above couch area)
+            addWall(roomWidth * 0.61, roomHeight * 0.68, roomWidth * 0.18, wallThickness);
+
+            // RIGHT wall - vertical (couch side)
+            addWall(roomWidth * 0.70, roomHeight * 0.80, wallThickness, roomHeight * 0.24);
+
+            // BOTTOM wall - horizontal (front edge of floor)
+            addWall(roomWidth * 0.40, roomHeight * 0.92, roomWidth * 0.60, wallThickness);
+
+            this.physics.add.collider(this.player, walls);
 
             // --- ДВЕРЬ СЛЕВА (ЗАБЛОКИРОВАНА) ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.05, roomHeight * 0.5, 
+            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.05, roomHeight * 0.5,
                 120, 280 * scale, 0xffffff, 0);
             this.physics.add.existing(this.lockedDoorZone, true);
 
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.15, roomHeight * 0.35, 
+            this.lockedDoorMessage = this.add.text(roomWidth * 0.15, roomHeight * 0.35,
                 'Еще не время', {
                 fontSize: '48px',
                 fontFamily: 'Courier New',
@@ -697,7 +758,7 @@
                         alpha: 1,
                         duration: 300
                     });
-                    
+
                     this.time.delayedCall(2500, () => {
                         this.tweens.add({
                             targets: this.lockedDoorMessage,
@@ -711,54 +772,69 @@
                 }
             }, null, this);
 
-            // --- ЗЕЛЕНАЯ ДИАГОНАЛЬНАЯ ЛИНИЯ ПЕРЕХОДА \ (ОБРАТНАЯ) ---
-            // От правого нижнего угла к левому верхнему углу
-            
-            const line = new Phaser.Geom.Line(
-                roomWidth * 0.62, // Правая часть X (начало снизу справа)
-                roomHeight * 0.80, // Нижняя часть Y
-                roomWidth * 0.10, // Левая часть X (конец сверху слева)
-                roomHeight * 0.50  // Верхняя часть Y
-            );
-            
-            // Создаем толстую диагональную зону перехода - ВИДИМАЯ
-            this.transitionZone = this.add.rectangle(
-                roomWidth * 0.36, 
-                roomHeight * 0.65,
-                roomWidth * 0.52,
-                150,
-                0x00ff00, 0.4
-            );
-            this.transitionZone.rotation = 0.52; // Поворот на -30 градусов (обратная диагональ)
-            this.physics.add.existing(this.transitionZone, true);
+            // --- GREEN TRANSITION LINE (bottom edge, \ diagonal from left to right) ---
+            // From image: green line runs along the bottom of the walkable area
+            // Goes from ~(0.10, 0.90) to ~(0.70, 0.90) — basically a horizontal line at bottom
 
-            // Визуальная линия для отладки (зеленая для студии)
-            const debugLine = this.add.graphics();
-            debugLine.lineStyle(6, 0x00ff00, 1);
-            debugLine.strokeLineShape(line);
+            this.transitionZone = this.add.rectangle(
+                roomWidth * 0.40,
+                roomHeight * 0.90,
+                roomWidth * 0.58,
+                60,
+                0x00ff00, 0
+            );
+            this.physics.add.existing(this.transitionZone, true);
 
             this.physics.add.overlap(this.player, this.transitionZone, () => {
                 if (!this.isTransitioning) {
-                    console.log('🟢 ВОЗВРАТ В ГОСТИНУЮ - TRIGGERED');
                     this.isTransitioning = true;
                     this.player.body.setVelocity(0, 0);
-                    
+
                     this.cameras.main.fadeOut(800, 0, 0, 0);
-                    
+
                     this.time.delayedCall(800, () => {
-                        console.log('🔄 Запуск гостиной...');
                         this.scene.start('MainScene', { fromStudio: true });
                     });
                 }
             }, null, this);
-
-            // 🔴 КРАСНЫЕ ЗОНЫ = где нельзя ходить (видны с прозрачностью 0.3)
-            // 🟢 ЗЕЛЕНАЯ ЗОНА = линия перехода в гостиную (видна с прозрачностью 0.4)
         }
 
         update() {
-            const speed = this.player.body.velocity.length();
+            const moveSpeed = 250;
+            let vx = 0;
+            let vy = 0;
 
+            const left = this.wasd.left.isDown || this.cursors.left.isDown || this.virtualInput.left;
+            const right = this.wasd.right.isDown || this.cursors.right.isDown || this.virtualInput.right;
+            const up = this.wasd.up.isDown || this.cursors.up.isDown || this.virtualInput.up;
+            const down = this.wasd.down.isDown || this.cursors.down.isDown || this.virtualInput.down;
+
+            if (left) vx = -moveSpeed;
+            else if (right) vx = moveSpeed;
+            if (up) vy = -moveSpeed;
+            else if (down) vy = moveSpeed;
+
+            const usingKeyboard = left || right || up || down;
+
+            if (usingKeyboard) {
+                this.targetX = null;
+                this.targetY = null;
+                this.player.body.setVelocity(vx, vy);
+            }
+
+            if (this.targetX !== null && this.targetY !== null) {
+                const distance = Phaser.Math.Distance.Between(
+                    this.player.x, this.player.y,
+                    this.targetX, this.targetY
+                );
+                if (distance < 10) {
+                    this.player.body.setVelocity(0, 0);
+                    this.targetX = null;
+                    this.targetY = null;
+                }
+            }
+
+            const speed = this.player.body.velocity.length();
             if (speed > 10) {
                 const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
                 const deg = Phaser.Math.RadToDeg(angle);
@@ -776,21 +852,13 @@
                     this.player.anims.play('walk-up', true);
                     this.playerDirection = 'up';
                 }
-            } else {
+            } else if (!usingKeyboard) {
                 this.player.anims.play('idle-' + this.playerDirection, true);
             }
 
-            if (this.targetX !== null && this.targetY !== null) {
-                const distance = Phaser.Math.Distance.Between(
-                    this.player.x, this.player.y, 
-                    this.targetX, this.targetY
-                );
-
-                if (distance < 10) {
-                    this.player.body.setVelocity(0, 0);
-                    this.targetX = null;
-                    this.targetY = null;
-                }
+            if (!usingKeyboard && this.targetX === null) {
+                this.player.body.setVelocity(0, 0);
+                this.player.anims.play('idle-' + this.playerDirection, true);
             }
         }
     }
