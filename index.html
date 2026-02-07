@@ -295,49 +295,46 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // --- КОЛЛИЗИИ (КРАСНЫЕ ЗОНЫ - ГДЕ НЕЛЬЗЯ ХОДИТЬ) ---
+            // --- ТОЧНЫЕ КРАСНЫЕ ЛИНИИ (ГРАНИЦЫ ДВИЖЕНИЯ) ---
             
-            // Диван (слева внизу - большой черный диван)
-            let sofa = this.add.rectangle(roomWidth * 0.17, roomHeight * 0.79, 
-                520 * scale, 320 * scale, 0xff0000, 0.3);
+            // Рисуем ТОЛЬКО красные линии из твоей схемы
+            const boundaries = this.add.graphics();
+            boundaries.lineStyle(4, 0xff0000, 1);
+            
+            // Рисуем точный контур по красным линиям из room1_movements.png
+            boundaries.beginPath();
+            boundaries.moveTo(roomWidth * 0.20, roomHeight * 0.95);  // Левый низ
+            boundaries.lineTo(roomWidth * 0.20, roomHeight * 0.52);  // Вверх слева (диван)
+            boundaries.lineTo(roomWidth * 0.45, roomHeight * 0.52);  // Вправо
+            boundaries.lineTo(roomWidth * 0.45, roomHeight * 0.57);  // Вокруг пуфика
+            boundaries.lineTo(roomWidth * 0.28, roomHeight * 0.57);  
+            boundaries.lineTo(roomWidth * 0.28, roomHeight * 0.73);  
+            boundaries.lineTo(roomWidth * 0.45, roomHeight * 0.73);  
+            boundaries.lineTo(roomWidth * 0.45, roomHeight * 0.50);  // Вверх к TV
+            boundaries.lineTo(roomWidth * 0.67, roomHeight * 0.50);  // Вдоль TV
+            boundaries.lineTo(roomWidth * 0.67, roomHeight * 0.95);  // Вниз справа
+            boundaries.strokePath();
+            
+            // Верхняя часть (над TV до двери)
+            boundaries.beginPath();
+            boundaries.moveTo(roomWidth * 0.67, roomHeight * 0.50);
+            boundaries.lineTo(roomWidth * 0.67, roomHeight * 0.30);  // Вверх
+            boundaries.lineTo(roomWidth * 0.88, roomHeight * 0.30);  // К двери
+            boundaries.lineTo(roomWidth * 0.88, roomHeight * 0.95);  // Вниз вдоль двери
+            boundaries.strokePath();
+            
+            // Коллизии мебели (невидимые)
+            let sofa = this.add.rectangle(roomWidth * 0.14, roomHeight * 0.78, 250, 380, 0x000000, 0);
             this.physics.add.existing(sofa, true);
             this.physics.add.collider(this.player, sofa);
-
-            // Тумба с TV (верх по центру)
-            let tvStand = this.add.rectangle(roomWidth * 0.55, roomHeight * 0.38, 
-                480 * scale, 250 * scale, 0xff0000, 0.3);
-            this.physics.add.existing(tvStand, true);
-            this.physics.add.collider(this.player, tvStand);
-
-            // Пуфик (центр пола - белый квадратный) - ТОЧНО между диваном и TV
-            let ottoman = this.add.rectangle(roomWidth * 0.37, roomHeight * 0.66, 
-                210 * scale, 180 * scale, 0xff0000, 0.3);
+            
+            let ottoman = this.add.rectangle(roomWidth * 0.365, roomHeight * 0.65, 170, 160, 0x000000, 0);
             this.physics.add.existing(ottoman, true);
             this.physics.add.collider(this.player, ottoman);
-
-            // Левая стена (штора + гитара - вся левая сторона)
-            let leftWall = this.add.rectangle(roomWidth * 0.075, roomHeight * 0.5, 
-                240 * scale, roomHeight * 1.1, 0xff0000, 0.3);
-            this.physics.add.existing(leftWall, true);
-            this.physics.add.collider(this.player, leftWall);
-
-            // Верхняя стена (над TV - вся верхняя граница)
-            let topWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.125, 
-                roomWidth * 1.1, 280 * scale, 0xff0000, 0.3);
-            this.physics.add.existing(topWall, true);
-            this.physics.add.collider(this.player, topWall);
-
-            // Правая граница у двери (вертикальная полоса справа)
-            let rightBorder = this.add.rectangle(roomWidth * 0.97, roomHeight * 0.5, 
-                110 * scale, roomHeight * 1.1, 0xff0000, 0.3);
-            this.physics.add.existing(rightBorder, true);
-            this.physics.add.collider(this.player, rightBorder);
-
-            // Нижняя граница комнаты
-            let bottomWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.965, 
-                roomWidth * 1.1, 130 * scale, 0xff0000, 0.3);
-            this.physics.add.existing(bottomWall, true);
-            this.physics.add.collider(this.player, bottomWall);
+            
+            let tvStand = this.add.rectangle(roomWidth * 0.56, roomHeight * 0.40, 220, 200, 0x000000, 0);
+            this.physics.add.existing(tvStand, true);
+            this.physics.add.collider(this.player, tvStand);
 
             // --- ДВЕРЬ СПРАВА (ЗАБЛОКИРОВАНА) ---
             this.lockedDoorZone = this.add.rectangle(roomWidth * 0.93, roomHeight * 0.45, 
@@ -528,67 +525,59 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // --- КОЛЛИЗИИ (КРАСНЫЕ ЗОНЫ - ГДЕ НЕЛЬЗЯ ХОДИТЬ) ---
+            // --- ТОЧНЫЕ КРАСНЫЕ ЛИНИИ (ГРАНИЦЫ ДВИЖЕНИЯ) ---
             
-            // Рабочий стол (слева по центру - большой с монитором)
-            let desk = this.add.rectangle(roomWidth * 0.225, roomHeight * 0.51, 
-                460 * scale, 300 * scale, 0xff0000, 0.3);
+            // Рисуем ТОЛЬКО красные линии из room2_movements.png
+            const boundaries = this.add.graphics();
+            boundaries.lineStyle(4, 0xff0000, 1);
+            
+            // Контур свободной зоны в студии
+            boundaries.beginPath();
+            boundaries.moveTo(roomWidth * 0.08, roomHeight * 0.95);  // Левый низ
+            boundaries.lineTo(roomWidth * 0.08, roomHeight * 0.77);  // Вверх (клавиши)
+            boundaries.lineTo(roomWidth * 0.18, roomHeight * 0.77);  
+            boundaries.lineTo(roomWidth * 0.18, roomHeight * 0.60);  // Обход стула
+            boundaries.lineTo(roomWidth * 0.40, roomHeight * 0.60);  
+            boundaries.lineTo(roomWidth * 0.40, roomHeight * 0.77);  
+            boundaries.lineTo(roomWidth * 0.59, roomHeight * 0.77);  // К правой части
+            boundaries.lineTo(roomWidth * 0.59, roomHeight * 0.60);  
+            boundaries.lineTo(roomWidth * 0.72, roomHeight * 0.60);  // Обход дивана
+            boundaries.lineTo(roomWidth * 0.72, roomHeight * 0.95);  // Вниз справа
+            boundaries.strokePath();
+            
+            // Верхняя часть
+            boundaries.beginPath();
+            boundaries.moveTo(roomWidth * 0.08, roomHeight * 0.42);
+            boundaries.lineTo(roomWidth * 0.42, roomHeight * 0.42);  // Вверху слева
+            boundaries.lineTo(roomWidth * 0.42, roomHeight * 0.60);  // Вниз
+            boundaries.strokePath();
+            
+            boundaries.beginPath();
+            boundaries.moveTo(roomWidth * 0.59, roomHeight * 0.42);
+            boundaries.lineTo(roomWidth * 0.77, roomHeight * 0.42);  // Вверху справа
+            boundaries.lineTo(roomWidth * 0.77, roomHeight * 0.60);  // Вниз к дивану
+            boundaries.strokePath();
+            
+            // Коллизии мебели (невидимые)
+            let desk = this.add.rectangle(roomWidth * 0.21, roomHeight * 0.51, 320, 240, 0x000000, 0);
             this.physics.add.existing(desk, true);
             this.physics.add.collider(this.player, desk);
-
-            // Стул перед столом
-            let chair = this.add.rectangle(roomWidth * 0.49, roomHeight * 0.67, 
-                190 * scale, 190 * scale, 0xff0000, 0.3);
+            
+            let chair = this.add.rectangle(roomWidth * 0.29, roomHeight * 0.69, 180, 160, 0x000000, 0);
             this.physics.add.existing(chair, true);
             this.physics.add.collider(this.player, chair);
-
-            // Стеллаж (слева вверху за столом - высокий)
-            let shelf = this.add.rectangle(roomWidth * 0.225, roomHeight * 0.27, 
-                340 * scale, 260 * scale, 0xff0000, 0.3);
+            
+            let shelf = this.add.rectangle(roomWidth * 0.21, roomHeight * 0.28, 320, 220, 0x000000, 0);
             this.physics.add.existing(shelf, true);
             this.physics.add.collider(this.player, shelf);
-
-            // Диван (справа внизу)
-            let couch = this.add.rectangle(roomWidth * 0.81, roomHeight * 0.73, 
-                440 * scale, 300 * scale, 0xff0000, 0.3);
+            
+            let couch = this.add.rectangle(roomWidth * 0.82, roomHeight * 0.78, 320, 280, 0x000000, 0);
             this.physics.add.existing(couch, true);
             this.physics.add.collider(this.player, couch);
-
-            // Клавиши (слева внизу возле двери)
-            let keyboard = this.add.rectangle(roomWidth * 0.075, roomHeight * 0.79, 
-                220 * scale, 260 * scale, 0xff0000, 0.3);
-            this.physics.add.existing(keyboard, true);
-            this.physics.add.collider(this.player, keyboard);
-
-            // Растение (справа по центру)
-            let plant = this.add.rectangle(roomWidth * 0.86, roomHeight * 0.49, 
-                140 * scale, 160 * scale, 0xff0000, 0.3);
+            
+            let plant = this.add.rectangle(roomWidth * 0.87, roomHeight * 0.51, 100, 120, 0x000000, 0);
             this.physics.add.existing(plant, true);
             this.physics.add.collider(this.player, plant);
-
-            // Верхняя стена (над всей комнатой)
-            let topWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.105, 
-                roomWidth * 1.1, 260 * scale, 0xff0000, 0.3);
-            this.physics.add.existing(topWall, true);
-            this.physics.add.collider(this.player, topWall);
-
-            // Левая стена (дверь и стена)
-            let leftWall = this.add.rectangle(roomWidth * 0.018, roomHeight * 0.5, 
-                140 * scale, roomHeight * 1.1, 0xff0000, 0.3);
-            this.physics.add.existing(leftWall, true);
-            this.physics.add.collider(this.player, leftWall);
-
-            // Правая стена
-            let rightWall = this.add.rectangle(roomWidth * 0.982, roomHeight * 0.5, 
-                120 * scale, roomHeight * 1.1, 0xff0000, 0.3);
-            this.physics.add.existing(rightWall, true);
-            this.physics.add.collider(this.player, rightWall);
-
-            // Нижняя стена
-            let bottomWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.965, 
-                roomWidth * 1.1, 130 * scale, 0xff0000, 0.3);
-            this.physics.add.existing(bottomWall, true);
-            this.physics.add.collider(this.player, bottomWall);
 
             // --- ДВЕРЬ СЛЕВА (ЗАБЛОКИРОВАНА) ---
             this.lockedDoorZone = this.add.rectangle(roomWidth * 0.05, roomHeight * 0.5, 
