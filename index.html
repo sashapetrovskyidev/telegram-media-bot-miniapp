@@ -283,14 +283,14 @@
             console.log('👤 Создание персонажа...');
             console.log('👤 Texture exists?', this.textures.exists('playerSprite'));
             
-            // ВАЖНО: Убираем цветной фон, оставляем только прозрачность
-            this.player.setScale(3);
-            this.player.setOrigin(0.5, 0.5); // Центр спрайта
+            // Уменьшаем размер персонажа
+            this.player.setScale(2);  // Было 3, теперь 2
+            this.player.setOrigin(0.5, 1); // ВАЖНО: origin внизу по центру (для ног)
             this.player.setCollideWorldBounds(true);
             
-            // ФИКС: Правильный hitbox - МЕНЬШЕ чем спрайт
-            this.player.body.setSize(20, 20);  // Маленький хитбокс только для ног
-            this.player.body.setOffset(22, 44); // Смещение вниз к ногам
+            // Хитбокс для ног
+            this.player.body.setSize(20, 10);  // Маленький хитбокс
+            this.player.body.setOffset(22, 54); // Смещение к самому низу (ноги)
             
             this.player.anims.play('idle-down');
             this.playerDirection = 'down';
@@ -522,11 +522,11 @@
                 this.player = this.physics.add.sprite(roomWidth * 0.4, roomHeight * 0.7, 'playerSprite');
             }
             
-            this.player.setScale(3);
-            this.player.setOrigin(0.5, 0.5);
+            this.player.setScale(2);
+            this.player.setOrigin(0.5, 1);
             this.player.setCollideWorldBounds(true);
-            this.player.body.setSize(20, 20);
-            this.player.body.setOffset(22, 44);
+            this.player.body.setSize(20, 10);
+            this.player.body.setOffset(22, 54);
             this.player.anims.play('idle-down');
             this.playerDirection = 'down';
 
