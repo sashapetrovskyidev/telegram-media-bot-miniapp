@@ -299,43 +299,43 @@
             
             // Диван (слева внизу - большой черный диван)
             let sofa = this.add.rectangle(roomWidth * 0.18, roomHeight * 0.78, 
-                480 * scale, 280 * scale, 0xff0000, 0);
+                500 * scale, 300 * scale, 0xff0000, 0.3);
             this.physics.add.existing(sofa, true);
             this.physics.add.collider(this.player, sofa);
 
             // Тумба с TV (верх по центру)
-            let tvStand = this.add.rectangle(roomWidth * 0.55, roomHeight * 0.37, 
-                450 * scale, 220 * scale, 0xff0000, 0);
+            let tvStand = this.add.rectangle(roomWidth * 0.55, roomHeight * 0.38, 
+                460 * scale, 240 * scale, 0xff0000, 0.3);
             this.physics.add.existing(tvStand, true);
             this.physics.add.collider(this.player, tvStand);
 
             // Пуфик (центр пола - белый квадратный)
-            let ottoman = this.add.rectangle(roomWidth * 0.35, roomHeight * 0.66, 
-                190 * scale, 160 * scale, 0xff0000, 0);
+            let ottoman = this.add.rectangle(roomWidth * 0.36, roomHeight * 0.66, 
+                200 * scale, 170 * scale, 0xff0000, 0.3);
             this.physics.add.existing(ottoman, true);
             this.physics.add.collider(this.player, ottoman);
 
             // Левая стена (штора + гитара - вся левая сторона)
             let leftWall = this.add.rectangle(roomWidth * 0.08, roomHeight * 0.5, 
-                220 * scale, roomHeight, 0xff0000, 0);
+                220 * scale, roomHeight, 0xff0000, 0.3);
             this.physics.add.existing(leftWall, true);
             this.physics.add.collider(this.player, leftWall);
 
             // Верхняя стена (над TV - вся верхняя граница)
             let topWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.13, 
-                roomWidth, 250 * scale, 0xff0000, 0);
+                roomWidth, 260 * scale, 0xff0000, 0.3);
             this.physics.add.existing(topWall, true);
             this.physics.add.collider(this.player, topWall);
 
             // Правая граница у двери (вертикальная полоса справа)
             let rightBorder = this.add.rectangle(roomWidth * 0.97, roomHeight * 0.5, 
-                80 * scale, roomHeight, 0xff0000, 0);
+                100 * scale, roomHeight, 0xff0000, 0.3);
             this.physics.add.existing(rightBorder, true);
             this.physics.add.collider(this.player, rightBorder);
 
             // Нижняя граница комнаты
             let bottomWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.96, 
-                roomWidth, 100 * scale, 0xff0000, 0);
+                roomWidth, 120 * scale, 0xff0000, 0.3);
             this.physics.add.existing(bottomWall, true);
             this.physics.add.collider(this.player, bottomWall);
 
@@ -381,34 +381,34 @@
             // От правого нижнего угла пола к верхнему углу у двери
             
             const line = new Phaser.Geom.Line(
-                roomWidth * 0.58,  // Начало линии X (центр пола)
-                roomHeight * 0.78, // Начало линии Y (низ)
-                roomWidth * 0.92,  // Конец линии X (у двери)
-                roomHeight * 0.52  // Конец линии Y (верх)
+                roomWidth * 0.56,  // Начало линии X (центр пола)
+                roomHeight * 0.80, // Начало линии Y (низ)
+                roomWidth * 0.91,  // Конец линии X (у двери)
+                roomHeight * 0.53  // Конец линии Y (верх)
             );
             
-            // Создаем толстую диагональную зону перехода
+            // Создаем толстую диагональную зону перехода - ВИДИМАЯ
             this.transitionZone = this.add.polygon(
                 0, 0,
                 [
-                    roomWidth * 0.56, roomHeight * 0.78,  // Начало (низ слева)
-                    roomWidth * 0.60, roomHeight * 0.78,  // Толщина
-                    roomWidth * 0.94, roomHeight * 0.52,  // Конец (верх справа)
-                    roomWidth * 0.90, roomHeight * 0.52   // Толщина
+                    roomWidth * 0.54, roomHeight * 0.80,  // Начало (низ слева)
+                    roomWidth * 0.58, roomHeight * 0.80,  // Толщина
+                    roomWidth * 0.93, roomHeight * 0.53,  // Конец (верх справа)
+                    roomWidth * 0.89, roomHeight * 0.53   // Толщина
                 ],
-                0x00ff00, 0
+                0x00ff00, 0.4  // ВИДИМАЯ с прозрачностью 0.4
             );
             this.physics.add.existing(this.transitionZone, true);
 
             // Визуальная линия для отладки (зеленая)
             const debugLine = this.add.graphics();
-            debugLine.lineStyle(5, 0x00ff00, 1);
+            debugLine.lineStyle(6, 0x00ff00, 1);
             debugLine.strokeLineShape(line);
-            debugLine.setAlpha(1); // Включена
 
             let angleChangeTriggered = false;
             this.physics.add.overlap(this.player, this.transitionZone, () => {
                 if (!this.isTransitioning && !angleChangeTriggered) {
+                    console.log('🟢 ПЕРЕХОД В СТУДИЮ');
                     angleChangeTriggered = true;
                     this.isTransitioning = true;
                     this.player.body.setVelocity(0, 0);
@@ -535,61 +535,61 @@
             
             // Рабочий стол (слева по центру - большой с монитором)
             let desk = this.add.rectangle(roomWidth * 0.23, roomHeight * 0.5, 
-                420 * scale, 260 * scale, 0xff0000, 0);
+                440 * scale, 280 * scale, 0xff0000, 0.3);
             this.physics.add.existing(desk, true);
             this.physics.add.collider(this.player, desk);
 
             // Стул перед столом
             let chair = this.add.rectangle(roomWidth * 0.48, roomHeight * 0.66, 
-                160 * scale, 160 * scale, 0xff0000, 0);
+                180 * scale, 180 * scale, 0xff0000, 0.3);
             this.physics.add.existing(chair, true);
             this.physics.add.collider(this.player, chair);
 
             // Стеллаж (слева вверху за столом - высокий)
             let shelf = this.add.rectangle(roomWidth * 0.23, roomHeight * 0.28, 
-                300 * scale, 220 * scale, 0xff0000, 0);
+                320 * scale, 240 * scale, 0xff0000, 0.3);
             this.physics.add.existing(shelf, true);
             this.physics.add.collider(this.player, shelf);
 
             // Диван (справа внизу)
             let couch = this.add.rectangle(roomWidth * 0.8, roomHeight * 0.72, 
-                400 * scale, 260 * scale, 0xff0000, 0);
+                420 * scale, 280 * scale, 0xff0000, 0.3);
             this.physics.add.existing(couch, true);
             this.physics.add.collider(this.player, couch);
 
             // Клавиши (слева внизу возле двери)
             let keyboard = this.add.rectangle(roomWidth * 0.08, roomHeight * 0.78, 
-                180 * scale, 220 * scale, 0xff0000, 0);
+                200 * scale, 240 * scale, 0xff0000, 0.3);
             this.physics.add.existing(keyboard, true);
             this.physics.add.collider(this.player, keyboard);
 
             // Растение (справа по центру)
             let plant = this.add.rectangle(roomWidth * 0.85, roomHeight * 0.48, 
-                120 * scale, 140 * scale, 0xff0000, 0);
+                130 * scale, 150 * scale, 0xff0000, 0.3);
             this.physics.add.existing(plant, true);
             this.physics.add.collider(this.player, plant);
 
             // Верхняя стена (над всей комнатой)
             let topWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.11, 
-                roomWidth, 220 * scale, 0xff0000, 0);
+                roomWidth, 240 * scale, 0xff0000, 0.3);
             this.physics.add.existing(topWall, true);
             this.physics.add.collider(this.player, topWall);
 
             // Левая стена (дверь и стена)
             let leftWall = this.add.rectangle(roomWidth * 0.02, roomHeight * 0.5, 
-                120 * scale, roomHeight, 0xff0000, 0);
+                130 * scale, roomHeight, 0xff0000, 0.3);
             this.physics.add.existing(leftWall, true);
             this.physics.add.collider(this.player, leftWall);
 
             // Правая стена
             let rightWall = this.add.rectangle(roomWidth * 0.98, roomHeight * 0.5, 
-                100 * scale, roomHeight, 0xff0000, 0);
+                110 * scale, roomHeight, 0xff0000, 0.3);
             this.physics.add.existing(rightWall, true);
             this.physics.add.collider(this.player, rightWall);
 
             // Нижняя стена
             let bottomWall = this.add.rectangle(roomWidth * 0.5, roomHeight * 0.96, 
-                roomWidth, 100 * scale, 0xff0000, 0);
+                roomWidth, 120 * scale, 0xff0000, 0.3);
             this.physics.add.existing(bottomWall, true);
             this.physics.add.collider(this.player, bottomWall);
 
@@ -635,34 +635,34 @@
             // От правого нижнего угла к левому верхнему углу
             
             const line = new Phaser.Geom.Line(
-                roomWidth * 0.64, // Правая часть X (начало снизу справа)
-                roomHeight * 0.78, // Нижняя часть Y
-                roomWidth * 0.08, // Левая часть X (конец сверху слева)
-                roomHeight * 0.48  // Верхняя часть Y
+                roomWidth * 0.62, // Правая часть X (начало снизу справа)
+                roomHeight * 0.80, // Нижняя часть Y
+                roomWidth * 0.10, // Левая часть X (конец сверху слева)
+                roomHeight * 0.50  // Верхняя часть Y
             );
             
-            // Создаем толстую диагональную зону перехода (обратная диагональ \)
+            // Создаем толстую диагональную зону перехода - ВИДИМАЯ
             this.transitionZone = this.add.polygon(
                 0, 0,
                 [
-                    roomWidth * 0.66, roomHeight * 0.78,   // Правый низ (начало)
-                    roomWidth * 0.62, roomHeight * 0.78,   // Толщина линии
-                    roomWidth * 0.06, roomHeight * 0.48,   // Левый верх (конец)
-                    roomWidth * 0.10, roomHeight * 0.48    // Толщина линии
+                    roomWidth * 0.64, roomHeight * 0.80,   // Правый низ (начало)
+                    roomWidth * 0.60, roomHeight * 0.80,   // Толщина линии
+                    roomWidth * 0.08, roomHeight * 0.50,   // Левый верх (конец)
+                    roomWidth * 0.12, roomHeight * 0.50    // Толщина линии
                 ],
-                0x00ff00, 0
+                0x00ff00, 0.4  // ВИДИМАЯ с прозрачностью 0.4
             );
             this.physics.add.existing(this.transitionZone, true);
 
             // Визуальная линия для отладки (зеленая для студии)
             const debugLine = this.add.graphics();
-            debugLine.lineStyle(5, 0x00ff00, 1);
+            debugLine.lineStyle(6, 0x00ff00, 1);
             debugLine.strokeLineShape(line);
-            debugLine.setAlpha(1); // Включена
 
             let angleChangeTriggered = false;
             this.physics.add.overlap(this.player, this.transitionZone, () => {
                 if (!this.isTransitioning && !angleChangeTriggered) {
+                    console.log('🟢 ВОЗВРАТ В ГОСТИНУЮ');
                     angleChangeTriggered = true;
                     this.isTransitioning = true;
                     this.player.body.setVelocity(0, 0);
@@ -675,18 +675,8 @@
                 }
             }, null, this);
 
-            // Debug - раскомментируй чтобы видеть зоны коллизий
-            // desk.setAlpha(0.3);
-            // chair.setAlpha(0.3);
-            // shelf.setAlpha(0.3);
-            // couch.setAlpha(0.3);
-            // keyboard.setAlpha(0.3);
-            // plant.setAlpha(0.3);
-            // topWall.setAlpha(0.3);
-            // leftWall.setAlpha(0.3);
-            // rightWall.setAlpha(0.3);
-            // this.transitionZone.setAlpha(0.3);
-            // this.lockedDoorZone.setAlpha(0.3);
+            // 🔴 КРАСНЫЕ ЗОНЫ = где нельзя ходить (видны с прозрачностью 0.3)
+            // 🟢 ЗЕЛЕНАЯ ЗОНА = линия перехода в гостиную (видна с прозрачностью 0.4)
         }
 
         update() {
