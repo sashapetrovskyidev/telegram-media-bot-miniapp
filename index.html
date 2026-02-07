@@ -174,10 +174,10 @@
         preload() {
             console.log('🔄 Начинаем загрузку ресурсов...');
             
-            this.load.image('room1', 'room1.png');
+            this.load.image('room1', 'room1_right_size.png');
             
             // КРИТИЧНО: Проверяем загрузку спрайтшита
-            this.load.spritesheet('playerSprite', 'person_model.png', {
+            this.load.spritesheet('playerSprite', 'person_model_right.png', {
                 frameWidth: 64,
                 frameHeight: 64
             });
@@ -493,7 +493,7 @@
         constructor() { super('StudioScene'); }
 
         preload() {
-            this.load.image('room2', 'room2.png');
+            this.load.image('room2', 'room2_right_size.png');
         }
 
         create() {
