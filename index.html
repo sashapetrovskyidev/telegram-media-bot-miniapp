@@ -276,15 +276,15 @@
                 });
             }
 
-            // Персонаж — spawn inside walkable area (0.21-0.64, 0.54-0.90)
+            // Персонаж — spawn inside walkable isometric floor area
             const fromStudio = this.scene.settings.data?.fromStudio;
 
             if (fromStudio) {
-                // Coming from studio — spawn near center-right (near green line but inside bounds)
-                this.player = this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.70, 'playerSprite');
+                // Coming from studio — spawn in center of floor (safe area between furniture)
+                this.player = this.physics.add.sprite(roomWidth * 0.45, roomHeight * 0.75, 'playerSprite');
             } else {
                 // First time — spawn in center of walkable area
-                this.player = this.physics.add.sprite(roomWidth * 0.42, roomHeight * 0.78, 'playerSprite');
+                this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.78, 'playerSprite');
             }
             
             console.log('👤 Создание персонажа...');
@@ -390,71 +390,73 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // === ROOM 1 COLLISIONS — traced from movement image ===
+            // === ROOM 1 — POLYGON-BASED ISOMETRIC COLLISIONS ===
             //
-            // IMAGE ANALYSIS (Room 1 - Living Room, isometric view):
-            // The red boundary forms a rectangle around the walkable floor.
-            // Inside, the ottoman/pouf has its own red rectangle (no-go island).
+            // Instead of axis-aligned rectangles, we define the walkable floor
+            // as isometric polygons matching the actual visible floor tiles.
+            // The update() loop checks if player feet are inside walkable area.
             //
-            // The room is ~1080x1920 (portrait). The isometric floor diamond spans:
-            //   - Left edge of floor:   ~x=0.10 (sofa left arm)
-            //   - Right edge of floor:  ~x=0.90 (door right)
-            //   - Top of floor:         ~y=0.42 (behind TV)
-            //   - Bottom of floor:      ~y=0.95 (front corner)
+            // ROOM 1 FLOOR LAYOUT (from movement image):
+            // The walkable area traces the actual floor visible between furniture.
+            // In isometric view, "up-left" on screen = north in game world.
             //
-            // RED BOUNDARY rectangle from image (the thick red lines):
-            //   Top-left corner:     ~(0.21, 0.54)  — right of sofa back
-            //   Top-right corner:    ~(0.64, 0.54)  — in front of TV stand
-            //   Bottom-right corner: ~(0.64, 0.90)  — right side of floor
-            //   Bottom-left corner:  ~(0.21, 0.90)  — front of sofa
+            // Walkable zone = outer polygon MINUS ottoman polygon (hole).
             //
-            // OTTOMAN red rectangle (island inside):
-            //   Top-left:     ~(0.33, 0.62)
-            //   Bottom-right: ~(0.45, 0.74)
+            // Outer walkable polygon (tracing red lines from image):
+            // The red boundary follows the floor edges between sofa and TV stand.
+            //   P1: left of sofa bottom-front → going clockwise
             //
-            // GREEN TRANSITION LINE (diagonal /):
-            //   From ~(0.46, 0.88) going up-right to ~(0.76, 0.60)
-            //   This is the line the player crosses to switch to room 2
+            // Looking at the image carefully:
+            //   - Sofa is on the LEFT wall, takes up the left portion
+            //   - Ottoman/pouf is in the CENTER of the floor
+            //   - TV stand is along the BACK wall (top of isometric view)
+            //   - Door is on the RIGHT wall
+            //   - Floor is visible as a diamond between all furniture
+            //
+            // The red boundary in the image forms a shape following the floor:
 
-            const wallThickness = 16;
-            const walls = this.physics.add.staticGroup();
+            // Store walkable polygon and ottoman polygon for update() checks
+            // All coordinates as fractions of roomWidth/roomHeight
 
-            const addWall = (x, y, w, h) => {
-                const wall = this.add.rectangle(x, y, w, h, 0xff0000, 0);
-                this.physics.add.existing(wall, true);
-                walls.add(wall);
-            };
+            // OUTER walkable boundary — traces the visible floor
+            // Going clockwise from bottom-left corner of visible floor
+            this.walkablePolygon = [
+                { x: 0.13, y: 0.82 },  // Bottom-left: front of sofa, left floor edge
+                { x: 0.09, y: 0.72 },  // Up-left: alongside sofa going up
+                { x: 0.17, y: 0.56 },  // Top-left: behind sofa, corner near curtain
+                { x: 0.36, y: 0.48 },  // Top-center-left: floor in front of TV (left of PS5)
+                { x: 0.58, y: 0.40 },  // Top-center-right: floor in front of TV (right of TV)
+                { x: 0.78, y: 0.47 },  // Top-right: near the door
+                { x: 0.86, y: 0.54 },  // Right: door area
+                { x: 0.82, y: 0.70 },  // Right-bottom: floor right of door
+                { x: 0.50, y: 0.93 },  // Bottom-center: front floor edge
+                { x: 0.22, y: 0.90 },  // Bottom-left: sofa front floor
+            ];
 
-            // --- OUTER RED RECTANGLE (perimeter of walkable area) ---
+            // OTTOMAN / POUF — island in the middle (player cannot walk here)
+            this.ottomanPolygon = [
+                { x: 0.26, y: 0.65 },  // Top-left of ottoman
+                { x: 0.38, y: 0.58 },  // Top-right of ottoman
+                { x: 0.46, y: 0.66 },  // Right of ottoman
+                { x: 0.34, y: 0.74 },  // Bottom-right of ottoman
+                { x: 0.22, y: 0.72 },  // Bottom-left of ottoman
+            ];
 
-            // LEFT wall — vertical, runs along sofa's right edge
-            // from (0.21, 0.54) down to (0.21, 0.90)
-            addWall(roomWidth * 0.21, roomHeight * 0.72, wallThickness, roomHeight * 0.38);
+            this.roomWidth = roomWidth;
+            this.roomHeight = roomHeight;
 
-            // TOP wall — horizontal, runs behind ottoman / in front of TV area
-            // from (0.21, 0.54) right to (0.64, 0.54)
-            addWall(roomWidth * 0.425, roomHeight * 0.54, roomWidth * 0.45, wallThickness);
+            // GREEN TRANSITION LINE — diagonal zone for scene switch
+            // From image: line from ~(0.48, 0.88) going to ~(0.80, 0.62)
+            this.greenLineStart = { x: 0.48, y: 0.88 };
+            this.greenLineEnd = { x: 0.80, y: 0.62 };
 
-            // RIGHT wall — vertical, right side of walkable area
-            // from (0.64, 0.54) down to (0.64, 0.90)
-            addWall(roomWidth * 0.64, roomHeight * 0.72, wallThickness, roomHeight * 0.38);
-
-            // BOTTOM wall — horizontal, front edge of the floor
-            // from (0.21, 0.90) right to (0.64, 0.90)
-            addWall(roomWidth * 0.425, roomHeight * 0.90, roomWidth * 0.45, wallThickness);
-
-            // --- OTTOMAN / POUF (island in center of walkable area) ---
-            // Solid block the player can't walk through
-            // Covers ~(0.33, 0.62) to (0.45, 0.74)
-            addWall(roomWidth * 0.39, roomHeight * 0.68, roomWidth * 0.14, roomHeight * 0.14);
-
-            this.physics.add.collider(this.player, walls);
-
-            // --- ДВЕРЬ СПРАВА (ЗАБЛОКИРОВАНА) ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.88, roomHeight * 0.48,
-                120, 260, 0xffffff, 0);
-            this.physics.add.existing(this.lockedDoorZone, true);
-
+            // Locked door zone (right wall)
+            this.lockedDoorPoly = [
+                { x: 0.78, y: 0.42 },
+                { x: 0.90, y: 0.47 },
+                { x: 0.90, y: 0.58 },
+                { x: 0.78, y: 0.53 },
+            ];
             this.lockedDoorMessage = this.add.text(roomWidth * 0.75, roomHeight * 0.35,
                 'Еще не время', {
                 fontSize: '48px',
@@ -463,66 +465,92 @@
                 backgroundColor: '#000000',
                 padding: { x: 25, y: 12 },
                 alpha: 0
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(100);
+            this.lockedDoorTimer = 0;
 
-            let lockedMessageShown = false;
-            this.physics.add.overlap(this.player, this.lockedDoorZone, () => {
-                if (!lockedMessageShown) {
-                    lockedMessageShown = true;
-                    this.tweens.add({
-                        targets: this.lockedDoorMessage,
-                        alpha: 1,
-                        duration: 300
-                    });
+            // DEBUG: Draw the polygons so we can see them
+            const debugGfx = this.add.graphics();
+            debugGfx.setDepth(50);
 
-                    this.time.delayedCall(2500, () => {
-                        this.tweens.add({
-                            targets: this.lockedDoorMessage,
-                            alpha: 0,
-                            duration: 300,
-                            onComplete: () => {
-                                lockedMessageShown = false;
-                            }
-                        });
-                    });
-                }
-            }, null, this);
+            // Draw outer walkable polygon (red outline)
+            debugGfx.lineStyle(3, 0xff0000, 0.8);
+            debugGfx.beginPath();
+            this.walkablePolygon.forEach((p, i) => {
+                const px = p.x * roomWidth;
+                const py = p.y * roomHeight;
+                if (i === 0) debugGfx.moveTo(px, py);
+                else debugGfx.lineTo(px, py);
+            });
+            debugGfx.closePath();
+            debugGfx.strokePath();
 
-            // --- GREEN TRANSITION LINE (diagonal / from lower-left to upper-right) ---
-            // From image: line goes from ~(0.46, 0.88) to ~(0.76, 0.60)
-            // Player crosses this to go to Room 2 (Studio)
-            //
-            // We use a rotated thin rectangle as overlap trigger.
-            // Center of line: ~(0.61, 0.74)
-            // Length of line: ~0.38 * roomWidth
-            // Angle: atan2(0.60-0.88, 0.76-0.46) = atan2(-0.28, 0.30) ≈ -43deg ≈ -0.75 rad
+            // Draw ottoman (red filled)
+            debugGfx.lineStyle(3, 0xff0000, 0.8);
+            debugGfx.fillStyle(0xff0000, 0.15);
+            debugGfx.beginPath();
+            this.ottomanPolygon.forEach((p, i) => {
+                const px = p.x * roomWidth;
+                const py = p.y * roomHeight;
+                if (i === 0) debugGfx.moveTo(px, py);
+                else debugGfx.lineTo(px, py);
+            });
+            debugGfx.closePath();
+            debugGfx.strokePath();
+            debugGfx.fillPath();
 
-            this.transitionZone = this.add.rectangle(
-                roomWidth * 0.61,
-                roomHeight * 0.74,
-                roomWidth * 0.38,
-                50,
-                0x00ff00, 0
-            );
-            this.transitionZone.rotation = -0.75;
-            this.physics.add.existing(this.transitionZone, true);
+            // Draw green transition line
+            debugGfx.lineStyle(4, 0x00ff00, 0.8);
+            debugGfx.beginPath();
+            debugGfx.moveTo(this.greenLineStart.x * roomWidth, this.greenLineStart.y * roomHeight);
+            debugGfx.lineTo(this.greenLineEnd.x * roomWidth, this.greenLineEnd.y * roomHeight);
+            debugGfx.strokePath();
 
-            this.physics.add.overlap(this.player, this.transitionZone, () => {
-                if (!this.isTransitioning) {
-                    this.isTransitioning = true;
-                    this.player.body.setVelocity(0, 0);
+            // Draw locked door zone
+            debugGfx.lineStyle(2, 0xffff00, 0.6);
+            debugGfx.beginPath();
+            this.lockedDoorPoly.forEach((p, i) => {
+                if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight);
+                else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight);
+            });
+            debugGfx.closePath();
+            debugGfx.strokePath();
 
-                    this.cameras.main.fadeOut(800, 0, 0, 0);
+            // Disable physics world bounds — we handle collision ourselves
+            this.player.setCollideWorldBounds(false);
+        }
 
-                    this.time.delayedCall(800, () => {
-                        this.scene.start('StudioScene', { fromLiving: true });
-                    });
-                }
-            }, null, this);
+        // Point-in-polygon test (ray casting algorithm)
+        pointInPolygon(px, py, polygon, rw, rh) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x * rw, yi = polygon[i].y * rh;
+                const xj = polygon[j].x * rw, yj = polygon[j].y * rh;
+                const intersect = ((yi > py) !== (yj > py)) &&
+                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // Check distance from point to a line segment (for green transition)
+        pointToLineDistance(px, py, x1, y1, x2, y2) {
+            const A = px - x1;
+            const B = py - y1;
+            const C = x2 - x1;
+            const D = y2 - y1;
+            const dot = A * C + B * D;
+            const lenSq = C * C + D * D;
+            let t = lenSq !== 0 ? dot / lenSq : -1;
+            t = Math.max(0, Math.min(1, t));
+            const xx = x1 + t * C;
+            const yy = y1 + t * D;
+            return Math.sqrt((px - xx) * (px - xx) + (py - yy) * (py - yy));
         }
 
         update() {
             const moveSpeed = 250;
+            const rw = this.roomWidth;
+            const rh = this.roomHeight;
             let vx = 0;
             let vy = 0;
 
@@ -540,10 +568,8 @@
             const usingKeyboard = left || right || up || down;
 
             if (usingKeyboard) {
-                // Cancel click-to-move when using keyboard
                 this.targetX = null;
                 this.targetY = null;
-                this.player.body.setVelocity(vx, vy);
             }
 
             // Click-to-move: stop when close to target
@@ -553,38 +579,92 @@
                     this.targetX, this.targetY
                 );
                 if (distance < 10) {
-                    this.player.body.setVelocity(0, 0);
                     this.targetX = null;
                     this.targetY = null;
+                } else {
+                    const angle = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x);
+                    vx = Math.cos(angle) * moveSpeed;
+                    vy = Math.sin(angle) * moveSpeed;
                 }
             }
 
-            // Animation based on velocity
+            // --- POLYGON COLLISION CHECK ---
+            const dt = this.game.loop.delta / 1000;
+            const nextX = this.player.x + vx * dt;
+            const nextY = this.player.y + vy * dt;
+
+            const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh);
+            const inOttoman = this.pointInPolygon(nextX, nextY, this.ottomanPolygon, rw, rh);
+
+            if (inOuter && !inOttoman) {
+                // Movement is valid
+                this.player.body.setVelocity(vx, vy);
+            } else {
+                // Try sliding: allow X movement only
+                const slideX_x = this.player.x + vx * dt;
+                const slideX_y = this.player.y;
+                const xOk = this.pointInPolygon(slideX_x, slideX_y, this.walkablePolygon, rw, rh)
+                          && !this.pointInPolygon(slideX_x, slideX_y, this.ottomanPolygon, rw, rh);
+
+                // Try sliding: allow Y movement only
+                const slideY_x = this.player.x;
+                const slideY_y = this.player.y + vy * dt;
+                const yOk = this.pointInPolygon(slideY_x, slideY_y, this.walkablePolygon, rw, rh)
+                          && !this.pointInPolygon(slideY_x, slideY_y, this.ottomanPolygon, rw, rh);
+
+                if (xOk && !yOk) {
+                    this.player.body.setVelocity(vx, 0);
+                } else if (yOk && !xOk) {
+                    this.player.body.setVelocity(0, vy);
+                } else {
+                    this.player.body.setVelocity(0, 0);
+                }
+            }
+
+            // If no input and no click target, stop
+            if (!usingKeyboard && this.targetX === null) {
+                this.player.body.setVelocity(0, 0);
+            }
+
+            // --- GREEN LINE TRANSITION CHECK ---
+            if (!this.isTransitioning) {
+                const dist = this.pointToLineDistance(
+                    this.player.x, this.player.y,
+                    this.greenLineStart.x * rw, this.greenLineStart.y * rh,
+                    this.greenLineEnd.x * rw, this.greenLineEnd.y * rh
+                );
+                if (dist < 30) {
+                    this.isTransitioning = true;
+                    this.player.body.setVelocity(0, 0);
+                    this.cameras.main.fadeOut(800, 0, 0, 0);
+                    this.time.delayedCall(800, () => {
+                        this.scene.start('StudioScene', { fromLiving: true });
+                    });
+                }
+            }
+
+            // --- LOCKED DOOR CHECK ---
+            if (this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh)) {
+                if (this.lockedDoorTimer <= 0) {
+                    this.lockedDoorTimer = 2500;
+                    this.tweens.add({ targets: this.lockedDoorMessage, alpha: 1, duration: 300 });
+                    this.time.delayedCall(2500, () => {
+                        this.tweens.add({ targets: this.lockedDoorMessage, alpha: 0, duration: 300 });
+                    });
+                }
+            }
+            if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
+
+            // --- ANIMATION ---
             const speed = this.player.body.velocity.length();
             if (speed > 10) {
                 const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
                 const deg = Phaser.Math.RadToDeg(angle);
-
-                if (deg > -45 && deg <= 45) {
-                    this.player.anims.play('walk-right', true);
-                    this.playerDirection = 'right';
-                } else if (deg > 45 && deg <= 135) {
-                    this.player.anims.play('walk-down', true);
-                    this.playerDirection = 'down';
-                } else if (deg > 135 || deg <= -135) {
-                    this.player.anims.play('walk-left', true);
-                    this.playerDirection = 'left';
-                } else {
-                    this.player.anims.play('walk-up', true);
-                    this.playerDirection = 'up';
-                }
-            } else if (!usingKeyboard) {
-                this.player.anims.play('idle-' + this.playerDirection, true);
-            }
-
-            // Stop keyboard movement when keys released
-            if (!usingKeyboard && this.targetX === null) {
-                this.player.body.setVelocity(0, 0);
+                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
+                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
+                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
+                else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
+            } else {
                 this.player.anims.play('idle-' + this.playerDirection, true);
             }
         }
@@ -615,15 +695,15 @@
 
             this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
 
-            // Персонаж — spawn inside walkable area
+            // Персонаж — spawn inside walkable isometric floor area
             const fromLiving = this.scene.settings.data?.fromLiving;
 
             if (fromLiving) {
-                // Coming from living room — spawn near center of studio walkable area
-                this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite');
+                // Coming from living room — spawn in center of studio floor
+                this.player = this.physics.add.sprite(roomWidth * 0.42, roomHeight * 0.82, 'playerSprite');
             } else {
                 // First time
-                this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite');
+                this.player = this.physics.add.sprite(roomWidth * 0.42, roomHeight * 0.82, 'playerSprite');
             }
             
             this.player.setScale(2);
@@ -700,81 +780,62 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // === ROOM 2 COLLISIONS — traced from movement image ===
+            // === ROOM 2 — POLYGON-BASED ISOMETRIC COLLISIONS ===
             //
-            // IMAGE ANALYSIS (Room 2 - Studio, isometric view):
-            // Red boundary forms an irregular shape around the walkable floor.
-            // The walkable area is like an upside-down "U" or a corridor:
-            //   - Left side: narrow passage between door and desk/chair
-            //   - Center: opening between desk area and couch
-            //   - Right side: passage along the couch front
+            // Studio room walkable area traced from movement image.
+            // The red boundary follows the floor edges between desk, chair, couch, door.
+            // The floor is an L-shaped area with furniture blocking certain zones.
             //
-            // Tracing the red lines clockwise from bottom-left:
-            //   A: (0.08, 0.92)  — bottom-left (near door)
-            //   B: (0.08, 0.72)  — up along left wall (door side)
-            //   C: (0.22, 0.72)  — right along desk bottom edge
-            //   D: (0.22, 0.60)  — up (desk/chair left side)
-            //   E: (0.48, 0.60)  — right (behind chair, front of desk)
-            //   F: (0.48, 0.72)  — down (right side of chair area)
-            //   G: (0.60, 0.72)  — right (gap between chair and couch)
-            //   H: (0.60, 0.60)  — up (couch left side)
-            //   I: (0.78, 0.60)  — right (couch back/top)
-            //   J: (0.78, 0.92)  — down along couch right side
-            //   Back to A via bottom
+            // Key furniture blocking zones:
+            //   - Desk + monitors (back-left corner)
+            //   - Chair (center-left, in front of desk)
+            //   - Shelf (back wall behind desk)
+            //   - Couch (right side)
+            //   - Plant (back-right corner)
             //
-            // GREEN TRANSITION LINE (diagonal \):
-            //   From ~(0.08, 0.74) going down-right to ~(0.68, 0.92)
-            //   This is the line the player crosses to switch back to room 1
+            // Walkable floor = the visible wood floor between all furniture
 
-            const wallThickness = 16;
-            const walls = this.physics.add.staticGroup();
+            // Walkable polygon — traces the visible floor in isometric view
+            // Going clockwise from bottom-left
+            this.walkablePolygon = [
+                { x: 0.15, y: 0.92 },  // Bottom-left: near door
+                { x: 0.06, y: 0.78 },  // Left: alongside door going up
+                { x: 0.12, y: 0.68 },  // Up-left: past door, below desk area
+                { x: 0.28, y: 0.60 },  // Top step: left of chair
+                { x: 0.44, y: 0.54 },  // Top: behind chair, in front of desk/shelf
+                { x: 0.56, y: 0.58 },  // Top-center: gap between desk area and couch
+                { x: 0.62, y: 0.56 },  // Top-right of gap
+                { x: 0.72, y: 0.60 },  // Right: alongside couch going up
+                { x: 0.78, y: 0.68 },  // Right: couch front edge
+                { x: 0.65, y: 0.92 },  // Bottom-right: front floor edge
+            ];
 
-            const addWall = (x, y, w, h) => {
-                const wall = this.add.rectangle(x, y, w, h, 0xff0000, 0);
-                this.physics.add.existing(wall, true);
-                walls.add(wall);
-            };
+            // Chair — island blocking area
+            this.chairPolygon = [
+                { x: 0.26, y: 0.66 },  // Top-left
+                { x: 0.38, y: 0.62 },  // Top-right
+                { x: 0.44, y: 0.70 },  // Right
+                { x: 0.42, y: 0.78 },  // Bottom-right
+                { x: 0.30, y: 0.80 },  // Bottom-left
+                { x: 0.24, y: 0.74 },  // Left
+            ];
 
-            // --- RED BOUNDARY (clockwise from bottom-left) ---
+            this.roomWidth = roomWidth;
+            this.roomHeight = roomHeight;
 
-            // A→B: LEFT wall — vertical (door side)
-            addWall(roomWidth * 0.08, roomHeight * 0.82, wallThickness, roomHeight * 0.22);
+            // GREEN TRANSITION LINE — diagonal for scene switch back to room 1
+            // From image: line from ~(0.10, 0.80) to ~(0.62, 0.92)
+            this.greenLineStart = { x: 0.10, y: 0.80 };
+            this.greenLineEnd = { x: 0.62, y: 0.92 };
 
-            // B→C: horizontal wall (below desk, above left corridor)
-            addWall(roomWidth * 0.15, roomHeight * 0.72, roomWidth * 0.16, wallThickness);
-
-            // C→D: vertical step UP (left side of desk/chair block)
-            addWall(roomWidth * 0.22, roomHeight * 0.66, wallThickness, roomHeight * 0.14);
-
-            // D→E: TOP wall (behind chair / in front of desk) — horizontal
-            addWall(roomWidth * 0.35, roomHeight * 0.60, roomWidth * 0.28, wallThickness);
-
-            // E→F: vertical step DOWN (right side of chair area)
-            addWall(roomWidth * 0.48, roomHeight * 0.66, wallThickness, roomHeight * 0.14);
-
-            // F→G: horizontal (gap between chair and couch areas)
-            addWall(roomWidth * 0.54, roomHeight * 0.72, roomWidth * 0.14, wallThickness);
-
-            // G→H: vertical step UP (left side of couch)
-            addWall(roomWidth * 0.60, roomHeight * 0.66, wallThickness, roomHeight * 0.14);
-
-            // H→I: TOP wall right section (couch back) — horizontal
-            addWall(roomWidth * 0.69, roomHeight * 0.60, roomWidth * 0.20, wallThickness);
-
-            // I→J: RIGHT wall — vertical (couch right side)
-            addWall(roomWidth * 0.78, roomHeight * 0.76, wallThickness, roomHeight * 0.34);
-
-            // J→A: BOTTOM wall — horizontal (front edge of floor)
-            addWall(roomWidth * 0.43, roomHeight * 0.92, roomWidth * 0.72, wallThickness);
-
-            this.physics.add.collider(this.player, walls);
-
-            // --- ДВЕРЬ СЛЕВА (ЗАБЛОКИРОВАНА) ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.08, roomHeight * 0.52,
-                120, 200, 0xffffff, 0);
-            this.physics.add.existing(this.lockedDoorZone, true);
-
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.20, roomHeight * 0.40,
+            // Locked door zone (left wall)
+            this.lockedDoorPoly = [
+                { x: 0.02, y: 0.62 },
+                { x: 0.12, y: 0.56 },
+                { x: 0.12, y: 0.68 },
+                { x: 0.02, y: 0.74 },
+            ];
+            this.lockedDoorMessage = this.add.text(roomWidth * 0.20, roomHeight * 0.45,
                 'Еще не время', {
                 fontSize: '48px',
                 fontFamily: 'Courier New',
@@ -782,65 +843,87 @@
                 backgroundColor: '#000000',
                 padding: { x: 25, y: 12 },
                 alpha: 0
-            }).setOrigin(0.5);
+            }).setOrigin(0.5).setDepth(100);
+            this.lockedDoorTimer = 0;
 
-            let lockedMessageShown = false;
-            this.physics.add.overlap(this.player, this.lockedDoorZone, () => {
-                if (!lockedMessageShown) {
-                    lockedMessageShown = true;
-                    this.tweens.add({
-                        targets: this.lockedDoorMessage,
-                        alpha: 1,
-                        duration: 300
-                    });
+            // DEBUG: Draw the polygons
+            const debugGfx = this.add.graphics();
+            debugGfx.setDepth(50);
 
-                    this.time.delayedCall(2500, () => {
-                        this.tweens.add({
-                            targets: this.lockedDoorMessage,
-                            alpha: 0,
-                            duration: 300,
-                            onComplete: () => {
-                                lockedMessageShown = false;
-                            }
-                        });
-                    });
-                }
-            }, null, this);
+            // Outer walkable polygon (red outline)
+            debugGfx.lineStyle(3, 0xff0000, 0.8);
+            debugGfx.beginPath();
+            this.walkablePolygon.forEach((p, i) => {
+                const px = p.x * roomWidth;
+                const py = p.y * roomHeight;
+                if (i === 0) debugGfx.moveTo(px, py);
+                else debugGfx.lineTo(px, py);
+            });
+            debugGfx.closePath();
+            debugGfx.strokePath();
 
-            // --- GREEN TRANSITION LINE (diagonal \ from upper-left to lower-right) ---
-            // From image: line goes from ~(0.08, 0.74) to ~(0.68, 0.92)
-            // Player crosses this to go back to Room 1 (Living Room)
-            //
-            // Center of line: ~(0.38, 0.83)
-            // Length: ~0.65 * roomWidth
-            // Angle: atan2(0.92-0.74, 0.68-0.08) = atan2(0.18, 0.60) ≈ 17deg ≈ 0.29 rad
+            // Chair polygon (red filled)
+            debugGfx.lineStyle(3, 0xff0000, 0.8);
+            debugGfx.fillStyle(0xff0000, 0.15);
+            debugGfx.beginPath();
+            this.chairPolygon.forEach((p, i) => {
+                const px = p.x * roomWidth;
+                const py = p.y * roomHeight;
+                if (i === 0) debugGfx.moveTo(px, py);
+                else debugGfx.lineTo(px, py);
+            });
+            debugGfx.closePath();
+            debugGfx.strokePath();
+            debugGfx.fillPath();
 
-            this.transitionZone = this.add.rectangle(
-                roomWidth * 0.38,
-                roomHeight * 0.83,
-                roomWidth * 0.65,
-                50,
-                0x00ff00, 0
-            );
-            this.transitionZone.rotation = 0.29;
-            this.physics.add.existing(this.transitionZone, true);
+            // Green transition line
+            debugGfx.lineStyle(4, 0x00ff00, 0.8);
+            debugGfx.beginPath();
+            debugGfx.moveTo(this.greenLineStart.x * roomWidth, this.greenLineStart.y * roomHeight);
+            debugGfx.lineTo(this.greenLineEnd.x * roomWidth, this.greenLineEnd.y * roomHeight);
+            debugGfx.strokePath();
 
-            this.physics.add.overlap(this.player, this.transitionZone, () => {
-                if (!this.isTransitioning) {
-                    this.isTransitioning = true;
-                    this.player.body.setVelocity(0, 0);
+            // Locked door zone
+            debugGfx.lineStyle(2, 0xffff00, 0.6);
+            debugGfx.beginPath();
+            this.lockedDoorPoly.forEach((p, i) => {
+                if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight);
+                else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight);
+            });
+            debugGfx.closePath();
+            debugGfx.strokePath();
 
-                    this.cameras.main.fadeOut(800, 0, 0, 0);
+            // Disable physics world bounds — we handle collision ourselves
+            this.player.setCollideWorldBounds(false);
+        }
 
-                    this.time.delayedCall(800, () => {
-                        this.scene.start('MainScene', { fromStudio: true });
-                    });
-                }
-            }, null, this);
+        // Point-in-polygon test (ray casting algorithm)
+        pointInPolygon(px, py, polygon, rw, rh) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x * rw, yi = polygon[i].y * rh;
+                const xj = polygon[j].x * rw, yj = polygon[j].y * rh;
+                const intersect = ((yi > py) !== (yj > py)) &&
+                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        pointToLineDistance(px, py, x1, y1, x2, y2) {
+            const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+            const dot = A * C + B * D;
+            const lenSq = C * C + D * D;
+            let t = lenSq !== 0 ? dot / lenSq : -1;
+            t = Math.max(0, Math.min(1, t));
+            const xx = x1 + t * C, yy = y1 + t * D;
+            return Math.sqrt((px - xx) * (px - xx) + (py - yy) * (py - yy));
         }
 
         update() {
             const moveSpeed = 250;
+            const rw = this.roomWidth;
+            const rh = this.roomHeight;
             let vx = 0;
             let vy = 0;
 
@@ -859,45 +942,91 @@
             if (usingKeyboard) {
                 this.targetX = null;
                 this.targetY = null;
-                this.player.body.setVelocity(vx, vy);
             }
 
             if (this.targetX !== null && this.targetY !== null) {
                 const distance = Phaser.Math.Distance.Between(
-                    this.player.x, this.player.y,
-                    this.targetX, this.targetY
+                    this.player.x, this.player.y, this.targetX, this.targetY
                 );
                 if (distance < 10) {
-                    this.player.body.setVelocity(0, 0);
                     this.targetX = null;
                     this.targetY = null;
+                } else {
+                    const angle = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x);
+                    vx = Math.cos(angle) * moveSpeed;
+                    vy = Math.sin(angle) * moveSpeed;
                 }
             }
 
-            const speed = this.player.body.velocity.length();
-            if (speed > 10) {
-                const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
-                const deg = Phaser.Math.RadToDeg(angle);
+            // --- POLYGON COLLISION CHECK ---
+            const dt = this.game.loop.delta / 1000;
+            const nextX = this.player.x + vx * dt;
+            const nextY = this.player.y + vy * dt;
 
-                if (deg > -45 && deg <= 45) {
-                    this.player.anims.play('walk-right', true);
-                    this.playerDirection = 'right';
-                } else if (deg > 45 && deg <= 135) {
-                    this.player.anims.play('walk-down', true);
-                    this.playerDirection = 'down';
-                } else if (deg > 135 || deg <= -135) {
-                    this.player.anims.play('walk-left', true);
-                    this.playerDirection = 'left';
-                } else {
-                    this.player.anims.play('walk-up', true);
-                    this.playerDirection = 'up';
-                }
-            } else if (!usingKeyboard) {
-                this.player.anims.play('idle-' + this.playerDirection, true);
+            const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh);
+            const inChair = this.pointInPolygon(nextX, nextY, this.chairPolygon, rw, rh);
+
+            if (inOuter && !inChair) {
+                this.player.body.setVelocity(vx, vy);
+            } else {
+                const slideX_x = this.player.x + vx * dt;
+                const slideX_y = this.player.y;
+                const xOk = this.pointInPolygon(slideX_x, slideX_y, this.walkablePolygon, rw, rh)
+                          && !this.pointInPolygon(slideX_x, slideX_y, this.chairPolygon, rw, rh);
+
+                const slideY_x = this.player.x;
+                const slideY_y = this.player.y + vy * dt;
+                const yOk = this.pointInPolygon(slideY_x, slideY_y, this.walkablePolygon, rw, rh)
+                          && !this.pointInPolygon(slideY_x, slideY_y, this.chairPolygon, rw, rh);
+
+                if (xOk && !yOk) this.player.body.setVelocity(vx, 0);
+                else if (yOk && !xOk) this.player.body.setVelocity(0, vy);
+                else this.player.body.setVelocity(0, 0);
             }
 
             if (!usingKeyboard && this.targetX === null) {
                 this.player.body.setVelocity(0, 0);
+            }
+
+            // --- GREEN LINE TRANSITION CHECK ---
+            if (!this.isTransitioning) {
+                const dist = this.pointToLineDistance(
+                    this.player.x, this.player.y,
+                    this.greenLineStart.x * rw, this.greenLineStart.y * rh,
+                    this.greenLineEnd.x * rw, this.greenLineEnd.y * rh
+                );
+                if (dist < 30) {
+                    this.isTransitioning = true;
+                    this.player.body.setVelocity(0, 0);
+                    this.cameras.main.fadeOut(800, 0, 0, 0);
+                    this.time.delayedCall(800, () => {
+                        this.scene.start('MainScene', { fromStudio: true });
+                    });
+                }
+            }
+
+            // --- LOCKED DOOR CHECK ---
+            if (this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh)) {
+                if (this.lockedDoorTimer <= 0) {
+                    this.lockedDoorTimer = 2500;
+                    this.tweens.add({ targets: this.lockedDoorMessage, alpha: 1, duration: 300 });
+                    this.time.delayedCall(2500, () => {
+                        this.tweens.add({ targets: this.lockedDoorMessage, alpha: 0, duration: 300 });
+                    });
+                }
+            }
+            if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
+
+            // --- ANIMATION ---
+            const speed = this.player.body.velocity.length();
+            if (speed > 10) {
+                const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
+                const deg = Phaser.Math.RadToDeg(angle);
+                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
+                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
+                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
+                else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
+            } else {
                 this.player.anims.play('idle-' + this.playerDirection, true);
             }
         }
