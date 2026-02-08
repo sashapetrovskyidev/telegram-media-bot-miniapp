@@ -284,7 +284,7 @@
                 this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.72, 'playerSprite');
             } else {
                 // First time — spawn in center of floor (between sofa and ottoman)
-                this.player = this.physics.add.sprite(roomWidth * 0.38, roomHeight * 0.75, 'playerSprite');
+                this.player = this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.75, 'playerSprite');
             }
             
             console.log('👤 Создание персонажа...');
@@ -429,26 +429,24 @@
             //
             // Going clockwise from top-left
             this.walkablePolygon = [
-                { x: 0.22, y: 0.55 },  // Top-left: where sofa meets TV stand area (floor only)
-                { x: 0.48, y: 0.42 },  // Top-center: floor edge right below TV stand
-                { x: 0.68, y: 0.50 },  // Top-right: floor near door / right of TV stand
-                { x: 0.82, y: 0.58 },  // Right: floor in front of door
-                { x: 0.72, y: 0.82 },  // Bottom-right: right side floor front edge
-                { x: 0.50, y: 0.93 },  // Bottom-center: front floor tip
-                { x: 0.22, y: 0.82 },  // Bottom-left: front of sofa, floor edge
-                { x: 0.18, y: 0.72 },  // Left-bottom: sofa arm inner edge (floor side)
-                { x: 0.18, y: 0.62 },  // Left: alongside sofa inner arm going up
-            ];
+                { x: 0.20, y: 0.60 },  // Top-left: where sofa meets TV stand area (floor only)
+                { x: 0.44, y: 0.48 },  // Top-center: floor edge right below TV stand
+                { x: 0.67, y: 0.60 },  // Top-right: floor near door / right of TV stand
+                { x: 0.74, y: 0.57 },  // Right: floor in front of door
+                { x: 0.90, y: 0.65 },  // Bottom-right: right side floor front edge
+                { x: 0.50, y: 0.80 },  // Bottom-center: front floor tip
+				{ x: 0.485, y: 0.70 }, // near sofa right side
+				{ x: 0.46, y: 0.695 }, // near sofa right side
+				{ x: 0.43, y: 0.71 }, // near sofa right side
+			];
 
             // OTTOMAN / POUF — centered on the actual ottoman furniture
             // Traced tightly around the ottoman visible in the room
             this.ottomanPolygon = [
-                { x: 0.28, y: 0.58 },  // Top-left of ottoman
-                { x: 0.42, y: 0.52 },  // Top-right of ottoman
-                { x: 0.48, y: 0.58 },  // Right of ottoman
-                { x: 0.42, y: 0.66 },  // Bottom-right of ottoman
-                { x: 0.28, y: 0.68 },  // Bottom-left of ottoman
-                { x: 0.24, y: 0.63 },  // Left of ottoman
+                { x: 0.32, y: 0.60 },  // From a TOP DOWN LOOK: Left corner
+                { x: 0.41, y: 0.56 },  // Top corner
+                { x: 0.50, y: 0.60 },  // Right corner
+                { x: 0.41, y: 0.65 },  // Bottom corner
             ];
 
             this.roomWidth = roomWidth;
@@ -457,8 +455,8 @@
             // GREEN TRANSITION LINE — diagonal from movement image
             // In the image: green line goes from bottom-center area toward upper-right
             // roughly from (0.44, 0.86) to (0.74, 0.60) — a "/" diagonal
-            this.greenLineStart = { x: 0.44, y: 0.86 };
-            this.greenLineEnd = { x: 0.74, y: 0.60 };
+            this.greenLineStart = { x: 0.50, y: 0.80 };
+            this.greenLineEnd = { x: 0.90, y: 0.65 };
 
             // Locked door zone (right wall — isometric diamond near the door)
             this.lockedDoorPoly = [
@@ -710,7 +708,7 @@
 
             if (fromLiving) {
                 // Coming from living room — spawn in center of studio floor
-                this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.70, 'playerSprite');
+                this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.70, 'playerSprite');
             } else {
                 // First time
                 this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite');
@@ -819,28 +817,31 @@
             //
             // Going clockwise from top-left
             this.walkablePolygon = [
-                { x: 0.12, y: 0.65 },  // Top-left: floor next to door, below desk
-                { x: 0.22, y: 0.58 },  // Up: floor edge below desk/shelf area
-                { x: 0.38, y: 0.54 },  // Top-center-left: floor gap between desk/chair area
-                { x: 0.50, y: 0.52 },  // Top-center: open floor between chair and couch
-                { x: 0.58, y: 0.54 },  // Top-center-right: near couch
-                { x: 0.68, y: 0.58 },  // Top-right: floor below couch back
-                { x: 0.72, y: 0.65 },  // Right: couch front-right edge
-                { x: 0.62, y: 0.90 },  // Bottom-right: right front floor edge
-                { x: 0.42, y: 0.95 },  // Bottom-center: front floor tip
-                { x: 0.18, y: 0.88 },  // Bottom-left: left front floor edge
-                { x: 0.08, y: 0.76 },  // Left-bottom: door area floor
-                { x: 0.08, y: 0.70 },  // Left: alongside door going up
+                { x: 0.08, y: 0.72 },  // Door: left corner
+                { x: 0.26, y: 0.625 },  // Door + Studio: right corner
+                { x: 0.35, y: 0.68 },  // Studio: left corner
+                { x: 0.32, y: 0.63 },  // Top-center: open floor between chair and couch
+                { x: 0.38, y: 0.60 },
+				{ x: 0.40, y: 0.66 },
+				{ x: 0.47, y: 0.70 },
+				{ x: 0.53, y: 0.66 },
+				{ x: 0.56, y: 0.65 },
+				{ x: 0.51, y: 0.61 },
+				{ x: 0.53, y: 0.60 },
+				{ x: 0.54, y: 0.54 },  // Cupboard: left corner
+				{ x: 0.59, y: 0.51 },  // Cupboard: right corner
+                { x: 0.645, y: 0.55 },
+				{ x: 0.645, y: 0.60 },  // Top-right: floor below couch back
+                { x: 0.73, y: 0.66 },  // Right: couch front-right edge
+                { x: 0.27, y: 0.84 },  // Bottom-left: left front floor edge
             ];
 
             // Chair — island blocking area (the desk chair in center-left)
             this.chairPolygon = [
-                { x: 0.28, y: 0.64 },  // Top-left
-                { x: 0.38, y: 0.60 },  // Top-right
-                { x: 0.44, y: 0.66 },  // Right
-                { x: 0.40, y: 0.74 },  // Bottom-right
-                { x: 0.30, y: 0.76 },  // Bottom-left
-                { x: 0.25, y: 0.70 },  // Left
+                { x: 0.40, y: 0.66 },  // Left
+                { x: 0.47, y: 0.60 },  // Top
+                { x: 0.54, y: 0.66 },  // Right
+                { x: 0.47, y: 0.70 },  // Bottom
             ];
 
             this.roomWidth = roomWidth;
@@ -849,8 +850,8 @@
             // GREEN TRANSITION LINE — diagonal "\" from movement image
             // In the image: green line goes from left side down to right bottom
             // roughly from (0.12, 0.76) to (0.58, 0.92) — a "\" diagonal
-            this.greenLineStart = { x: 0.20, y: 0.85 };
-            this.greenLineEnd = { x: 0.80, y: 0.70 };
+            this.greenLineStart = { x: 0.26, y: 0.85 };
+            this.greenLineEnd = { x: 0.72, y: 0.67 };
 
             // Locked door zone (left wall — near the door)
             this.lockedDoorPoly = [
