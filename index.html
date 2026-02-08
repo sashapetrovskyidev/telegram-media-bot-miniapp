@@ -276,13 +276,15 @@
                 });
             }
 
-            // Персонаж
+            // Персонаж — spawn inside walkable area (0.21-0.64, 0.54-0.90)
             const fromStudio = this.scene.settings.data?.fromStudio;
-            
+
             if (fromStudio) {
-                this.player = this.physics.add.sprite(roomWidth * 0.6, roomHeight * 0.65, 'playerSprite');
+                // Coming from studio — spawn near center-right (near green line but inside bounds)
+                this.player = this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.70, 'playerSprite');
             } else {
-                this.player = this.physics.add.sprite(roomWidth * 0.4, roomHeight * 0.75, 'playerSprite');
+                // First time — spawn in center of walkable area
+                this.player = this.physics.add.sprite(roomWidth * 0.42, roomHeight * 0.78, 'playerSprite');
             }
             
             console.log('👤 Создание персонажа...');
@@ -388,59 +390,72 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // === COLLISION WALLS matching red boundary from movement image ===
-            // Red boundary = player CANNOT cross these lines
-            // We create thin static rectangles along each red line segment
+            // === ROOM 1 COLLISIONS — traced from movement image ===
+            //
+            // IMAGE ANALYSIS (Room 1 - Living Room, isometric view):
+            // The red boundary forms a rectangle around the walkable floor.
+            // Inside, the ottoman/pouf has its own red rectangle (no-go island).
+            //
+            // The room is ~1080x1920 (portrait). The isometric floor diamond spans:
+            //   - Left edge of floor:   ~x=0.10 (sofa left arm)
+            //   - Right edge of floor:  ~x=0.90 (door right)
+            //   - Top of floor:         ~y=0.42 (behind TV)
+            //   - Bottom of floor:      ~y=0.95 (front corner)
+            //
+            // RED BOUNDARY rectangle from image (the thick red lines):
+            //   Top-left corner:     ~(0.21, 0.54)  — right of sofa back
+            //   Top-right corner:    ~(0.64, 0.54)  — in front of TV stand
+            //   Bottom-right corner: ~(0.64, 0.90)  — right side of floor
+            //   Bottom-left corner:  ~(0.21, 0.90)  — front of sofa
+            //
+            // OTTOMAN red rectangle (island inside):
+            //   Top-left:     ~(0.33, 0.62)
+            //   Bottom-right: ~(0.45, 0.74)
+            //
+            // GREEN TRANSITION LINE (diagonal /):
+            //   From ~(0.46, 0.88) going up-right to ~(0.76, 0.60)
+            //   This is the line the player crosses to switch to room 2
 
-            const wallThickness = 20;
+            const wallThickness = 16;
             const walls = this.physics.add.staticGroup();
 
-            // Helper: create a wall segment between two points
             const addWall = (x, y, w, h) => {
                 const wall = this.add.rectangle(x, y, w, h, 0xff0000, 0);
                 this.physics.add.existing(wall, true);
                 walls.add(wall);
             };
 
-            // --- RED BOUNDARY (Room 1 - Living Room) ---
-            // From the image: red rectangle goes around the walkable floor area
-            // The walkable zone is roughly bounded by:
-            //   Top-left: sofa back (left wall side)
-            //   Top: behind ottoman / in front of TV stand
-            //   Right: near the door
-            //   Bottom: front edge of the room floor
+            // --- OUTER RED RECTANGLE (perimeter of walkable area) ---
 
-            // Coordinates traced from the movement image:
-            // Red rect corners (approximate % of room):
-            //   Top-left:     (0.18, 0.52)
-            //   Top-right:    (0.62, 0.52)
-            //   Bottom-right: (0.62, 0.88)
-            //   Bottom-left:  (0.18, 0.88)
-            // Plus the ottoman island in the middle: (0.32, 0.60) to (0.44, 0.72)
+            // LEFT wall — vertical, runs along sofa's right edge
+            // from (0.21, 0.54) down to (0.21, 0.90)
+            addWall(roomWidth * 0.21, roomHeight * 0.72, wallThickness, roomHeight * 0.38);
 
-            // LEFT wall (sofa side) - vertical
-            addWall(roomWidth * 0.18, roomHeight * 0.70, wallThickness, roomHeight * 0.36);
+            // TOP wall — horizontal, runs behind ottoman / in front of TV area
+            // from (0.21, 0.54) right to (0.64, 0.54)
+            addWall(roomWidth * 0.425, roomHeight * 0.54, roomWidth * 0.45, wallThickness);
 
-            // TOP wall (behind sofa/ottoman toward TV) - horizontal
-            addWall(roomWidth * 0.40, roomHeight * 0.52, roomWidth * 0.44, wallThickness);
+            // RIGHT wall — vertical, right side of walkable area
+            // from (0.64, 0.54) down to (0.64, 0.90)
+            addWall(roomWidth * 0.64, roomHeight * 0.72, wallThickness, roomHeight * 0.38);
 
-            // RIGHT wall (room edge before door) - vertical
-            addWall(roomWidth * 0.62, roomHeight * 0.70, wallThickness, roomHeight * 0.36);
+            // BOTTOM wall — horizontal, front edge of the floor
+            // from (0.21, 0.90) right to (0.64, 0.90)
+            addWall(roomWidth * 0.425, roomHeight * 0.90, roomWidth * 0.45, wallThickness);
 
-            // BOTTOM wall (front edge of floor) - horizontal
-            addWall(roomWidth * 0.40, roomHeight * 0.88, roomWidth * 0.44, wallThickness);
-
-            // OTTOMAN (island in center) - solid block
-            addWall(roomWidth * 0.38, roomHeight * 0.66, roomWidth * 0.12, roomHeight * 0.12);
+            // --- OTTOMAN / POUF (island in center of walkable area) ---
+            // Solid block the player can't walk through
+            // Covers ~(0.33, 0.62) to (0.45, 0.74)
+            addWall(roomWidth * 0.39, roomHeight * 0.68, roomWidth * 0.14, roomHeight * 0.14);
 
             this.physics.add.collider(this.player, walls);
 
             // --- ДВЕРЬ СПРАВА (ЗАБЛОКИРОВАНА) ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.93, roomHeight * 0.45,
-                140, 280 * scale, 0xffffff, 0);
+            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.88, roomHeight * 0.48,
+                120, 260, 0xffffff, 0);
             this.physics.add.existing(this.lockedDoorZone, true);
 
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.75, roomHeight * 0.3,
+            this.lockedDoorMessage = this.add.text(roomWidth * 0.75, roomHeight * 0.35,
                 'Еще не время', {
                 fontSize: '48px',
                 fontFamily: 'Courier New',
@@ -473,18 +488,23 @@
                 }
             }, null, this);
 
-            // --- GREEN TRANSITION LINE (diagonal / from bottom-center to upper-right) ---
-            // From the image: green line goes from ~(0.48, 0.86) to ~(0.72, 0.62)
-            // This is the diagonal "/" line near the right side of the room
+            // --- GREEN TRANSITION LINE (diagonal / from lower-left to upper-right) ---
+            // From image: line goes from ~(0.46, 0.88) to ~(0.76, 0.60)
+            // Player crosses this to go to Room 2 (Studio)
+            //
+            // We use a rotated thin rectangle as overlap trigger.
+            // Center of line: ~(0.61, 0.74)
+            // Length of line: ~0.38 * roomWidth
+            // Angle: atan2(0.60-0.88, 0.76-0.46) = atan2(-0.28, 0.30) ≈ -43deg ≈ -0.75 rad
 
             this.transitionZone = this.add.rectangle(
-                roomWidth * 0.60,
+                roomWidth * 0.61,
                 roomHeight * 0.74,
-                roomWidth * 0.30,
-                60,
+                roomWidth * 0.38,
+                50,
                 0x00ff00, 0
             );
-            this.transitionZone.rotation = -0.78; // ~45 degree diagonal /
+            this.transitionZone.rotation = -0.75;
             this.physics.add.existing(this.transitionZone, true);
 
             this.physics.add.overlap(this.player, this.transitionZone, () => {
@@ -595,13 +615,15 @@
 
             this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
 
-            // Персонаж
+            // Персонаж — spawn inside walkable area
             const fromLiving = this.scene.settings.data?.fromLiving;
-            
+
             if (fromLiving) {
-                this.player = this.physics.add.sprite(roomWidth * 0.35, roomHeight * 0.75, 'playerSprite');
+                // Coming from living room — spawn near center of studio walkable area
+                this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite');
             } else {
-                this.player = this.physics.add.sprite(roomWidth * 0.4, roomHeight * 0.7, 'playerSprite');
+                // First time
+                this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite');
             }
             
             this.player.setScale(2);
@@ -678,11 +700,33 @@
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // === COLLISION WALLS matching red boundary from movement image ===
-            // Red boundary = player CANNOT cross these lines
-            // Room 2 has an L-shaped walkable area
+            // === ROOM 2 COLLISIONS — traced from movement image ===
+            //
+            // IMAGE ANALYSIS (Room 2 - Studio, isometric view):
+            // Red boundary forms an irregular shape around the walkable floor.
+            // The walkable area is like an upside-down "U" or a corridor:
+            //   - Left side: narrow passage between door and desk/chair
+            //   - Center: opening between desk area and couch
+            //   - Right side: passage along the couch front
+            //
+            // Tracing the red lines clockwise from bottom-left:
+            //   A: (0.08, 0.92)  — bottom-left (near door)
+            //   B: (0.08, 0.72)  — up along left wall (door side)
+            //   C: (0.22, 0.72)  — right along desk bottom edge
+            //   D: (0.22, 0.60)  — up (desk/chair left side)
+            //   E: (0.48, 0.60)  — right (behind chair, front of desk)
+            //   F: (0.48, 0.72)  — down (right side of chair area)
+            //   G: (0.60, 0.72)  — right (gap between chair and couch)
+            //   H: (0.60, 0.60)  — up (couch left side)
+            //   I: (0.78, 0.60)  — right (couch back/top)
+            //   J: (0.78, 0.92)  — down along couch right side
+            //   Back to A via bottom
+            //
+            // GREEN TRANSITION LINE (diagonal \):
+            //   From ~(0.08, 0.74) going down-right to ~(0.68, 0.92)
+            //   This is the line the player crosses to switch back to room 1
 
-            const wallThickness = 20;
+            const wallThickness = 16;
             const walls = this.physics.add.staticGroup();
 
             const addWall = (x, y, w, h) => {
@@ -691,55 +735,46 @@
                 walls.add(wall);
             };
 
-            // --- RED BOUNDARY (Room 2 - Studio) ---
-            // From the image: L-shaped red outline around the walkable floor
-            // The walkable area has two parts:
-            //   Left corridor (near desk/chair): narrow vertical strip
-            //   Bottom area (in front of couch): wider horizontal strip
-            //
-            // Red line corners traced from image:
-            //   Starts bottom-left:  (0.10, 0.92)
-            //   Up to door area:     (0.10, 0.68)
-            //   Right step (desk):   (0.30, 0.68)
-            //   Up around chair:     (0.30, 0.58)
-            //   Right to middle:     (0.52, 0.58)
-            //   Down step:           (0.52, 0.68)
-            //   Right along couch:   (0.70, 0.68)
-            //   Down to bottom:      (0.70, 0.92)
-            //   Back to start
+            // --- RED BOUNDARY (clockwise from bottom-left) ---
 
-            // LEFT wall - vertical (door side)
-            addWall(roomWidth * 0.10, roomHeight * 0.80, wallThickness, roomHeight * 0.24);
+            // A→B: LEFT wall — vertical (door side)
+            addWall(roomWidth * 0.08, roomHeight * 0.82, wallThickness, roomHeight * 0.22);
 
-            // LEFT-TOP horizontal (above left corridor)
-            addWall(roomWidth * 0.20, roomHeight * 0.68, roomWidth * 0.20, wallThickness);
+            // B→C: horizontal wall (below desk, above left corridor)
+            addWall(roomWidth * 0.15, roomHeight * 0.72, roomWidth * 0.16, wallThickness);
 
-            // STEP UP - vertical (desk edge)
-            addWall(roomWidth * 0.30, roomHeight * 0.63, wallThickness, roomHeight * 0.10);
+            // C→D: vertical step UP (left side of desk/chair block)
+            addWall(roomWidth * 0.22, roomHeight * 0.66, wallThickness, roomHeight * 0.14);
 
-            // TOP wall - horizontal (behind chair area)
-            addWall(roomWidth * 0.41, roomHeight * 0.58, roomWidth * 0.22, wallThickness);
+            // D→E: TOP wall (behind chair / in front of desk) — horizontal
+            addWall(roomWidth * 0.35, roomHeight * 0.60, roomWidth * 0.28, wallThickness);
 
-            // STEP DOWN - vertical (after desk area)
-            addWall(roomWidth * 0.52, roomHeight * 0.63, wallThickness, roomHeight * 0.10);
+            // E→F: vertical step DOWN (right side of chair area)
+            addWall(roomWidth * 0.48, roomHeight * 0.66, wallThickness, roomHeight * 0.14);
 
-            // RIGHT-TOP horizontal (above couch area)
-            addWall(roomWidth * 0.61, roomHeight * 0.68, roomWidth * 0.18, wallThickness);
+            // F→G: horizontal (gap between chair and couch areas)
+            addWall(roomWidth * 0.54, roomHeight * 0.72, roomWidth * 0.14, wallThickness);
 
-            // RIGHT wall - vertical (couch side)
-            addWall(roomWidth * 0.70, roomHeight * 0.80, wallThickness, roomHeight * 0.24);
+            // G→H: vertical step UP (left side of couch)
+            addWall(roomWidth * 0.60, roomHeight * 0.66, wallThickness, roomHeight * 0.14);
 
-            // BOTTOM wall - horizontal (front edge of floor)
-            addWall(roomWidth * 0.40, roomHeight * 0.92, roomWidth * 0.60, wallThickness);
+            // H→I: TOP wall right section (couch back) — horizontal
+            addWall(roomWidth * 0.69, roomHeight * 0.60, roomWidth * 0.20, wallThickness);
+
+            // I→J: RIGHT wall — vertical (couch right side)
+            addWall(roomWidth * 0.78, roomHeight * 0.76, wallThickness, roomHeight * 0.34);
+
+            // J→A: BOTTOM wall — horizontal (front edge of floor)
+            addWall(roomWidth * 0.43, roomHeight * 0.92, roomWidth * 0.72, wallThickness);
 
             this.physics.add.collider(this.player, walls);
 
             // --- ДВЕРЬ СЛЕВА (ЗАБЛОКИРОВАНА) ---
-            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.05, roomHeight * 0.5,
-                120, 280 * scale, 0xffffff, 0);
+            this.lockedDoorZone = this.add.rectangle(roomWidth * 0.08, roomHeight * 0.52,
+                120, 200, 0xffffff, 0);
             this.physics.add.existing(this.lockedDoorZone, true);
 
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.15, roomHeight * 0.35,
+            this.lockedDoorMessage = this.add.text(roomWidth * 0.20, roomHeight * 0.40,
                 'Еще не время', {
                 fontSize: '48px',
                 fontFamily: 'Courier New',
@@ -772,17 +807,22 @@
                 }
             }, null, this);
 
-            // --- GREEN TRANSITION LINE (bottom edge, \ diagonal from left to right) ---
-            // From image: green line runs along the bottom of the walkable area
-            // Goes from ~(0.10, 0.90) to ~(0.70, 0.90) — basically a horizontal line at bottom
+            // --- GREEN TRANSITION LINE (diagonal \ from upper-left to lower-right) ---
+            // From image: line goes from ~(0.08, 0.74) to ~(0.68, 0.92)
+            // Player crosses this to go back to Room 1 (Living Room)
+            //
+            // Center of line: ~(0.38, 0.83)
+            // Length: ~0.65 * roomWidth
+            // Angle: atan2(0.92-0.74, 0.68-0.08) = atan2(0.18, 0.60) ≈ 17deg ≈ 0.29 rad
 
             this.transitionZone = this.add.rectangle(
-                roomWidth * 0.40,
-                roomHeight * 0.90,
-                roomWidth * 0.58,
-                60,
+                roomWidth * 0.38,
+                roomHeight * 0.83,
+                roomWidth * 0.65,
+                50,
                 0x00ff00, 0
             );
+            this.transitionZone.rotation = 0.29;
             this.physics.add.existing(this.transitionZone, true);
 
             this.physics.add.overlap(this.player, this.transitionZone, () => {
@@ -876,7 +916,7 @@
         physics: {
             default: 'arcade',
             arcade: {
-                debug: false,
+                debug: true,
                 gravity: { y: 0 }
             }
         },
