@@ -177,9 +177,9 @@
             this.load.image('room1', 'room1.png');
             
             // КРИТИЧНО: Проверяем загрузку спрайтшита
-            this.load.spritesheet('playerSprite', 'person_model_rightest.png', {
-                frameWidth: 64,
-                frameHeight: 64
+            this.load.spritesheet('playerSprite', 'person_model.png', {
+                frameWidth: 512,
+                frameHeight: 512
             });
 
             this.load.on('loaderror', (file) => {
@@ -291,7 +291,7 @@
             console.log('👤 Texture exists?', this.textures.exists('playerSprite'));
             
             // Уменьшаем размер персонажа
-            this.player.setScale(2);  // Было 3, теперь 2
+            this.player.setScale(0.7);  // Было 3, теперь 2
             this.player.setOrigin(0.5, 1); // ВАЖНО: origin внизу по центру (для ног)
             this.player.setCollideWorldBounds(true);
             
@@ -714,7 +714,7 @@
                 this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite');
             }
             
-            this.player.setScale(2);
+            this.player.setScale(0.7);
             this.player.setOrigin(0.5, 1);
             this.player.setCollideWorldBounds(true);
             this.player.body.setSize(20, 10);
