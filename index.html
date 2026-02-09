@@ -6,10 +6,10 @@
     <title>My Studio</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            padding: 0; 
-            background: #1a1a1a; 
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
             overflow: hidden;
             font-family: 'Courier New', monospace;
         }
@@ -23,8 +23,9 @@
         constructor() { super('MenuScene'); }
 
         preload() {
-            this.load.image('menuBg', 'room1_right_size.png');
-            
+            this.load.image('menuBg', 'menu_bg.jpg');
+            this.load.image('menuUI', 'menu.png');
+
             this.load.on('loaderror', (file) => {
                 console.error('Ошибка загрузки: ' + file.key);
             });
@@ -33,133 +34,140 @@
         create() {
             const { width, height } = this.scale;
 
-            this.add.image(width / 2, height / 2, 'menuBg')
-                .setDisplaySize(width, height)
-                .setAlpha(0.3);
+            // Full-screen studio artwork background
+            const bg = this.add.image(width / 2, height / 2, 'menuBg');
+            const bgScaleX = width / bg.width;
+            const bgScaleY = height / bg.height;
+            const bgScale = Math.max(bgScaleX, bgScaleY);
+            bg.setScale(bgScale);
 
+            // Dark overlay — subtle, let the artwork show through
             const overlay = this.add.graphics();
-            overlay.fillGradientStyle(0x0a0a0a, 0x0a0a0a, 0x1a1a2e, 0x1a1a2e, 0.85);
+            overlay.fillStyle(0x000000, 0.3);
             overlay.fillRect(0, 0, width, height);
 
+            // --- PIXEL-ART MENU BOX (transparent) ---
+            const boxW = 620;
+            const boxH = 380;
+            const boxX = width / 2 - boxW / 2;
+            const boxY = height / 2 - boxH / 2 - 60;
+
+            // Main menu box — semi-transparent with pixel border
             const menuBox = this.add.graphics();
-            menuBox.lineStyle(8, 0x4a5568, 1);
-            menuBox.strokeRect(width / 2 - 380, height / 2 - 250, 760, 500);
-            menuBox.lineStyle(4, 0x6b7280, 1);
-            menuBox.strokeRect(width / 2 - 390, height / 2 - 260, 780, 520);
+            // Outer border (lighter grey, semi-transparent)
+            menuBox.fillStyle(0x6b7a8d, 0.5);
+            menuBox.fillRect(boxX - 6, boxY - 6, boxW + 12, boxH + 12);
+            // Inner border (medium, semi-transparent)
+            menuBox.fillStyle(0x4a5568, 0.5);
+            menuBox.fillRect(boxX - 3, boxY - 3, boxW + 6, boxH + 6);
+            // Background fill (transparent dark)
+            menuBox.fillStyle(0x2d3748, 0.55);
+            menuBox.fillRect(boxX, boxY, boxW, boxH);
+            // Inner highlight line (top)
+            menuBox.fillStyle(0x4a5568, 0.4);
+            menuBox.fillRect(boxX + 4, boxY + 4, boxW - 8, 2);
+            // Inner shadow line (bottom)
+            menuBox.fillStyle(0x1a202c, 0.4);
+            menuBox.fillRect(boxX + 4, boxY + boxH - 6, boxW - 8, 2);
 
-            const menuBg = this.add.graphics();
-            menuBg.fillStyle(0x1e293b, 0.95);
-            menuBg.fillRect(width / 2 - 380, height / 2 - 250, 760, 500);
-
-            const title = this.add.text(width / 2, height / 2 - 150, 'MY STUDIO', {
-                fontSize: '96px',
+            // "WERYPEAS STUDIO" title
+            const title = this.add.text(width / 2, boxY + 75, 'WERYPEAS', {
+                fontSize: '64px',
                 fontFamily: 'Courier New, monospace',
-                color: '#94a3b8',
+                color: '#e2e8f0',
                 fontStyle: 'bold',
-                stroke: '#1e293b',
-                strokeThickness: 12
+                stroke: '#000000',
+                strokeThickness: 8,
+                align: 'center'
             }).setOrigin(0.5);
 
+            // Subtle title pulse
             this.tweens.add({
                 targets: title,
-                alpha: { from: 0.8, to: 1 },
-                scale: { from: 0.98, to: 1.02 },
+                alpha: { from: 0.85, to: 1 },
                 duration: 2000,
                 yoyo: true,
                 repeat: -1,
                 ease: 'Sine.easeInOut'
             });
 
-            const startBtnY = height / 2 + 20;
-            this.createPixelButton(
-                width / 2, 
-                startBtnY, 
-                'START GAME',
-                () => {
-                    this.cameras.main.fadeOut(500, 0, 0, 0);
-                    this.time.delayedCall(500, () => {
-                        this.scene.start('MainScene');
-                    });
-                }
-            );
+            // --- BUTTONS (pixel-art style matching mockup) ---
+            const btnW = 380;
+            const btnH = 60;
 
-            const optionsBtnY = height / 2 + 130;
-            this.createPixelButton(
-                width / 2, 
-                optionsBtnY, 
-                'OPTIONS',
-                () => {
-                    this.cameras.main.shake(200, 0.002);
-                }
-            );
-
-            const hint = this.add.text(width / 2, height - 120, 'Нажмите на экран для движения', {
-                fontSize: '28px',
-                fontFamily: 'Courier New',
-                color: '#64748b',
-                alpha: 0.7
-            }).setOrigin(0.5);
-
-            this.tweens.add({
-                targets: hint,
-                alpha: { from: 0.4, to: 0.9 },
-                duration: 1500,
-                yoyo: true,
-                repeat: -1
+            this.createMenuButton(width / 2, boxY + 175, btnW, btnH, 'START GAME', () => {
+                this.cameras.main.fadeOut(500, 0, 0, 0);
+                this.time.delayedCall(500, () => {
+                    this.scene.start('MainScene');
+                });
             });
 
-            this.cameras.main.fadeIn(800, 10, 10, 30);
+            this.createMenuButton(width / 2, boxY + 260, btnW, btnH, 'OPTIONS', () => {
+                this.cameras.main.shake(200, 0.002);
+            });
+
+            this.cameras.main.fadeIn(800, 0, 0, 0);
         }
 
-        createPixelButton(x, y, text, callback) {
-            const btnWidth = 500;
-            const btnHeight = 90;
+        createMenuButton(x, y, w, h, text, callback) {
+            const btnGfx = this.add.graphics();
 
-            const outerBorder = this.add.graphics();
-            outerBorder.lineStyle(6, 0x64748b, 1);
-            outerBorder.strokeRect(x - btnWidth/2, y - btnHeight/2, btnWidth, btnHeight);
+            // Outer border (semi-transparent)
+            btnGfx.fillStyle(0x8a9bb0, 0.5);
+            btnGfx.fillRect(x - w/2 - 4, y - h/2 - 4, w + 8, h + 8);
+            // Inner border
+            btnGfx.fillStyle(0x5a6b7d, 0.5);
+            btnGfx.fillRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4);
+            // Button background (transparent)
+            btnGfx.fillStyle(0x4a5568, 0.55);
+            btnGfx.fillRect(x - w/2, y - h/2, w, h);
+            // Top highlight
+            btnGfx.fillStyle(0x5a6b7d, 0.4);
+            btnGfx.fillRect(x - w/2 + 3, y - h/2 + 3, w - 6, 2);
 
-            const innerBorder = this.add.graphics();
-            innerBorder.lineStyle(3, 0x475569, 1);
-            innerBorder.strokeRect(x - btnWidth/2 + 8, y - btnHeight/2 + 8, btnWidth - 16, btnHeight - 16);
-
-            const buttonBg = this.add.rectangle(x, y, btnWidth - 16, btnHeight - 16, 0x334155)
+            const hitArea = this.add.rectangle(x, y, w, h, 0x000000, 0)
                 .setInteractive({ useHandCursor: true });
 
-            const buttonText = this.add.text(x, y, text, {
-                fontSize: '42px',
+            const btnText = this.add.text(x, y, text, {
+                fontSize: '36px',
                 fontFamily: 'Courier New',
-                color: '#cbd5e1',
-                fontStyle: 'bold'
+                color: '#e2e8f0',
+                fontStyle: 'bold',
+                stroke: '#000000',
+                strokeThickness: 3
             }).setOrigin(0.5);
 
-            const buttonGroup = [outerBorder, innerBorder, buttonBg, buttonText];
-
-            buttonBg.on('pointerover', () => {
-                buttonBg.setFillStyle(0x475569);
-                buttonText.setColor('#f1f5f9');
-                this.tweens.add({
-                    targets: buttonGroup,
-                    scale: 1.05,
-                    duration: 150
-                });
+            hitArea.on('pointerover', () => {
+                btnGfx.clear();
+                btnGfx.fillStyle(0x8a9bb0, 0.6);
+                btnGfx.fillRect(x - w/2 - 4, y - h/2 - 4, w + 8, h + 8);
+                btnGfx.fillStyle(0x5a6b7d, 0.6);
+                btnGfx.fillRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4);
+                btnGfx.fillStyle(0x5a6b7d, 0.65);
+                btnGfx.fillRect(x - w/2, y - h/2, w, h);
+                btnGfx.fillStyle(0x6b7d8f, 0.5);
+                btnGfx.fillRect(x - w/2 + 3, y - h/2 + 3, w - 6, 2);
+                btnText.setColor('#ffffff');
             });
 
-            buttonBg.on('pointerout', () => {
-                buttonBg.setFillStyle(0x334155);
-                buttonText.setColor('#cbd5e1');
-                this.tweens.add({
-                    targets: buttonGroup,
-                    scale: 1.0,
-                    duration: 150
-                });
+            hitArea.on('pointerout', () => {
+                btnGfx.clear();
+                btnGfx.fillStyle(0x8a9bb0, 0.5);
+                btnGfx.fillRect(x - w/2 - 4, y - h/2 - 4, w + 8, h + 8);
+                btnGfx.fillStyle(0x5a6b7d, 0.5);
+                btnGfx.fillRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4);
+                btnGfx.fillStyle(0x4a5568, 0.55);
+                btnGfx.fillRect(x - w/2, y - h/2, w, h);
+                btnGfx.fillStyle(0x5a6b7d, 0.4);
+                btnGfx.fillRect(x - w/2 + 3, y - h/2 + 3, w - 6, 2);
+                btnText.setColor('#e2e8f0');
             });
 
-            buttonBg.on('pointerdown', () => {
+            hitArea.on('pointerdown', () => {
                 this.tweens.add({
-                    targets: buttonGroup,
+                    targets: [btnGfx, hitArea, btnText],
                     scale: 0.95,
-                    duration: 100,
+                    duration: 80,
                     yoyo: true,
                     onComplete: callback
                 });
@@ -173,9 +181,9 @@
 
         preload() {
             console.log('🔄 Начинаем загрузку ресурсов...');
-            
+
             this.load.image('room1', 'room1.png');
-            
+
             // КРИТИЧНО: Проверяем загрузку спрайтшита
             this.load.spritesheet('playerSprite', 'person_model.png', {
                 frameWidth: 512,
@@ -187,17 +195,17 @@
                 console.error('❌ Путь к файлу:', file.url);
                 console.error('❌ Тип файла:', file.type);
             });
-            
+
             this.load.on('complete', () => {
                 console.log('✅ Все файлы загружены успешно!');
             });
-            
+
             this.load.on('filecomplete-spritesheet-playerSprite', (key, type, data) => {
                 console.log('✅ Спрайтшит персонажа загружен!');
                 console.log('📊 Размер:', data.width, 'x', data.height);
                 console.log('📊 Должно быть: 256x256 (4x4 frames по 64px)');
             });
-            
+
             this.load.on('filecomplete-image-room1', () => {
                 console.log('✅ Комната загружена!');
             });
@@ -208,13 +216,13 @@
             const screenHeight = this.scale.height;
 
             const bg = this.add.image(0, 0, 'room1').setOrigin(0, 0);
-            
+
             const scaleX = screenWidth / bg.width;
             const scaleY = screenHeight / bg.height;
             const scale = Math.max(scaleX, scaleY);
-            
+
             bg.setScale(scale);
-            
+
             const roomWidth = bg.width * scale;
             const roomHeight = bg.height * scale;
 
@@ -286,22 +294,22 @@
                 // First time — spawn in center of floor (between sofa and ottoman)
                 this.player = this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.75, 'playerSprite');
             }
-            
+
             console.log('👤 Создание персонажа...');
             console.log('👤 Texture exists?', this.textures.exists('playerSprite'));
-            
+
             // Уменьшаем размер персонажа
-            this.player.setScale(0.7);  // Было 3, теперь 2
+            this.player.setScale(0.5);  // Было 3, теперь 2
             this.player.setOrigin(0.5, 1); // ВАЖНО: origin внизу по центру (для ног)
             this.player.setCollideWorldBounds(true);
-            
+
             // Хитбокс для ног
             this.player.body.setSize(20, 10);  // Маленький хитбокс
             this.player.body.setOffset(22, 54); // Смещение к самому низу (ноги)
-            
+
             this.player.anims.play('idle-down');
             this.playerDirection = 'down';
-            
+
             console.log('👤 Персонаж создан на позиции:', this.player.x, this.player.y);
             console.log('👤 Размер спрайта:', this.player.width, 'x', this.player.height);
             console.log('👤 Frame size:', this.player.frame.width, 'x', this.player.frame.height);
@@ -329,28 +337,28 @@
             const buttonSize = 80;
             const buttonAlpha = 0.6;
             const buttonColor = 0x444444;
-            
+
             // Левая стрелка
             this.btnLeft = this.add.circle(120, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
             this.btnLeft.setScrollFactor(0).setInteractive();
             this.add.text(120, screenHeight - 150, '◄', {
                 fontSize: '50px', color: '#ffffff'
             }).setOrigin(0.5).setScrollFactor(0);
-            
+
             // Правая стрелка
             this.btnRight = this.add.circle(280, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
             this.btnRight.setScrollFactor(0).setInteractive();
             this.add.text(280, screenHeight - 150, '►', {
                 fontSize: '50px', color: '#ffffff'
             }).setOrigin(0.5).setScrollFactor(0);
-            
+
             // Верхняя стрелка
             this.btnUp = this.add.circle(screenWidth - 120, screenHeight - 230, buttonSize/2, buttonColor, buttonAlpha);
             this.btnUp.setScrollFactor(0).setInteractive();
             this.add.text(screenWidth - 120, screenHeight - 230, '▲', {
                 fontSize: '50px', color: '#ffffff'
             }).setOrigin(0.5).setScrollFactor(0);
-            
+
             // Нижняя стрелка
             this.btnDown = this.add.circle(screenWidth - 120, screenHeight - 70, buttonSize/2, buttonColor, buttonAlpha);
             this.btnDown.setScrollFactor(0).setInteractive();
@@ -380,10 +388,10 @@
             // Клик по карте (оставляем для PC)
             this.input.on('pointerdown', (pointer) => {
                 if (this.isTransitioning) return;
-                
+
                 // Игнорируем клики по кнопкам
                 if (pointer.y > screenHeight - 300) return;
-                
+
                 const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
                 this.targetX = worldPoint.x;
                 this.targetY = worldPoint.y;
@@ -691,13 +699,13 @@
             const screenHeight = this.scale.height;
 
             const bg = this.add.image(0, 0, 'room2').setOrigin(0, 0);
-            
+
             const scaleX = screenWidth / bg.width;
             const scaleY = screenHeight / bg.height;
             const scale = Math.max(scaleX, scaleY);
-            
+
             bg.setScale(scale);
-            
+
             const roomWidth = bg.width * scale;
             const roomHeight = bg.height * scale;
 
@@ -713,8 +721,8 @@
                 // First time
                 this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite');
             }
-            
-            this.player.setScale(0.7);
+
+            this.player.setScale(0.5);
             this.player.setOrigin(0.5, 1);
             this.player.setCollideWorldBounds(true);
             this.player.body.setSize(20, 10);
