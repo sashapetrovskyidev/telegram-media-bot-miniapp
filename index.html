@@ -18,6 +18,17 @@
 </head>
 <body>
 <script>
+    // --- GLOBAL MAP STYLE ---
+    // 'default', 'realistic', or 'anime'
+    window.mapStyle = 'default';
+
+    // Map style to room image filenames
+    const MAP_STYLES = {
+        'default':   { room1: 'room1.png',           room2: 'room__2.png' },
+        'realistic': { room1: 'room1_realistic.png',  room2: 'room2_realistic.png' },
+        'anime':     { room1: 'room1_anime.png',      room2: 'room2_anime.png' },
+    };
+
     // --- START MENU SCENE ---
     class MenuScene extends Phaser.Scene {
         constructor() { super('MenuScene'); }
@@ -71,7 +82,7 @@
             menuBox.fillRect(boxX + 4, boxY + boxH - 6, boxW - 8, 2);
 
             // "WERYPEAS STUDIO" title
-            const title = this.add.text(width / 2, boxY + 75, 'WERYPEAS', {
+            const title = this.add.text(width / 2, boxY + 75, 'WERYPEAS\nSTUDIO', {
                 fontSize: '64px',
                 fontFamily: 'Courier New, monospace',
                 color: '#e2e8f0',
@@ -103,10 +114,169 @@
             });
 
             this.createMenuButton(width / 2, boxY + 260, btnW, btnH, 'OPTIONS', () => {
-                this.cameras.main.shake(200, 0.002);
+                this.showOptionsPanel(width, height);
             });
 
+            // Options panel container (hidden initially)
+            this.optionsContainer = this.add.container(0, 0).setVisible(false).setDepth(200);
+
             this.cameras.main.fadeIn(800, 0, 0, 0);
+        }
+
+        showOptionsPanel(width, height) {
+            if (this.optionsContainer.visible) {
+                this.optionsContainer.setVisible(false);
+                return;
+            }
+
+            // Clear previous content
+            this.optionsContainer.removeAll(true);
+
+            // Darken background
+            const dimBg = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.5)
+                .setInteractive();
+            this.optionsContainer.add(dimBg);
+
+            // Options box
+            const panelW = 560;
+            const panelH = 420;
+            const px = width / 2 - panelW / 2;
+            const py = height / 2 - panelH / 2;
+
+            const panelGfx = this.add.graphics();
+            // Border
+            panelGfx.fillStyle(0x6b7a8d, 0.6);
+            panelGfx.fillRect(px - 6, py - 6, panelW + 12, panelH + 12);
+            panelGfx.fillStyle(0x4a5568, 0.6);
+            panelGfx.fillRect(px - 3, py - 3, panelW + 6, panelH + 6);
+            // Background
+            panelGfx.fillStyle(0x1a202c, 0.9);
+            panelGfx.fillRect(px, py, panelW, panelH);
+            this.optionsContainer.add(panelGfx);
+
+            // Title
+            const optTitle = this.add.text(width / 2, py + 45, 'MAP STYLE', {
+                fontSize: '40px',
+                fontFamily: 'Courier New',
+                color: '#e2e8f0',
+                fontStyle: 'bold',
+                stroke: '#000000',
+                strokeThickness: 4
+            }).setOrigin(0.5);
+            this.optionsContainer.add(optTitle);
+
+            // Style options
+            const styles = [
+                { key: 'default',   label: 'DEFAULT',   desc: 'Pixel art rooms' },
+                { key: 'realistic', label: 'REALISTIC',  desc: 'Realistic style rooms' },
+                { key: 'anime',     label: 'ANIME',      desc: 'Anime style rooms' },
+            ];
+
+            const optBtnW = 440;
+            const optBtnH = 70;
+            const startY = py + 110;
+
+            styles.forEach((style, i) => {
+                const by = startY + i * 90;
+                const isSelected = window.mapStyle === style.key;
+
+                const sBtnGfx = this.add.graphics();
+                // Border
+                sBtnGfx.fillStyle(isSelected ? 0x48bb78 : 0x6b7a8d, 0.6);
+                sBtnGfx.fillRect(width/2 - optBtnW/2 - 3, by - 3, optBtnW + 6, optBtnH + 6);
+                // Background
+                sBtnGfx.fillStyle(isSelected ? 0x2f855a : 0x2d3748, isSelected ? 0.7 : 0.6);
+                sBtnGfx.fillRect(width/2 - optBtnW/2, by, optBtnW, optBtnH);
+                this.optionsContainer.add(sBtnGfx);
+
+                // Checkmark or bullet
+                const marker = this.add.text(width/2 - optBtnW/2 + 30, by + optBtnH/2, isSelected ? '>' : ' ', {
+                    fontSize: '32px',
+                    fontFamily: 'Courier New',
+                    color: isSelected ? '#48bb78' : '#64748b',
+                    fontStyle: 'bold'
+                }).setOrigin(0.5);
+                this.optionsContainer.add(marker);
+
+                // Label
+                const sLabel = this.add.text(width/2 - 20, by + optBtnH/2 - 8, style.label, {
+                    fontSize: '32px',
+                    fontFamily: 'Courier New',
+                    color: isSelected ? '#ffffff' : '#cbd5e1',
+                    fontStyle: 'bold',
+                    stroke: '#000000',
+                    strokeThickness: 2
+                }).setOrigin(0.5);
+                this.optionsContainer.add(sLabel);
+
+                // Description
+                const sDesc = this.add.text(width/2 - 20, by + optBtnH/2 + 18, style.desc, {
+                    fontSize: '20px',
+                    fontFamily: 'Courier New',
+                    color: isSelected ? '#c6f6d5' : '#94a3b8',
+                }).setOrigin(0.5);
+                this.optionsContainer.add(sDesc);
+
+                // Hit area
+                const sHit = this.add.rectangle(width/2, by + optBtnH/2, optBtnW, optBtnH, 0x000000, 0)
+                    .setInteractive({ useHandCursor: true });
+                this.optionsContainer.add(sHit);
+
+                sHit.on('pointerover', () => {
+                    if (window.mapStyle !== style.key) {
+                        sBtnGfx.clear();
+                        sBtnGfx.fillStyle(0x8a9bb0, 0.6);
+                        sBtnGfx.fillRect(width/2 - optBtnW/2 - 3, by - 3, optBtnW + 6, optBtnH + 6);
+                        sBtnGfx.fillStyle(0x3d4a5c, 0.7);
+                        sBtnGfx.fillRect(width/2 - optBtnW/2, by, optBtnW, optBtnH);
+                    }
+                });
+
+                sHit.on('pointerout', () => {
+                    if (window.mapStyle !== style.key) {
+                        sBtnGfx.clear();
+                        sBtnGfx.fillStyle(0x6b7a8d, 0.6);
+                        sBtnGfx.fillRect(width/2 - optBtnW/2 - 3, by - 3, optBtnW + 6, optBtnH + 6);
+                        sBtnGfx.fillStyle(0x2d3748, 0.6);
+                        sBtnGfx.fillRect(width/2 - optBtnW/2, by, optBtnW, optBtnH);
+                    }
+                });
+
+                sHit.on('pointerdown', () => {
+                    window.mapStyle = style.key;
+                    // Refresh the panel to show new selection
+                    this.showOptionsPanel(width, height);
+                });
+            });
+
+            // BACK button
+            const backY = startY + 3 * 90 + 10;
+            const backGfx = this.add.graphics();
+            backGfx.fillStyle(0x6b7a8d, 0.5);
+            backGfx.fillRect(width/2 - 100 - 3, backY - 3, 206, 52);
+            backGfx.fillStyle(0x4a5568, 0.6);
+            backGfx.fillRect(width/2 - 100, backY, 200, 46);
+            this.optionsContainer.add(backGfx);
+
+            const backText = this.add.text(width / 2, backY + 23, 'BACK', {
+                fontSize: '30px',
+                fontFamily: 'Courier New',
+                color: '#e2e8f0',
+                fontStyle: 'bold',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+            this.optionsContainer.add(backText);
+
+            const backHit = this.add.rectangle(width/2, backY + 23, 200, 46, 0x000000, 0)
+                .setInteractive({ useHandCursor: true });
+            this.optionsContainer.add(backHit);
+
+            backHit.on('pointerdown', () => {
+                this.optionsContainer.setVisible(false);
+            });
+
+            this.optionsContainer.setVisible(true);
         }
 
         createMenuButton(x, y, w, h, text, callback) {
@@ -182,7 +352,9 @@
         preload() {
             console.log('🔄 Начинаем загрузку ресурсов...');
 
-            this.load.image('room1', 'room1.png');
+            // Load room based on selected map style
+            const style = MAP_STYLES[window.mapStyle] || MAP_STYLES['default'];
+            this.load.image('room1', style.room1);
 
             // КРИТИЧНО: Проверяем загрузку спрайтшита
             this.load.spritesheet('playerSprite', 'person_model.png', {
@@ -190,24 +362,19 @@
                 frameHeight: 512
             });
 
+            // --- INTERACTION OVERLAYS for Room 1 (Living Room) ---
+            // Guitar, PS5 controller line, PS5 controller+TV action — all 1952x2176 matching room1
+            this.load.image('line_guitar', 'action_guitar.png');
+            this.load.image('line_ps_controller', 'action_ps_controller.png');
+            this.load.image('action_ps_controller_tv', 'action_ps_controller_tv.png');
+
             this.load.on('loaderror', (file) => {
                 console.error('❌ ОШИБКА загрузки файла: ' + file.key);
                 console.error('❌ Путь к файлу:', file.url);
-                console.error('❌ Тип файла:', file.type);
             });
 
             this.load.on('complete', () => {
-                console.log('✅ Все файлы загружены успешно!');
-            });
-
-            this.load.on('filecomplete-spritesheet-playerSprite', (key, type, data) => {
-                console.log('✅ Спрайтшит персонажа загружен!');
-                console.log('📊 Размер:', data.width, 'x', data.height);
-                console.log('📊 Должно быть: 256x256 (4x4 frames по 64px)');
-            });
-
-            this.load.on('filecomplete-image-room1', () => {
-                console.log('✅ Комната загружена!');
+                console.log('✅ Все файлы загружены! Style:', window.mapStyle);
             });
         }
 
@@ -531,8 +698,159 @@
             debugGfx.closePath();
             debugGfx.strokePath();
 
+            // === INTERACTION SYSTEM ===
+            // Define interactive items with proximity zones and overlays
+            // Each item: { id, proximityCenter {x,y} as fraction, proximityRadius in pixels,
+            //              lineOverlay: texture key, actionOverlay: texture key (or null) }
+            this.interactiveItems = [
+                {
+                    id: 'guitar',
+                    // Guitar — mounted on the LEFT wall of living room
+                    proximityCenter: { x: 0.25, y: 0.60 },
+                    proximityRadius: 90,
+                    lineOverlay: 'line_guitar',
+                    actionOverlay: null,
+                },
+                {
+                    id: 'ps_controller',
+                    // PS5 controller + TV — on the TV stand, back wall
+                    proximityCenter: { x: 0.65, y: 0.60 },
+                    proximityRadius: 100,
+                    lineOverlay: 'line_ps_controller',
+                    actionOverlay: 'action_ps_controller_tv',
+                },
+            ];
+
+            // Create overlay sprites for each item (same size as room, layered on top)
+            this.interactiveItems.forEach(item => {
+                // Line/glow overlay — shows when player is near
+                item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0);
+                item.lineSprite.setScale(scale);
+                item.lineSprite.setVisible(false);
+                item.lineSprite.setDepth(10);
+
+                // Action overlay — shows when E is pressed (if separate)
+                if (item.actionOverlay) {
+                    item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0);
+                    item.actionSprite.setScale(scale);
+                    item.actionSprite.setVisible(false);
+                    item.actionSprite.setDepth(10);
+                } else {
+                    item.actionSprite = null;
+                }
+
+                // State: 'idle' | 'near' | 'active'
+                item.state = 'idle';
+            });
+
+            // DEBUG: Draw yellow interaction zones
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * roomWidth;
+                const cy = item.proximityCenter.y * roomHeight;
+                debugGfx.lineStyle(2, 0xffff00, 0.8);
+                debugGfx.fillStyle(0xffff00, 0.1);
+                debugGfx.strokeCircle(cx, cy, item.proximityRadius);
+                debugGfx.fillCircle(cx, cy, item.proximityRadius);
+                // Label
+                const label = this.add.text(cx, cy - item.proximityRadius - 10, item.id, {
+                    fontSize: '18px', fontFamily: 'Courier New', color: '#ffff00',
+                    stroke: '#000000', strokeThickness: 3
+                }).setOrigin(0.5).setDepth(51);
+            });
+
+            // DEBUG: Player dot that turns white when in interaction zone
+            this.debugPlayerDot = this.add.circle(0, 0, 8, 0x00ff00, 0.9).setDepth(55);
+
+            // Currently active item (only one action at a time)
+            this.activeInteraction = null;
+
+            // E key prompt (floating above player, hidden by default)
+            this.ePrompt = this.add.text(0, 0, '[E]', {
+                fontSize: '36px',
+                fontFamily: 'Courier New',
+                color: '#ffffff',
+                backgroundColor: '#000000aa',
+                padding: { x: 12, y: 6 },
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setDepth(150).setVisible(false);
+
+            // Pulsing animation for E prompt
+            this.tweens.add({
+                targets: this.ePrompt,
+                alpha: { from: 0.6, to: 1 },
+                scaleX: { from: 0.95, to: 1.05 },
+                scaleY: { from: 0.95, to: 1.05 },
+                duration: 800,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+
+            // E key input
+            this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+            this.eKeyJustPressed = false;
+
+            // Mobile E button (fixed to camera, semi-transparent)
+            const eBtnSize = 70;
+            this.mobileEBtn = this.add.circle(screenWidth / 2, screenHeight - 150, eBtnSize / 2, 0x4a90d9, 0.7)
+                .setScrollFactor(0).setDepth(200).setVisible(false).setInteractive({ useHandCursor: true });
+            this.mobileEText = this.add.text(screenWidth / 2, screenHeight - 150, 'E', {
+                fontSize: '40px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+
+            this.mobileEBtn.on('pointerdown', () => {
+                this.handleInteraction();
+            });
+
             // Disable physics world bounds — we handle collision ourselves
             this.player.setCollideWorldBounds(false);
+        }
+
+        // Handle E key / mobile E button press
+        handleInteraction() {
+            const rw = this.roomWidth;
+            const rh = this.roomHeight;
+
+            // If an action is currently active, deactivate it
+            if (this.activeInteraction) {
+                const item = this.activeInteraction;
+                if (item.actionSprite) item.actionSprite.setVisible(false);
+                else item.lineSprite.setVisible(false);
+                item.state = 'idle';
+                this.activeInteraction = null;
+                return;
+            }
+
+            // Find the nearest item that player is close to
+            let nearestItem = null;
+            let nearestDist = Infinity;
+
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * rw;
+                const cy = item.proximityCenter.y * rh;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+                if (dist < item.proximityRadius && dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestItem = item;
+                }
+            });
+
+            if (nearestItem && nearestItem.state === 'near') {
+                // Activate action: hide line, show action overlay
+                nearestItem.lineSprite.setVisible(false);
+                if (nearestItem.actionSprite) {
+                    nearestItem.actionSprite.setVisible(true);
+                } else {
+                    // If no separate action overlay, keep line visible as the "action"
+                    nearestItem.lineSprite.setVisible(true);
+                }
+                nearestItem.state = 'active';
+                this.activeInteraction = nearestItem;
+                // Stop player movement
+                this.player.body.setVelocity(0, 0);
+                this.targetX = null;
+                this.targetY = null;
+            }
         }
 
         // Point-in-polygon test (ray casting algorithm)
@@ -567,6 +885,22 @@
             const moveSpeed = 250;
             const rw = this.roomWidth;
             const rh = this.roomHeight;
+
+            // --- INTERACTION: E key detection (must be at top of update) ---
+            if (Phaser.Input.Keyboard.JustDown(this.eKey)) {
+                this.handleInteraction();
+            }
+
+            // If an action is active, block ALL movement, show mobile E, skip rest
+            if (this.activeInteraction) {
+                this.player.body.setVelocity(0, 0);
+                this.ePrompt.setVisible(false);
+                this.mobileEBtn.setVisible(true);
+                this.mobileEText.setVisible(true);
+                this.player.anims.play('idle-' + this.playerDirection, true);
+                return; // Skip all movement, collision, transition logic
+            }
+
             let vx = 0;
             let vy = 0;
 
@@ -683,6 +1017,48 @@
             } else {
                 this.player.anims.play('idle-' + this.playerDirection, true);
             }
+
+            // --- INTERACTION PROXIMITY CHECK ---
+            let nearAnyItem = false;
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * rw;
+                const cy = item.proximityCenter.y * rh;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+
+                if (dist < item.proximityRadius && item.state !== 'active') {
+                    // Player is near — show line overlay
+                    if (item.state !== 'near') {
+                        item.lineSprite.setVisible(true);
+                        item.lineSprite.setAlpha(0);
+                        this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
+                        item.state = 'near';
+                    }
+                    nearAnyItem = true;
+                } else if (item.state === 'near') {
+                    // Player walked away — hide line overlay
+                    this.tweens.add({
+                        targets: item.lineSprite, alpha: 0, duration: 200,
+                        onComplete: () => { item.lineSprite.setVisible(false); }
+                    });
+                    item.state = 'idle';
+                }
+            });
+
+            // DEBUG: Update player dot position + color (green=normal, white=in zone)
+            this.debugPlayerDot.setPosition(this.player.x, this.player.y);
+            this.debugPlayerDot.setFillStyle(nearAnyItem ? 0xffffff : 0x00ff00, 0.9);
+
+            // Show/hide E prompt and mobile E button
+            if (nearAnyItem) {
+                this.ePrompt.setPosition(this.player.x, this.player.y - 140);
+                this.ePrompt.setVisible(true);
+                this.mobileEBtn.setVisible(true);
+                this.mobileEText.setVisible(true);
+            } else {
+                this.ePrompt.setVisible(false);
+                this.mobileEBtn.setVisible(false);
+                this.mobileEText.setVisible(false);
+            }
         }
     }
 
@@ -691,7 +1067,14 @@
         constructor() { super('StudioScene'); }
 
         preload() {
-            this.load.image('room2', 'room2_right_size.png');
+            // Load room based on selected map style
+            const style = MAP_STYLES[window.mapStyle] || MAP_STYLES['default'];
+            this.load.image('room2', style.room2);
+
+            // --- INTERACTION OVERLAYS for Room 2 (Studio) ---
+            // Audio interface + Rick Owens — 2048x2048 overlays for studio room
+            this.load.image('line_audio_interface', 'action_audio_interface.png');
+            this.load.image('line_rick_owens', 'action_rick_owens.png');
         }
 
         create() {
@@ -927,8 +1310,150 @@
             debugGfx.closePath();
             debugGfx.strokePath();
 
+            // === INTERACTION SYSTEM ===
+            // Define interactive items for Room 2 (Studio)
+            this.interactiveItems = [
+                {
+                    id: 'audio_interface',
+                    // Apollo Twin X — on the desk, center-left of studio
+                    proximityCenter: { x: 0.35, y: 0.60 },
+                    proximityRadius: 90,
+                    lineOverlay: 'line_audio_interface',
+                    actionOverlay: null,
+                },
+                {
+                    id: 'rick_owens',
+                    // Rick Owens — on the shelf/cupboard, back wall
+                    proximityCenter: { x: 0.60, y: 0.53 },
+                    proximityRadius: 90,
+                    lineOverlay: 'line_rick_owens',
+                    actionOverlay: null,
+                },
+            ];
+
+            // Create overlay sprites for each item
+            this.interactiveItems.forEach(item => {
+                // Line/glow overlay — shows when player is near
+                item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0);
+                item.lineSprite.setScale(scale);
+                item.lineSprite.setVisible(false);
+                item.lineSprite.setDepth(10);
+
+                // Action overlay — shows when E is pressed
+                if (item.actionOverlay) {
+                    item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0);
+                    item.actionSprite.setScale(scale);
+                    item.actionSprite.setVisible(false);
+                    item.actionSprite.setDepth(10);
+                } else {
+                    item.actionSprite = null;
+                }
+
+                item.state = 'idle';
+            });
+
+            // DEBUG: Draw yellow interaction zones
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * roomWidth;
+                const cy = item.proximityCenter.y * roomHeight;
+                debugGfx.lineStyle(2, 0xffff00, 0.8);
+                debugGfx.fillStyle(0xffff00, 0.1);
+                debugGfx.strokeCircle(cx, cy, item.proximityRadius);
+                debugGfx.fillCircle(cx, cy, item.proximityRadius);
+                // Label
+                const label = this.add.text(cx, cy - item.proximityRadius - 10, item.id, {
+                    fontSize: '18px', fontFamily: 'Courier New', color: '#ffff00',
+                    stroke: '#000000', strokeThickness: 3
+                }).setOrigin(0.5).setDepth(51);
+            });
+
+            // DEBUG: Player dot that turns white when in interaction zone
+            this.debugPlayerDot = this.add.circle(0, 0, 8, 0x00ff00, 0.9).setDepth(55);
+
+            this.activeInteraction = null;
+
+            // E key prompt
+            this.ePrompt = this.add.text(0, 0, '[E]', {
+                fontSize: '36px',
+                fontFamily: 'Courier New',
+                color: '#ffffff',
+                backgroundColor: '#000000aa',
+                padding: { x: 12, y: 6 },
+                fontStyle: 'bold'
+            }).setOrigin(0.5).setDepth(150).setVisible(false);
+
+            this.tweens.add({
+                targets: this.ePrompt,
+                alpha: { from: 0.6, to: 1 },
+                scaleX: { from: 0.95, to: 1.05 },
+                scaleY: { from: 0.95, to: 1.05 },
+                duration: 800,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut'
+            });
+
+            // E key input
+            this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+            // Mobile E button
+            const eBtnSize = 70;
+            this.mobileEBtn = this.add.circle(screenWidth / 2, screenHeight - 150, eBtnSize / 2, 0x4a90d9, 0.7)
+                .setScrollFactor(0).setDepth(200).setVisible(false).setInteractive({ useHandCursor: true });
+            this.mobileEText = this.add.text(screenWidth / 2, screenHeight - 150, 'E', {
+                fontSize: '40px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+
+            this.mobileEBtn.on('pointerdown', () => {
+                this.handleInteraction();
+            });
+
             // Disable physics world bounds — we handle collision ourselves
             this.player.setCollideWorldBounds(false);
+        }
+
+        // Handle E key / mobile E button press
+        handleInteraction() {
+            const rw = this.roomWidth;
+            const rh = this.roomHeight;
+
+            // If an action is currently active, deactivate it
+            if (this.activeInteraction) {
+                const item = this.activeInteraction;
+                if (item.actionSprite) item.actionSprite.setVisible(false);
+                else item.lineSprite.setVisible(false);
+                item.state = 'idle';
+                this.activeInteraction = null;
+                return;
+            }
+
+            // Find the nearest item that player is close to
+            let nearestItem = null;
+            let nearestDist = Infinity;
+
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * rw;
+                const cy = item.proximityCenter.y * rh;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+                if (dist < item.proximityRadius && dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestItem = item;
+                }
+            });
+
+            if (nearestItem && nearestItem.state === 'near') {
+                nearestItem.lineSprite.setVisible(false);
+                if (nearestItem.actionSprite) {
+                    nearestItem.actionSprite.setVisible(true);
+                } else {
+                    nearestItem.lineSprite.setVisible(true);
+                }
+                nearestItem.state = 'active';
+                this.activeInteraction = nearestItem;
+                this.player.body.setVelocity(0, 0);
+                this.targetX = null;
+                this.targetY = null;
+            }
         }
 
         // Point-in-polygon test (ray casting algorithm)
@@ -958,6 +1483,22 @@
             const moveSpeed = 250;
             const rw = this.roomWidth;
             const rh = this.roomHeight;
+
+            // --- INTERACTION: E key detection (must be at top of update) ---
+            if (Phaser.Input.Keyboard.JustDown(this.eKey)) {
+                this.handleInteraction();
+            }
+
+            // If an action is active, block ALL movement, show mobile E, skip rest
+            if (this.activeInteraction) {
+                this.player.body.setVelocity(0, 0);
+                this.ePrompt.setVisible(false);
+                this.mobileEBtn.setVisible(true);
+                this.mobileEText.setVisible(true);
+                this.player.anims.play('idle-' + this.playerDirection, true);
+                return; // Skip all movement, collision, transition logic
+            }
+
             let vx = 0;
             let vy = 0;
 
@@ -1062,6 +1603,46 @@
                 else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
             } else {
                 this.player.anims.play('idle-' + this.playerDirection, true);
+            }
+
+            // --- INTERACTION PROXIMITY CHECK ---
+            let nearAnyItem = false;
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * rw;
+                const cy = item.proximityCenter.y * rh;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+
+                if (dist < item.proximityRadius && item.state !== 'active') {
+                    if (item.state !== 'near') {
+                        item.lineSprite.setVisible(true);
+                        item.lineSprite.setAlpha(0);
+                        this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
+                        item.state = 'near';
+                    }
+                    nearAnyItem = true;
+                } else if (item.state === 'near') {
+                    this.tweens.add({
+                        targets: item.lineSprite, alpha: 0, duration: 200,
+                        onComplete: () => { item.lineSprite.setVisible(false); }
+                    });
+                    item.state = 'idle';
+                }
+            });
+
+            // DEBUG: Update player dot position + color (green=normal, white=in zone)
+            this.debugPlayerDot.setPosition(this.player.x, this.player.y);
+            this.debugPlayerDot.setFillStyle(nearAnyItem ? 0xffffff : 0x00ff00, 0.9);
+
+            // Show/hide E prompt and mobile E button
+            if (nearAnyItem) {
+                this.ePrompt.setPosition(this.player.x, this.player.y - 140);
+                this.ePrompt.setVisible(true);
+                this.mobileEBtn.setVisible(true);
+                this.mobileEText.setVisible(true);
+            } else {
+                this.ePrompt.setVisible(false);
+                this.mobileEBtn.setVisible(false);
+                this.mobileEText.setVisible(false);
             }
         }
     }
