@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Studio</title>
+    <title>WERYPEAS</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
         body {
@@ -22,11 +22,37 @@
     // 'default', 'realistic', or 'anime'
     window.mapStyle = 'default';
 
+    // --- GLOBAL STATE (persists across scenes) ---
+    window.activeAudio = null; // { itemId, soundKey, sound } or null
+    window.activeItems = {};   // { itemId: true } — tracks all active interactions (with or without sound)
+    window.roomLightMode = 'default'; // 'default' | 'blue' | 'pink' | 'green'
+    window.tvGameMode = 'off'; // 'off' | 'fortnite' | 'mortal_kombat' | 'naruto'
+
+    // Light mode cycle order
+    const LIGHT_MODES = ['default', 'blue', 'pink', 'green'];
+
+    // TV game cycle order
+    const TV_GAMES = ['off', 'fortnite', 'mortal_kombat', 'naruto'];
+    // Maps game mode to texture key
+    const TV_GAME_TEXTURES = {
+        'fortnite': 'tv_fortnite',
+        'mortal_kombat': 'tv_mortal_kombat',
+        'naruto': 'tv_naruto',
+    };
+
+    // Room image filenames per light mode (per map style)
+    const ROOM_LIGHT_IMAGES = {
+        'default': { room1: 'assets/default/room1.png',       room2: 'assets/default/room2.png' },
+        'blue':    { room1: 'assets/default/room1_blue.png',   room2: 'assets/default/room2_blue.png' },
+        'pink':    { room1: 'assets/default/room1_pink.png',   room2: 'assets/default/room2_pink.png' },
+        'green':   { room1: 'assets/default/room1_green.png',  room2: 'assets/default/room2_green.png' },
+    };
+
     // Map style to room image filenames
     const MAP_STYLES = {
-        'default':   { room1: 'room1.png',           room2: 'room__2.png' },
-        'realistic': { room1: 'room1_realistic.png',  room2: 'room2_realistic.png' },
-        'anime':     { room1: 'room1_anime.png',      room2: 'room2_anime.png' },
+        'default':   { room1: 'assets/default/room1.png',           room2: 'assets/default/room2.png' },
+        'realistic': { room1: 'assets/default/room1_realistic.png',  room2: 'assets/default/room2_realistic.png' },
+        'anime':     { room1: 'assets/default/room1_anime.png',      room2: 'assets/default/room2_anime.png' },
     };
 
     // --- START MENU SCENE ---
@@ -34,8 +60,8 @@
         constructor() { super('MenuScene'); }
 
         preload() {
-            this.load.image('menuBg', 'menu_bg.jpg');
-            this.load.image('menuUI', 'menu.png');
+            this.load.image('menuBg', '/assets/menu_bg.jpg');
+            this.load.image('menuUI', '/assets/menu.png');
 
             this.load.on('loaderror', (file) => {
                 console.error('Ошибка загрузки: ' + file.key);
@@ -63,26 +89,19 @@
             const boxX = width / 2 - boxW / 2;
             const boxY = height / 2 - boxH / 2 - 60;
 
-            // Main menu box — semi-transparent with pixel border
             const menuBox = this.add.graphics();
-            // Outer border (lighter grey, semi-transparent)
             menuBox.fillStyle(0x6b7a8d, 0.5);
             menuBox.fillRect(boxX - 6, boxY - 6, boxW + 12, boxH + 12);
-            // Inner border (medium, semi-transparent)
             menuBox.fillStyle(0x4a5568, 0.5);
             menuBox.fillRect(boxX - 3, boxY - 3, boxW + 6, boxH + 6);
-            // Background fill (transparent dark)
             menuBox.fillStyle(0x2d3748, 0.55);
             menuBox.fillRect(boxX, boxY, boxW, boxH);
-            // Inner highlight line (top)
             menuBox.fillStyle(0x4a5568, 0.4);
             menuBox.fillRect(boxX + 4, boxY + 4, boxW - 8, 2);
-            // Inner shadow line (bottom)
             menuBox.fillStyle(0x1a202c, 0.4);
             menuBox.fillRect(boxX + 4, boxY + boxH - 6, boxW - 8, 2);
 
-            // "WERYPEAS STUDIO" title
-            const title = this.add.text(width / 2, boxY + 75, 'WERYPEAS\nSTUDIO', {
+            const title = this.add.text(width / 2, boxY + 75, 'WERYPEAS', {
                 fontSize: '64px',
                 fontFamily: 'Courier New, monospace',
                 color: '#e2e8f0',
@@ -92,7 +111,6 @@
                 align: 'center'
             }).setOrigin(0.5);
 
-            // Subtle title pulse
             this.tweens.add({
                 targets: title,
                 alpha: { from: 0.85, to: 1 },
@@ -102,7 +120,6 @@
                 ease: 'Sine.easeInOut'
             });
 
-            // --- BUTTONS (pixel-art style matching mockup) ---
             const btnW = 380;
             const btnH = 60;
 
@@ -117,7 +134,6 @@
                 this.showOptionsPanel(width, height);
             });
 
-            // Options panel container (hidden initially)
             this.optionsContainer = this.add.container(0, 0).setVisible(false).setDepth(200);
 
             this.cameras.main.fadeIn(800, 0, 0, 0);
@@ -129,32 +145,26 @@
                 return;
             }
 
-            // Clear previous content
             this.optionsContainer.removeAll(true);
 
-            // Darken background
             const dimBg = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.5)
                 .setInteractive();
             this.optionsContainer.add(dimBg);
 
-            // Options box
             const panelW = 560;
             const panelH = 420;
             const px = width / 2 - panelW / 2;
             const py = height / 2 - panelH / 2;
 
             const panelGfx = this.add.graphics();
-            // Border
             panelGfx.fillStyle(0x6b7a8d, 0.6);
             panelGfx.fillRect(px - 6, py - 6, panelW + 12, panelH + 12);
             panelGfx.fillStyle(0x4a5568, 0.6);
             panelGfx.fillRect(px - 3, py - 3, panelW + 6, panelH + 6);
-            // Background
             panelGfx.fillStyle(0x1a202c, 0.9);
             panelGfx.fillRect(px, py, panelW, panelH);
             this.optionsContainer.add(panelGfx);
 
-            // Title
             const optTitle = this.add.text(width / 2, py + 45, 'MAP STYLE', {
                 fontSize: '40px',
                 fontFamily: 'Courier New',
@@ -165,7 +175,6 @@
             }).setOrigin(0.5);
             this.optionsContainer.add(optTitle);
 
-            // Style options
             const styles = [
                 { key: 'default',   label: 'DEFAULT',   desc: 'Pixel art rooms' },
                 { key: 'realistic', label: 'REALISTIC',  desc: 'Realistic style rooms' },
@@ -181,43 +190,31 @@
                 const isSelected = window.mapStyle === style.key;
 
                 const sBtnGfx = this.add.graphics();
-                // Border
                 sBtnGfx.fillStyle(isSelected ? 0x48bb78 : 0x6b7a8d, 0.6);
                 sBtnGfx.fillRect(width/2 - optBtnW/2 - 3, by - 3, optBtnW + 6, optBtnH + 6);
-                // Background
                 sBtnGfx.fillStyle(isSelected ? 0x2f855a : 0x2d3748, isSelected ? 0.7 : 0.6);
                 sBtnGfx.fillRect(width/2 - optBtnW/2, by, optBtnW, optBtnH);
                 this.optionsContainer.add(sBtnGfx);
 
-                // Checkmark or bullet
                 const marker = this.add.text(width/2 - optBtnW/2 + 30, by + optBtnH/2, isSelected ? '>' : ' ', {
-                    fontSize: '32px',
-                    fontFamily: 'Courier New',
-                    color: isSelected ? '#48bb78' : '#64748b',
-                    fontStyle: 'bold'
+                    fontSize: '32px', fontFamily: 'Courier New',
+                    color: isSelected ? '#48bb78' : '#64748b', fontStyle: 'bold'
                 }).setOrigin(0.5);
                 this.optionsContainer.add(marker);
 
-                // Label
                 const sLabel = this.add.text(width/2 - 20, by + optBtnH/2 - 8, style.label, {
-                    fontSize: '32px',
-                    fontFamily: 'Courier New',
+                    fontSize: '32px', fontFamily: 'Courier New',
                     color: isSelected ? '#ffffff' : '#cbd5e1',
-                    fontStyle: 'bold',
-                    stroke: '#000000',
-                    strokeThickness: 2
+                    fontStyle: 'bold', stroke: '#000000', strokeThickness: 2
                 }).setOrigin(0.5);
                 this.optionsContainer.add(sLabel);
 
-                // Description
                 const sDesc = this.add.text(width/2 - 20, by + optBtnH/2 + 18, style.desc, {
-                    fontSize: '20px',
-                    fontFamily: 'Courier New',
+                    fontSize: '20px', fontFamily: 'Courier New',
                     color: isSelected ? '#c6f6d5' : '#94a3b8',
                 }).setOrigin(0.5);
                 this.optionsContainer.add(sDesc);
 
-                // Hit area
                 const sHit = this.add.rectangle(width/2, by + optBtnH/2, optBtnW, optBtnH, 0x000000, 0)
                     .setInteractive({ useHandCursor: true });
                 this.optionsContainer.add(sHit);
@@ -244,12 +241,10 @@
 
                 sHit.on('pointerdown', () => {
                     window.mapStyle = style.key;
-                    // Refresh the panel to show new selection
                     this.showOptionsPanel(width, height);
                 });
             });
 
-            // BACK button
             const backY = startY + 3 * 90 + 10;
             const backGfx = this.add.graphics();
             backGfx.fillStyle(0x6b7a8d, 0.5);
@@ -259,12 +254,8 @@
             this.optionsContainer.add(backGfx);
 
             const backText = this.add.text(width / 2, backY + 23, 'BACK', {
-                fontSize: '30px',
-                fontFamily: 'Courier New',
-                color: '#e2e8f0',
-                fontStyle: 'bold',
-                stroke: '#000000',
-                strokeThickness: 2
+                fontSize: '30px', fontFamily: 'Courier New', color: '#e2e8f0',
+                fontStyle: 'bold', stroke: '#000000', strokeThickness: 2
             }).setOrigin(0.5);
             this.optionsContainer.add(backText);
 
@@ -281,17 +272,12 @@
 
         createMenuButton(x, y, w, h, text, callback) {
             const btnGfx = this.add.graphics();
-
-            // Outer border (semi-transparent)
             btnGfx.fillStyle(0x8a9bb0, 0.5);
             btnGfx.fillRect(x - w/2 - 4, y - h/2 - 4, w + 8, h + 8);
-            // Inner border
             btnGfx.fillStyle(0x5a6b7d, 0.5);
             btnGfx.fillRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4);
-            // Button background (transparent)
             btnGfx.fillStyle(0x4a5568, 0.55);
             btnGfx.fillRect(x - w/2, y - h/2, w, h);
-            // Top highlight
             btnGfx.fillStyle(0x5a6b7d, 0.4);
             btnGfx.fillRect(x - w/2 + 3, y - h/2 + 3, w - 6, 2);
 
@@ -299,12 +285,8 @@
                 .setInteractive({ useHandCursor: true });
 
             const btnText = this.add.text(x, y, text, {
-                fontSize: '36px',
-                fontFamily: 'Courier New',
-                color: '#e2e8f0',
-                fontStyle: 'bold',
-                stroke: '#000000',
-                strokeThickness: 3
+                fontSize: '36px', fontFamily: 'Courier New', color: '#e2e8f0',
+                fontStyle: 'bold', stroke: '#000000', strokeThickness: 3
             }).setOrigin(0.5);
 
             hitArea.on('pointerover', () => {
@@ -352,21 +334,30 @@
         preload() {
             console.log('🔄 Начинаем загрузку ресурсов...');
 
-            // Load room based on selected map style
             const style = MAP_STYLES[window.mapStyle] || MAP_STYLES['default'];
             this.load.image('room1', style.room1);
 
-            // КРИТИЧНО: Проверяем загрузку спрайтшита
-            this.load.spritesheet('playerSprite', 'person_model.png', {
+            this.load.spritesheet('playerSprite', '/assets/default/person.png', {
                 frameWidth: 512,
                 frameHeight: 512
             });
 
             // --- INTERACTION OVERLAYS for Room 1 (Living Room) ---
-            // Guitar, PS5 controller line, PS5 controller+TV action — all 1952x2176 matching room1
-            this.load.image('line_guitar', 'action_guitar.png');
-            this.load.image('line_ps_controller', 'action_ps_controller.png');
-            this.load.image('action_ps_controller_tv', 'action_ps_controller_tv.png');
+            this.load.image('line_guitar', '/assets/interaction/action_guitar.png');
+            this.load.image('line_ps_controller', '/assets/interaction/action_ps_controller.png');
+            // TV game overlays (cycle through with E)
+            this.load.image('tv_fortnite', '/assets/interaction/action_ps_controller_tv_fortnite.png');
+            this.load.image('tv_mortal_kombat', '/assets/interaction/action_ps_controller_tv_mortal_kombat.png');
+            this.load.image('tv_naruto', '/assets/interaction/action_ps_controller_tv_naruto.png');
+
+            // --- LIGHT VARIANTS for Room 1 ---
+            this.load.image('room1_blue', '/assets/default/room1_blue.png');
+            this.load.image('room1_pink', '/assets/default/room1_pink.png');
+            this.load.image('room1_green', '/assets/default/room1_green.png');
+
+            // --- AUDIO for interactions (load all so they persist across scenes) ---
+            this.load.audio('sound_guitar', '/assets/sound/sound_guitar.mp3');
+            this.load.audio('sound_audio_interface', '/assets/sound/sound_audio_interface.mp3');
 
             this.load.on('loaderror', (file) => {
                 console.error('❌ ОШИБКА загрузки файла: ' + file.key);
@@ -382,7 +373,11 @@
             const screenWidth = this.scale.width;
             const screenHeight = this.scale.height;
 
-            const bg = this.add.image(0, 0, 'room1').setOrigin(0, 0);
+            // Determine which room1 texture to use based on current light mode
+            const lightMode = window.roomLightMode || 'default';
+            const room1Key = lightMode === 'default' ? 'room1' : ('room1_' + lightMode);
+            const bg = this.add.image(0, 0, room1Key).setOrigin(0, 0);
+            this.bg = bg; // store reference for texture swapping
 
             const scaleX = screenWidth / bg.width;
             const scaleY = screenHeight / bg.height;
@@ -395,717 +390,25 @@
 
             this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
 
-            // Создание анимаций для НОВОГО спрайтшита
             if (!this.anims.exists('walk-down')) {
-                // DOWN (спиной, ряд 0) - фреймы 0,1,2,3
-                this.anims.create({
-                    key: 'walk-down',
-                    frames: this.anims.generateFrameNumbers('playerSprite', { start: 0, end: 3 }),
-                    frameRate: 8,
-                    repeat: -1
-                });
-
-                // LEFT (влево, ряд 1) - фреймы 4,5,6,7
-                this.anims.create({
-                    key: 'walk-left',
-                    frames: this.anims.generateFrameNumbers('playerSprite', { start: 4, end: 7 }),
-                    frameRate: 8,
-                    repeat: -1
-                });
-
-                // UP (назад/вверх, ряд 2) - фреймы 8,9,10,11
-                this.anims.create({
-                    key: 'walk-up',
-                    frames: this.anims.generateFrameNumbers('playerSprite', { start: 8, end: 11 }),
-                    frameRate: 8,
-                    repeat: -1
-                });
-
-                // RIGHT (вправо, ряд 3) - фреймы 12,13,14,15
-                this.anims.create({
-                    key: 'walk-right',
-                    frames: this.anims.generateFrameNumbers('playerSprite', { start: 12, end: 15 }),
-                    frameRate: 8,
-                    repeat: -1
-                });
-
-                // IDLE анимации (стоящий персонаж - кадр 0 или 2 в каждом ряду)
-                this.anims.create({
-                    key: 'idle-down',
-                    frames: [{ key: 'playerSprite', frame: 0 }]
-                });
-
-                this.anims.create({
-                    key: 'idle-left',
-                    frames: [{ key: 'playerSprite', frame: 4 }]
-                });
-
-                this.anims.create({
-                    key: 'idle-up',
-                    frames: [{ key: 'playerSprite', frame: 8 }]
-                });
-
-                this.anims.create({
-                    key: 'idle-right',
-                    frames: [{ key: 'playerSprite', frame: 12 }]
-                });
+                this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('playerSprite', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
+                this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNumbers('playerSprite', { start: 4, end: 7 }), frameRate: 8, repeat: -1 });
+                this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNumbers('playerSprite', { start: 8, end: 11 }), frameRate: 8, repeat: -1 });
+                this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNumbers('playerSprite', { start: 12, end: 15 }), frameRate: 8, repeat: -1 });
+                this.anims.create({ key: 'idle-down', frames: [{ key: 'playerSprite', frame: 0 }] });
+                this.anims.create({ key: 'idle-left', frames: [{ key: 'playerSprite', frame: 4 }] });
+                this.anims.create({ key: 'idle-up', frames: [{ key: 'playerSprite', frame: 8 }] });
+                this.anims.create({ key: 'idle-right', frames: [{ key: 'playerSprite', frame: 12 }] });
             }
 
-            // Персонаж — spawn inside walkable isometric floor area
             const fromStudio = this.scene.settings.data?.fromStudio;
-
             if (fromStudio) {
-                // Coming from studio — spawn on floor between ottoman and right side
                 this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.72, 'playerSprite');
             } else {
-                // First time — spawn in center of floor (between sofa and ottoman)
                 this.player = this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.75, 'playerSprite');
             }
 
-            console.log('👤 Создание персонажа...');
-            console.log('👤 Texture exists?', this.textures.exists('playerSprite'));
-
-            // Уменьшаем размер персонажа
-            this.player.setScale(0.5);  // Было 3, теперь 2
-            this.player.setOrigin(0.5, 1); // ВАЖНО: origin внизу по центру (для ног)
-            this.player.setCollideWorldBounds(true);
-
-            // Хитбокс для ног
-            this.player.body.setSize(20, 10);  // Маленький хитбокс
-            this.player.body.setOffset(22, 54); // Смещение к самому низу (ноги)
-
-            this.player.anims.play('idle-down');
-            this.playerDirection = 'down';
-
-            console.log('👤 Персонаж создан на позиции:', this.player.x, this.player.y);
-            console.log('👤 Размер спрайта:', this.player.width, 'x', this.player.height);
-            console.log('👤 Frame size:', this.player.frame.width, 'x', this.player.frame.height);
-
-            // КАМЕРА ВСЕГДА СЛЕДУЕТ ЗА ПЕРСОНАЖЕМ + ЗУМ
-            this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-            this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.setZoom(1.4); // Увеличиваем зум
-            this.cameras.main.fadeIn(1000, 0, 0, 0);
-
-            this.targetX = null;
-            this.targetY = null;
-            this.isTransitioning = false;
-
-            // --- WASD УПРАВЛЕНИЕ ---
-            this.cursors = this.input.keyboard.createCursorKeys();
-            this.wasd = this.input.keyboard.addKeys({
-                up: Phaser.Input.Keyboard.KeyCodes.W,
-                down: Phaser.Input.Keyboard.KeyCodes.S,
-                left: Phaser.Input.Keyboard.KeyCodes.A,
-                right: Phaser.Input.Keyboard.KeyCodes.D
-            });
-
-            // --- ВИРТУАЛЬНЫЕ СТРЕЛКИ (для мобильных) ---
-            const buttonSize = 80;
-            const buttonAlpha = 0.6;
-            const buttonColor = 0x444444;
-
-            // Левая стрелка
-            this.btnLeft = this.add.circle(120, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
-            this.btnLeft.setScrollFactor(0).setInteractive();
-            this.add.text(120, screenHeight - 150, '◄', {
-                fontSize: '50px', color: '#ffffff'
-            }).setOrigin(0.5).setScrollFactor(0);
-
-            // Правая стрелка
-            this.btnRight = this.add.circle(280, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
-            this.btnRight.setScrollFactor(0).setInteractive();
-            this.add.text(280, screenHeight - 150, '►', {
-                fontSize: '50px', color: '#ffffff'
-            }).setOrigin(0.5).setScrollFactor(0);
-
-            // Верхняя стрелка
-            this.btnUp = this.add.circle(screenWidth - 120, screenHeight - 230, buttonSize/2, buttonColor, buttonAlpha);
-            this.btnUp.setScrollFactor(0).setInteractive();
-            this.add.text(screenWidth - 120, screenHeight - 230, '▲', {
-                fontSize: '50px', color: '#ffffff'
-            }).setOrigin(0.5).setScrollFactor(0);
-
-            // Нижняя стрелка
-            this.btnDown = this.add.circle(screenWidth - 120, screenHeight - 70, buttonSize/2, buttonColor, buttonAlpha);
-            this.btnDown.setScrollFactor(0).setInteractive();
-            this.add.text(screenWidth - 120, screenHeight - 70, '▼', {
-                fontSize: '50px', color: '#ffffff'
-            }).setOrigin(0.5).setScrollFactor(0);
-
-            // Состояния виртуальных кнопок
-            this.virtualInput = { left: false, right: false, up: false, down: false };
-
-            this.btnLeft.on('pointerdown', () => { this.virtualInput.left = true; });
-            this.btnLeft.on('pointerup', () => { this.virtualInput.left = false; });
-            this.btnLeft.on('pointerout', () => { this.virtualInput.left = false; });
-
-            this.btnRight.on('pointerdown', () => { this.virtualInput.right = true; });
-            this.btnRight.on('pointerup', () => { this.virtualInput.right = false; });
-            this.btnRight.on('pointerout', () => { this.virtualInput.right = false; });
-
-            this.btnUp.on('pointerdown', () => { this.virtualInput.up = true; });
-            this.btnUp.on('pointerup', () => { this.virtualInput.up = false; });
-            this.btnUp.on('pointerout', () => { this.virtualInput.up = false; });
-
-            this.btnDown.on('pointerdown', () => { this.virtualInput.down = true; });
-            this.btnDown.on('pointerup', () => { this.virtualInput.down = false; });
-            this.btnDown.on('pointerout', () => { this.virtualInput.down = false; });
-
-            // Клик по карте (оставляем для PC)
-            this.input.on('pointerdown', (pointer) => {
-                if (this.isTransitioning) return;
-
-                // Игнорируем клики по кнопкам
-                if (pointer.y > screenHeight - 300) return;
-
-                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                this.targetX = worldPoint.x;
-                this.targetY = worldPoint.y;
-                this.physics.moveToObject(this.player, worldPoint, 250);
-            });
-
-            // === ROOM 1 — POLYGON-BASED ISOMETRIC COLLISIONS ===
-            //
-            // Instead of axis-aligned rectangles, we define the walkable floor
-            // as isometric polygons matching the actual visible floor tiles.
-            // The update() loop checks if player feet are inside walkable area.
-            //
-            // ROOM 1 FLOOR LAYOUT (from movement image):
-            // The walkable area traces the actual floor visible between furniture.
-            // In isometric view, "up-left" on screen = north in game world.
-            //
-            // Walkable zone = outer polygon MINUS ottoman polygon (hole).
-            //
-            // Outer walkable polygon (tracing red lines from image):
-            // The red boundary follows the floor edges between sofa and TV stand.
-            //   P1: left of sofa bottom-front → going clockwise
-            //
-            // Looking at the image carefully:
-            //   - Sofa is on the LEFT wall, takes up the left portion
-            //   - Ottoman/pouf is in the CENTER of the floor
-            //   - TV stand is along the BACK wall (top of isometric view)
-            //   - Door is on the RIGHT wall
-            //   - Floor is visible as a diamond between all furniture
-            //
-            // The red boundary in the image forms a shape following the floor:
-
-            // Store walkable polygon and ottoman polygon for update() checks
-            // All coordinates as fractions of roomWidth/roomHeight
-
-            // OUTER walkable boundary — traces the FLOOR ONLY
-            // Carefully traced from movement image (room1_movements.png)
-            //
-            // The red rectangle in the image follows the isometric floor edges:
-            //   - LEFT side: runs along the sofa's RIGHT arm (inner edge facing floor)
-            //   - TOP side: runs along the TV stand's BOTTOM edge (floor in front of TV)
-            //   - RIGHT side: runs along the door area / right wall floor edge
-            //   - BOTTOM side: the front visible floor edge
-            //
-            // Going clockwise from top-left
-            this.walkablePolygon = [
-                { x: 0.20, y: 0.60 },  // Top-left: where sofa meets TV stand area (floor only)
-                { x: 0.44, y: 0.48 },  // Top-center: floor edge right below TV stand
-                { x: 0.67, y: 0.60 },  // Top-right: floor near door / right of TV stand
-                { x: 0.74, y: 0.57 },  // Right: floor in front of door
-                { x: 0.90, y: 0.65 },  // Bottom-right: right side floor front edge
-                { x: 0.50, y: 0.80 },  // Bottom-center: front floor tip
-				{ x: 0.485, y: 0.70 }, // near sofa right side
-				{ x: 0.46, y: 0.695 }, // near sofa right side
-				{ x: 0.43, y: 0.71 }, // near sofa right side
-			];
-
-            // OTTOMAN / POUF — centered on the actual ottoman furniture
-            // Traced tightly around the ottoman visible in the room
-            this.ottomanPolygon = [
-                { x: 0.32, y: 0.60 },  // From a TOP DOWN LOOK: Left corner
-                { x: 0.41, y: 0.56 },  // Top corner
-                { x: 0.50, y: 0.60 },  // Right corner
-                { x: 0.41, y: 0.65 },  // Bottom corner
-            ];
-
-            this.roomWidth = roomWidth;
-            this.roomHeight = roomHeight;
-
-            // GREEN TRANSITION LINE — diagonal from movement image
-            // In the image: green line goes from bottom-center area toward upper-right
-            // roughly from (0.44, 0.86) to (0.74, 0.60) — a "/" diagonal
-            this.greenLineStart = { x: 0.50, y: 0.80 };
-            this.greenLineEnd = { x: 0.90, y: 0.65 };
-
-            // Locked door zone (right wall — isometric diamond near the door)
-            this.lockedDoorPoly = [
-                { x: 0.74, y: 0.48 },
-                { x: 0.86, y: 0.52 },
-                { x: 0.86, y: 0.62 },
-                { x: 0.74, y: 0.58 },
-            ];
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.75, roomHeight * 0.35,
-                'Еще не время', {
-                fontSize: '48px',
-                fontFamily: 'Courier New',
-                color: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 25, y: 12 },
-                alpha: 0
-            }).setOrigin(0.5).setDepth(100);
-            this.lockedDoorTimer = 0;
-
-            // DEBUG: Draw the polygons so we can see them
-            const debugGfx = this.add.graphics();
-            debugGfx.setDepth(50);
-
-            // Draw outer walkable polygon (red outline)
-            debugGfx.lineStyle(3, 0xff0000, 0.8);
-            debugGfx.beginPath();
-            this.walkablePolygon.forEach((p, i) => {
-                const px = p.x * roomWidth;
-                const py = p.y * roomHeight;
-                if (i === 0) debugGfx.moveTo(px, py);
-                else debugGfx.lineTo(px, py);
-            });
-            debugGfx.closePath();
-            debugGfx.strokePath();
-
-            // Draw ottoman (red filled)
-            debugGfx.lineStyle(3, 0xff0000, 0.8);
-            debugGfx.fillStyle(0xff0000, 0.15);
-            debugGfx.beginPath();
-            this.ottomanPolygon.forEach((p, i) => {
-                const px = p.x * roomWidth;
-                const py = p.y * roomHeight;
-                if (i === 0) debugGfx.moveTo(px, py);
-                else debugGfx.lineTo(px, py);
-            });
-            debugGfx.closePath();
-            debugGfx.strokePath();
-            debugGfx.fillPath();
-
-            // Draw green transition line
-            debugGfx.lineStyle(4, 0x00ff00, 0.8);
-            debugGfx.beginPath();
-            debugGfx.moveTo(this.greenLineStart.x * roomWidth, this.greenLineStart.y * roomHeight);
-            debugGfx.lineTo(this.greenLineEnd.x * roomWidth, this.greenLineEnd.y * roomHeight);
-            debugGfx.strokePath();
-
-            // Draw locked door zone
-            debugGfx.lineStyle(2, 0xffff00, 0.6);
-            debugGfx.beginPath();
-            this.lockedDoorPoly.forEach((p, i) => {
-                if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight);
-                else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight);
-            });
-            debugGfx.closePath();
-            debugGfx.strokePath();
-
-            // === INTERACTION SYSTEM ===
-            // Define interactive items with proximity zones and overlays
-            // Each item: { id, proximityCenter {x,y} as fraction, proximityRadius in pixels,
-            //              lineOverlay: texture key, actionOverlay: texture key (or null) }
-            this.interactiveItems = [
-                {
-                    id: 'guitar',
-                    // Guitar — mounted on the LEFT wall of living room
-                    proximityCenter: { x: 0.25, y: 0.60 },
-                    proximityRadius: 90,
-                    lineOverlay: 'line_guitar',
-                    actionOverlay: null,
-                },
-                {
-                    id: 'ps_controller',
-                    // PS5 controller + TV — on the TV stand, back wall
-                    proximityCenter: { x: 0.65, y: 0.60 },
-                    proximityRadius: 100,
-                    lineOverlay: 'line_ps_controller',
-                    actionOverlay: 'action_ps_controller_tv',
-                },
-            ];
-
-            // Create overlay sprites for each item (same size as room, layered on top)
-            this.interactiveItems.forEach(item => {
-                // Line/glow overlay — shows when player is near
-                item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0);
-                item.lineSprite.setScale(scale);
-                item.lineSprite.setVisible(false);
-                item.lineSprite.setDepth(10);
-
-                // Action overlay — shows when E is pressed (if separate)
-                if (item.actionOverlay) {
-                    item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0);
-                    item.actionSprite.setScale(scale);
-                    item.actionSprite.setVisible(false);
-                    item.actionSprite.setDepth(10);
-                } else {
-                    item.actionSprite = null;
-                }
-
-                // State: 'idle' | 'near' | 'active'
-                item.state = 'idle';
-            });
-
-            // DEBUG: Draw yellow interaction zones
-            this.interactiveItems.forEach(item => {
-                const cx = item.proximityCenter.x * roomWidth;
-                const cy = item.proximityCenter.y * roomHeight;
-                debugGfx.lineStyle(2, 0xffff00, 0.8);
-                debugGfx.fillStyle(0xffff00, 0.1);
-                debugGfx.strokeCircle(cx, cy, item.proximityRadius);
-                debugGfx.fillCircle(cx, cy, item.proximityRadius);
-                // Label
-                const label = this.add.text(cx, cy - item.proximityRadius - 10, item.id, {
-                    fontSize: '18px', fontFamily: 'Courier New', color: '#ffff00',
-                    stroke: '#000000', strokeThickness: 3
-                }).setOrigin(0.5).setDepth(51);
-            });
-
-            // DEBUG: Player dot that turns white when in interaction zone
-            this.debugPlayerDot = this.add.circle(0, 0, 8, 0x00ff00, 0.9).setDepth(55);
-
-            // Currently active item (only one action at a time)
-            this.activeInteraction = null;
-
-            // E key prompt (floating above player, hidden by default)
-            this.ePrompt = this.add.text(0, 0, '[E]', {
-                fontSize: '36px',
-                fontFamily: 'Courier New',
-                color: '#ffffff',
-                backgroundColor: '#000000aa',
-                padding: { x: 12, y: 6 },
-                fontStyle: 'bold'
-            }).setOrigin(0.5).setDepth(150).setVisible(false);
-
-            // Pulsing animation for E prompt
-            this.tweens.add({
-                targets: this.ePrompt,
-                alpha: { from: 0.6, to: 1 },
-                scaleX: { from: 0.95, to: 1.05 },
-                scaleY: { from: 0.95, to: 1.05 },
-                duration: 800,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
-            });
-
-            // E key input
-            this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-            this.eKeyJustPressed = false;
-
-            // Mobile E button (fixed to camera, semi-transparent)
-            const eBtnSize = 70;
-            this.mobileEBtn = this.add.circle(screenWidth / 2, screenHeight - 150, eBtnSize / 2, 0x4a90d9, 0.7)
-                .setScrollFactor(0).setDepth(200).setVisible(false).setInteractive({ useHandCursor: true });
-            this.mobileEText = this.add.text(screenWidth / 2, screenHeight - 150, 'E', {
-                fontSize: '40px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
-
-            this.mobileEBtn.on('pointerdown', () => {
-                this.handleInteraction();
-            });
-
-            // Disable physics world bounds — we handle collision ourselves
-            this.player.setCollideWorldBounds(false);
-        }
-
-        // Handle E key / mobile E button press
-        handleInteraction() {
-            const rw = this.roomWidth;
-            const rh = this.roomHeight;
-
-            // If an action is currently active, deactivate it
-            if (this.activeInteraction) {
-                const item = this.activeInteraction;
-                if (item.actionSprite) item.actionSprite.setVisible(false);
-                else item.lineSprite.setVisible(false);
-                item.state = 'idle';
-                this.activeInteraction = null;
-                return;
-            }
-
-            // Find the nearest item that player is close to
-            let nearestItem = null;
-            let nearestDist = Infinity;
-
-            this.interactiveItems.forEach(item => {
-                const cx = item.proximityCenter.x * rw;
-                const cy = item.proximityCenter.y * rh;
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
-                if (dist < item.proximityRadius && dist < nearestDist) {
-                    nearestDist = dist;
-                    nearestItem = item;
-                }
-            });
-
-            if (nearestItem && nearestItem.state === 'near') {
-                // Activate action: hide line, show action overlay
-                nearestItem.lineSprite.setVisible(false);
-                if (nearestItem.actionSprite) {
-                    nearestItem.actionSprite.setVisible(true);
-                } else {
-                    // If no separate action overlay, keep line visible as the "action"
-                    nearestItem.lineSprite.setVisible(true);
-                }
-                nearestItem.state = 'active';
-                this.activeInteraction = nearestItem;
-                // Stop player movement
-                this.player.body.setVelocity(0, 0);
-                this.targetX = null;
-                this.targetY = null;
-            }
-        }
-
-        // Point-in-polygon test (ray casting algorithm)
-        pointInPolygon(px, py, polygon, rw, rh) {
-            let inside = false;
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const xi = polygon[i].x * rw, yi = polygon[i].y * rh;
-                const xj = polygon[j].x * rw, yj = polygon[j].y * rh;
-                const intersect = ((yi > py) !== (yj > py)) &&
-                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
-        }
-
-        // Check distance from point to a line segment (for green transition)
-        pointToLineDistance(px, py, x1, y1, x2, y2) {
-            const A = px - x1;
-            const B = py - y1;
-            const C = x2 - x1;
-            const D = y2 - y1;
-            const dot = A * C + B * D;
-            const lenSq = C * C + D * D;
-            let t = lenSq !== 0 ? dot / lenSq : -1;
-            t = Math.max(0, Math.min(1, t));
-            const xx = x1 + t * C;
-            const yy = y1 + t * D;
-            return Math.sqrt((px - xx) * (px - xx) + (py - yy) * (py - yy));
-        }
-
-        update() {
-            const moveSpeed = 250;
-            const rw = this.roomWidth;
-            const rh = this.roomHeight;
-
-            // --- INTERACTION: E key detection (must be at top of update) ---
-            if (Phaser.Input.Keyboard.JustDown(this.eKey)) {
-                this.handleInteraction();
-            }
-
-            // If an action is active, block ALL movement, show mobile E, skip rest
-            if (this.activeInteraction) {
-                this.player.body.setVelocity(0, 0);
-                this.ePrompt.setVisible(false);
-                this.mobileEBtn.setVisible(true);
-                this.mobileEText.setVisible(true);
-                this.player.anims.play('idle-' + this.playerDirection, true);
-                return; // Skip all movement, collision, transition logic
-            }
-
-            let vx = 0;
-            let vy = 0;
-
-            // WASD + arrow keys + virtual buttons
-            const left = this.wasd.left.isDown || this.cursors.left.isDown || this.virtualInput.left;
-            const right = this.wasd.right.isDown || this.cursors.right.isDown || this.virtualInput.right;
-            const up = this.wasd.up.isDown || this.cursors.up.isDown || this.virtualInput.up;
-            const down = this.wasd.down.isDown || this.cursors.down.isDown || this.virtualInput.down;
-
-            if (left) vx = -moveSpeed;
-            else if (right) vx = moveSpeed;
-            if (up) vy = -moveSpeed;
-            else if (down) vy = moveSpeed;
-
-            const usingKeyboard = left || right || up || down;
-
-            if (usingKeyboard) {
-                this.targetX = null;
-                this.targetY = null;
-            }
-
-            // Click-to-move: stop when close to target
-            if (this.targetX !== null && this.targetY !== null) {
-                const distance = Phaser.Math.Distance.Between(
-                    this.player.x, this.player.y,
-                    this.targetX, this.targetY
-                );
-                if (distance < 10) {
-                    this.targetX = null;
-                    this.targetY = null;
-                } else {
-                    const angle = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x);
-                    vx = Math.cos(angle) * moveSpeed;
-                    vy = Math.sin(angle) * moveSpeed;
-                }
-            }
-
-            // --- POLYGON COLLISION CHECK ---
-            const dt = this.game.loop.delta / 1000;
-            const nextX = this.player.x + vx * dt;
-            const nextY = this.player.y + vy * dt;
-
-            const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh);
-            const inOttoman = this.pointInPolygon(nextX, nextY, this.ottomanPolygon, rw, rh);
-
-            if (inOuter && !inOttoman) {
-                // Movement is valid
-                this.player.body.setVelocity(vx, vy);
-            } else {
-                // Try sliding: allow X movement only
-                const slideX_x = this.player.x + vx * dt;
-                const slideX_y = this.player.y;
-                const xOk = this.pointInPolygon(slideX_x, slideX_y, this.walkablePolygon, rw, rh)
-                          && !this.pointInPolygon(slideX_x, slideX_y, this.ottomanPolygon, rw, rh);
-
-                // Try sliding: allow Y movement only
-                const slideY_x = this.player.x;
-                const slideY_y = this.player.y + vy * dt;
-                const yOk = this.pointInPolygon(slideY_x, slideY_y, this.walkablePolygon, rw, rh)
-                          && !this.pointInPolygon(slideY_x, slideY_y, this.ottomanPolygon, rw, rh);
-
-                if (xOk && !yOk) {
-                    this.player.body.setVelocity(vx, 0);
-                } else if (yOk && !xOk) {
-                    this.player.body.setVelocity(0, vy);
-                } else {
-                    this.player.body.setVelocity(0, 0);
-                }
-            }
-
-            // If no input and no click target, stop
-            if (!usingKeyboard && this.targetX === null) {
-                this.player.body.setVelocity(0, 0);
-            }
-
-            // --- GREEN LINE TRANSITION CHECK ---
-            if (!this.isTransitioning) {
-                const dist = this.pointToLineDistance(
-                    this.player.x, this.player.y,
-                    this.greenLineStart.x * rw, this.greenLineStart.y * rh,
-                    this.greenLineEnd.x * rw, this.greenLineEnd.y * rh
-                );
-                if (dist < 30) {
-                    this.isTransitioning = true;
-                    this.player.body.setVelocity(0, 0);
-                    this.cameras.main.fadeOut(800, 0, 0, 0);
-                    this.time.delayedCall(800, () => {
-                        this.scene.start('StudioScene', { fromLiving: true });
-                    });
-                }
-            }
-
-            // --- LOCKED DOOR CHECK ---
-            if (this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh)) {
-                if (this.lockedDoorTimer <= 0) {
-                    this.lockedDoorTimer = 2500;
-                    this.tweens.add({ targets: this.lockedDoorMessage, alpha: 1, duration: 300 });
-                    this.time.delayedCall(2500, () => {
-                        this.tweens.add({ targets: this.lockedDoorMessage, alpha: 0, duration: 300 });
-                    });
-                }
-            }
-            if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
-
-            // --- ANIMATION ---
-            const speed = this.player.body.velocity.length();
-            if (speed > 10) {
-                const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
-                const deg = Phaser.Math.RadToDeg(angle);
-                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
-                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
-                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
-                else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
-            } else {
-                this.player.anims.play('idle-' + this.playerDirection, true);
-            }
-
-            // --- INTERACTION PROXIMITY CHECK ---
-            let nearAnyItem = false;
-            this.interactiveItems.forEach(item => {
-                const cx = item.proximityCenter.x * rw;
-                const cy = item.proximityCenter.y * rh;
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
-
-                if (dist < item.proximityRadius && item.state !== 'active') {
-                    // Player is near — show line overlay
-                    if (item.state !== 'near') {
-                        item.lineSprite.setVisible(true);
-                        item.lineSprite.setAlpha(0);
-                        this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
-                        item.state = 'near';
-                    }
-                    nearAnyItem = true;
-                } else if (item.state === 'near') {
-                    // Player walked away — hide line overlay
-                    this.tweens.add({
-                        targets: item.lineSprite, alpha: 0, duration: 200,
-                        onComplete: () => { item.lineSprite.setVisible(false); }
-                    });
-                    item.state = 'idle';
-                }
-            });
-
-            // DEBUG: Update player dot position + color (green=normal, white=in zone)
-            this.debugPlayerDot.setPosition(this.player.x, this.player.y);
-            this.debugPlayerDot.setFillStyle(nearAnyItem ? 0xffffff : 0x00ff00, 0.9);
-
-            // Show/hide E prompt and mobile E button
-            if (nearAnyItem) {
-                this.ePrompt.setPosition(this.player.x, this.player.y - 140);
-                this.ePrompt.setVisible(true);
-                this.mobileEBtn.setVisible(true);
-                this.mobileEText.setVisible(true);
-            } else {
-                this.ePrompt.setVisible(false);
-                this.mobileEBtn.setVisible(false);
-                this.mobileEText.setVisible(false);
-            }
-        }
-    }
-
-    // --- СТУДИЯ ---
-    class StudioScene extends Phaser.Scene {
-        constructor() { super('StudioScene'); }
-
-        preload() {
-            // Load room based on selected map style
-            const style = MAP_STYLES[window.mapStyle] || MAP_STYLES['default'];
-            this.load.image('room2', style.room2);
-
-            // --- INTERACTION OVERLAYS for Room 2 (Studio) ---
-            // Audio interface + Rick Owens — 2048x2048 overlays for studio room
-            this.load.image('line_audio_interface', 'action_audio_interface.png');
-            this.load.image('line_rick_owens', 'action_rick_owens.png');
-        }
-
-        create() {
-            const screenWidth = this.scale.width;
-            const screenHeight = this.scale.height;
-
-            const bg = this.add.image(0, 0, 'room2').setOrigin(0, 0);
-
-            const scaleX = screenWidth / bg.width;
-            const scaleY = screenHeight / bg.height;
-            const scale = Math.max(scaleX, scaleY);
-
-            bg.setScale(scale);
-
-            const roomWidth = bg.width * scale;
-            const roomHeight = bg.height * scale;
-
-            this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
-
-            // Персонаж — spawn inside walkable isometric floor area
-            const fromLiving = this.scene.settings.data?.fromLiving;
-
-            if (fromLiving) {
-                // Coming from living room — spawn in center of studio floor
-                this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.70, 'playerSprite');
-            } else {
-                // First time
-                this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite');
-            }
-
-            this.player.setScale(0.5);
+            this.player.setScale(0.7);
             this.player.setOrigin(0.5, 1);
             this.player.setCollideWorldBounds(true);
             this.player.body.setSize(20, 10);
@@ -1113,26 +416,20 @@
             this.player.anims.play('idle-down');
             this.playerDirection = 'down';
 
-            // КАМЕРА + ЗУМ
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
             this.cameras.main.setZoom(1.4);
-            this.cameras.main.fadeIn(1000, 0, 0, 0);
 
             this.targetX = null;
             this.targetY = null;
             this.isTransitioning = false;
 
-            // --- WASD УПРАВЛЕНИЕ ---
             this.cursors = this.input.keyboard.createCursorKeys();
             this.wasd = this.input.keyboard.addKeys({
-                up: Phaser.Input.Keyboard.KeyCodes.W,
-                down: Phaser.Input.Keyboard.KeyCodes.S,
-                left: Phaser.Input.Keyboard.KeyCodes.A,
-                right: Phaser.Input.Keyboard.KeyCodes.D
+                up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S,
+                left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
             });
 
-            // --- ВИРТУАЛЬНЫЕ СТРЕЛКИ (для мобильных) ---
             const buttonSize = 80;
             const buttonAlpha = 0.6;
             const buttonColor = 0x444444;
@@ -1140,21 +437,17 @@
             this.btnLeft = this.add.circle(120, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
             this.btnLeft.setScrollFactor(0).setInteractive();
             this.add.text(120, screenHeight - 150, '◄', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-
             this.btnRight = this.add.circle(280, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
             this.btnRight.setScrollFactor(0).setInteractive();
             this.add.text(280, screenHeight - 150, '►', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-
             this.btnUp = this.add.circle(screenWidth - 120, screenHeight - 230, buttonSize/2, buttonColor, buttonAlpha);
             this.btnUp.setScrollFactor(0).setInteractive();
             this.add.text(screenWidth - 120, screenHeight - 230, '▲', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-
             this.btnDown = this.add.circle(screenWidth - 120, screenHeight - 70, buttonSize/2, buttonColor, buttonAlpha);
             this.btnDown.setScrollFactor(0).setInteractive();
             this.add.text(screenWidth - 120, screenHeight - 70, '▼', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
 
             this.virtualInput = { left: false, right: false, up: false, down: false };
-
             this.btnLeft.on('pointerdown', () => { this.virtualInput.left = true; });
             this.btnLeft.on('pointerup', () => { this.virtualInput.left = false; });
             this.btnLeft.on('pointerout', () => { this.virtualInput.left = false; });
@@ -1168,98 +461,38 @@
             this.btnDown.on('pointerup', () => { this.virtualInput.down = false; });
             this.btnDown.on('pointerout', () => { this.virtualInput.down = false; });
 
-            // Клик по карте
             this.input.on('pointerdown', (pointer) => {
                 if (this.isTransitioning) return;
                 if (pointer.y > screenHeight - 300) return;
-
                 const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
                 this.targetX = worldPoint.x;
                 this.targetY = worldPoint.y;
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
 
-            // === ROOM 2 — POLYGON-BASED ISOMETRIC COLLISIONS ===
-            //
-            // Studio room walkable area traced from movement image.
-            // The red boundary follows the floor edges between desk, chair, couch, door.
-            // The floor is an L-shaped area with furniture blocking certain zones.
-            //
-            // Key furniture blocking zones:
-            //   - Desk + monitors (back-left corner)
-            //   - Chair (center-left, in front of desk)
-            //   - Shelf (back wall behind desk)
-            //   - Couch (right side)
-            //   - Plant (back-right corner)
-            //
-            // Walkable floor = the visible wood floor between all furniture
-
-            // Walkable polygon — traces the FLOOR ONLY in isometric view
-            // Carefully traced from movement image (room2_movements.png)
-            //
-            // The red boundary follows the floor edges:
-            //   - LEFT side: alongside the door, up to desk/shelf area
-            //   - TOP: runs along desk bottom, around chair, along couch back
-            //   - RIGHT: runs along couch right arm edge
-            //   - BOTTOM: front floor edge
-            //
-            // The L-shape comes from the desk+chair blocking the upper-left
-            // and the couch blocking the upper-right
-            //
-            // Going clockwise from top-left
             this.walkablePolygon = [
-                { x: 0.08, y: 0.72 },  // Door: left corner
-                { x: 0.26, y: 0.625 },  // Door + Studio: right corner
-                { x: 0.35, y: 0.68 },  // Studio: left corner
-                { x: 0.36, y: 0.675 },
-				{ x: 0.32, y: 0.63 },  // Top-center: open floor between chair and couch
-                { x: 0.38, y: 0.60 },
-				{ x: 0.40, y: 0.66 },
-				{ x: 0.47, y: 0.70 },
-				{ x: 0.53, y: 0.66 },
-				{ x: 0.56, y: 0.65 },
-				{ x: 0.51, y: 0.61 },
-				{ x: 0.53, y: 0.60 },
-				{ x: 0.54, y: 0.54 },  // Cupboard: left corner
-				{ x: 0.59, y: 0.51 },  // Cupboard: right corner
-                { x: 0.645, y: 0.55 },
-				{ x: 0.645, y: 0.60 },  // Top-right: floor below couch back
-                { x: 0.73, y: 0.66 },  // Right: couch front-right edge
-                { x: 0.27, y: 0.84 },  // Bottom-left: left front floor edge
+                { x: 0.20, y: 0.60 }, { x: 0.44, y: 0.48 }, { x: 0.67, y: 0.60 },
+                { x: 0.74, y: 0.57 }, { x: 0.90, y: 0.65 }, { x: 0.50, y: 0.80 },
+                { x: 0.485, y: 0.70 }, { x: 0.46, y: 0.695 }, { x: 0.43, y: 0.71 },
             ];
-
-            // Chair — island blocking area (the desk chair in center-left)
-            this.chairPolygon = [
-                { x: 0.40, y: 0.66 },  // Left
-                { x: 0.47, y: 0.60 },  // Top
-                { x: 0.54, y: 0.66 },  // Right
-                { x: 0.47, y: 0.70 },  // Bottom
+            this.ottomanPolygon = [
+                { x: 0.32, y: 0.60 }, { x: 0.41, y: 0.56 },
+                { x: 0.50, y: 0.60 }, { x: 0.41, y: 0.65 },
             ];
 
             this.roomWidth = roomWidth;
             this.roomHeight = roomHeight;
+            this.greenLineStart = { x: 0.50, y: 0.80 };
+            this.greenLineEnd = { x: 0.90, y: 0.65 };
 
-            // GREEN TRANSITION LINE — diagonal "\" from movement image
-            // In the image: green line goes from left side down to right bottom
-            // roughly from (0.12, 0.76) to (0.58, 0.92) — a "\" diagonal
-            this.greenLineStart = { x: 0.26, y: 0.85 };
-            this.greenLineEnd = { x: 0.72, y: 0.67 };
-
-            // Locked door zone (left wall — near the door)
             this.lockedDoorPoly = [
-                { x: 0.04, y: 0.58 },
-                { x: 0.14, y: 0.52 },
-                { x: 0.14, y: 0.62 },
-                { x: 0.04, y: 0.68 },
+                { x: 0.74, y: 0.48 }, { x: 0.86, y: 0.52 },
+                { x: 0.86, y: 0.62 }, { x: 0.74, y: 0.58 },
             ];
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.20, roomHeight * 0.45,
+            this.lockedDoorMessage = this.add.text(roomWidth * 0.75, roomHeight * 0.35,
                 'Еще не время', {
-                fontSize: '48px',
-                fontFamily: 'Courier New',
-                color: '#ffffff',
-                backgroundColor: '#000000',
-                padding: { x: 25, y: 12 },
-                alpha: 0
+                fontSize: '48px', fontFamily: 'Courier New', color: '#ffffff',
+                backgroundColor: '#000000', padding: { x: 25, y: 12 }, alpha: 0
             }).setOrigin(0.5).setDepth(100);
             this.lockedDoorTimer = 0;
 
@@ -1267,203 +500,217 @@
             const debugGfx = this.add.graphics();
             debugGfx.setDepth(50);
 
-            // Outer walkable polygon (red outline)
             debugGfx.lineStyle(3, 0xff0000, 0.8);
             debugGfx.beginPath();
-            this.walkablePolygon.forEach((p, i) => {
-                const px = p.x * roomWidth;
-                const py = p.y * roomHeight;
-                if (i === 0) debugGfx.moveTo(px, py);
-                else debugGfx.lineTo(px, py);
-            });
-            debugGfx.closePath();
-            debugGfx.strokePath();
+            this.walkablePolygon.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
+            debugGfx.closePath(); debugGfx.strokePath();
 
-            // Chair polygon (red filled)
-            debugGfx.lineStyle(3, 0xff0000, 0.8);
-            debugGfx.fillStyle(0xff0000, 0.15);
-            debugGfx.beginPath();
-            this.chairPolygon.forEach((p, i) => {
-                const px = p.x * roomWidth;
-                const py = p.y * roomHeight;
-                if (i === 0) debugGfx.moveTo(px, py);
-                else debugGfx.lineTo(px, py);
-            });
-            debugGfx.closePath();
-            debugGfx.strokePath();
-            debugGfx.fillPath();
+            debugGfx.lineStyle(3, 0xff0000, 0.8); debugGfx.fillStyle(0xff0000, 0.15); debugGfx.beginPath();
+            this.ottomanPolygon.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
+            debugGfx.closePath(); debugGfx.strokePath(); debugGfx.fillPath();
 
-            // Green transition line
-            debugGfx.lineStyle(4, 0x00ff00, 0.8);
-            debugGfx.beginPath();
+            debugGfx.lineStyle(4, 0x00ff00, 0.8); debugGfx.beginPath();
             debugGfx.moveTo(this.greenLineStart.x * roomWidth, this.greenLineStart.y * roomHeight);
             debugGfx.lineTo(this.greenLineEnd.x * roomWidth, this.greenLineEnd.y * roomHeight);
             debugGfx.strokePath();
 
-            // Locked door zone
-            debugGfx.lineStyle(2, 0xffff00, 0.6);
-            debugGfx.beginPath();
-            this.lockedDoorPoly.forEach((p, i) => {
-                if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight);
-                else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight);
-            });
-            debugGfx.closePath();
-            debugGfx.strokePath();
+            debugGfx.lineStyle(2, 0xffff00, 0.6); debugGfx.beginPath();
+            this.lockedDoorPoly.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
+            debugGfx.closePath(); debugGfx.strokePath();
 
             // === INTERACTION SYSTEM ===
-            // Define interactive items for Room 2 (Studio)
             this.interactiveItems = [
-                {
-                    id: 'audio_interface',
-                    // Apollo Twin X — on the desk, center-left of studio
-                    proximityCenter: { x: 0.35, y: 0.60 },
-                    proximityRadius: 90,
-                    lineOverlay: 'line_audio_interface',
-                    actionOverlay: null,
-                },
-                {
-                    id: 'rick_owens',
-                    // Rick Owens — on the shelf/cupboard, back wall
-                    proximityCenter: { x: 0.60, y: 0.53 },
-                    proximityRadius: 90,
-                    lineOverlay: 'line_rick_owens',
-                    actionOverlay: null,
-                },
+                { id: 'guitar', proximityCenter: { x: 0.25, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_guitar', actionOverlay: null, soundKey: 'sound_guitar' },
+                { id: 'ps_controller', proximityCenter: { x: 0.65, y: 0.60 }, proximityRadius: 100, lineOverlay: 'line_ps_controller', actionOverlay: null, soundKey: null, isTVSwitch: true },
+                { id: 'lights', proximityCenter: { x: 0.42, y: 0.68 }, proximityRadius: 80, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
             ];
 
-            // Create overlay sprites for each item
             this.interactiveItems.forEach(item => {
-                // Line/glow overlay — shows when player is near
-                item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0);
-                item.lineSprite.setScale(scale);
-                item.lineSprite.setVisible(false);
-                item.lineSprite.setDepth(10);
-
-                // Action overlay — shows when E is pressed
-                if (item.actionOverlay) {
-                    item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0);
-                    item.actionSprite.setScale(scale);
-                    item.actionSprite.setVisible(false);
-                    item.actionSprite.setDepth(10);
-                } else {
+                if (item.isLightSwitch) {
+                    // Light switch has no overlay sprites — it changes the background
+                    item.lineSprite = null;
                     item.actionSprite = null;
+                    item.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
+                    item._glowVisible = false;
+                    return;
                 }
-
-                item.state = 'idle';
+                if (item.isTVSwitch) {
+                    // TV switch: create all game overlay sprites, show the active one
+                    item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
+                    item.actionSprite = null; // not used directly
+                    item.tvSprites = {};
+                    Object.keys(TV_GAME_TEXTURES).forEach(mode => {
+                        item.tvSprites[mode] = this.add.image(0, 0, TV_GAME_TEXTURES[mode]).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
+                    });
+                    // Restore TV state
+                    if (window.tvGameMode !== 'off') {
+                        item.state = 'active';
+                        item._glowVisible = false;
+                        if (item.tvSprites[window.tvGameMode]) item.tvSprites[window.tvGameMode].setVisible(true);
+                    } else {
+                        item.state = 'idle';
+                        item._glowVisible = false;
+                    }
+                    return;
+                }
+                item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
+                if (item.actionOverlay) {
+                    item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
+                } else { item.actionSprite = null; }
+                // Restore active state if this item was globally active
+                if (window.activeItems[item.id]) {
+                    item.state = 'active';
+                    item._glowVisible = false;
+                    if (item.actionSprite) item.actionSprite.setVisible(true);
+                } else {
+                    item.state = 'idle';
+                }
             });
 
-            // DEBUG: Draw yellow interaction zones
+            // DEBUG: yellow interaction zones
             this.interactiveItems.forEach(item => {
                 const cx = item.proximityCenter.x * roomWidth;
                 const cy = item.proximityCenter.y * roomHeight;
-                debugGfx.lineStyle(2, 0xffff00, 0.8);
-                debugGfx.fillStyle(0xffff00, 0.1);
+                debugGfx.lineStyle(2, 0xffff00, 0.8); debugGfx.fillStyle(0xffff00, 0.1);
                 debugGfx.strokeCircle(cx, cy, item.proximityRadius);
                 debugGfx.fillCircle(cx, cy, item.proximityRadius);
-                // Label
-                const label = this.add.text(cx, cy - item.proximityRadius - 10, item.id, {
-                    fontSize: '18px', fontFamily: 'Courier New', color: '#ffff00',
-                    stroke: '#000000', strokeThickness: 3
+                this.add.text(cx, cy - item.proximityRadius - 10, item.id, {
+                    fontSize: '18px', fontFamily: 'Courier New', color: '#ffff00', stroke: '#000000', strokeThickness: 3
                 }).setOrigin(0.5).setDepth(51);
             });
 
-            // DEBUG: Player dot that turns white when in interaction zone
             this.debugPlayerDot = this.add.circle(0, 0, 8, 0x00ff00, 0.9).setDepth(55);
 
-            this.activeInteraction = null;
+            this.interactionCooldown = 0;
 
-            // E key prompt
             this.ePrompt = this.add.text(0, 0, '[E]', {
-                fontSize: '36px',
-                fontFamily: 'Courier New',
-                color: '#ffffff',
-                backgroundColor: '#000000aa',
-                padding: { x: 12, y: 6 },
-                fontStyle: 'bold'
+                fontSize: '36px', fontFamily: 'Courier New', color: '#ffffff',
+                backgroundColor: '#000000aa', padding: { x: 12, y: 6 }, fontStyle: 'bold'
             }).setOrigin(0.5).setDepth(150).setVisible(false);
 
             this.tweens.add({
-                targets: this.ePrompt,
-                alpha: { from: 0.6, to: 1 },
-                scaleX: { from: 0.95, to: 1.05 },
-                scaleY: { from: 0.95, to: 1.05 },
-                duration: 800,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
+                targets: this.ePrompt, alpha: { from: 0.6, to: 1 },
+                scaleX: { from: 0.95, to: 1.05 }, scaleY: { from: 0.95, to: 1.05 },
+                duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
             });
 
-            // E key input
             this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
-            // Mobile E button
             const eBtnSize = 70;
             this.mobileEBtn = this.add.circle(screenWidth / 2, screenHeight - 150, eBtnSize / 2, 0x4a90d9, 0.7)
                 .setScrollFactor(0).setDepth(200).setVisible(false).setInteractive({ useHandCursor: true });
             this.mobileEText = this.add.text(screenWidth / 2, screenHeight - 150, 'E', {
                 fontSize: '40px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
             }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+            this.mobileEBtn.on('pointerdown', () => { this.handleInteraction(); });
 
-            this.mobileEBtn.on('pointerdown', () => {
-                this.handleInteraction();
-            });
-
-            // Disable physics world bounds — we handle collision ourselves
             this.player.setCollideWorldBounds(false);
+
+            // Fade in AFTER everything is set up — black cover prevents any flash
+            const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000)
+                .setScrollFactor(0).setDepth(9999);
+            this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
         }
 
-        // Handle E key / mobile E button press
         handleInteraction() {
             const rw = this.roomWidth;
             const rh = this.roomHeight;
 
-            // If an action is currently active, deactivate it
-            if (this.activeInteraction) {
-                const item = this.activeInteraction;
-                if (item.actionSprite) item.actionSprite.setVisible(false);
-                else item.lineSprite.setVisible(false);
-                item.state = 'idle';
-                this.activeInteraction = null;
-                return;
-            }
-
-            // Find the nearest item that player is close to
+            // Check what item the player is currently near (inside circle)
             let nearestItem = null;
             let nearestDist = Infinity;
-
             this.interactiveItems.forEach(item => {
                 const cx = item.proximityCenter.x * rw;
                 const cy = item.proximityCenter.y * rh;
                 const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
-                if (dist < item.proximityRadius && dist < nearestDist) {
-                    nearestDist = dist;
-                    nearestItem = item;
-                }
+                if (dist < item.proximityRadius && dist < nearestDist) { nearestDist = dist; nearestItem = item; }
             });
 
-            if (nearestItem && nearestItem.state === 'near') {
-                nearestItem.lineSprite.setVisible(false);
-                if (nearestItem.actionSprite) {
-                    nearestItem.actionSprite.setVisible(true);
-                } else {
-                    nearestItem.lineSprite.setVisible(true);
+            // Can only interact when inside a circle
+            if (!nearestItem) return;
+
+            // === LIGHT SWITCH: cycles through modes ===
+            if (nearestItem.isLightSwitch) {
+                const currentIdx = LIGHT_MODES.indexOf(window.roomLightMode);
+                const nextIdx = (currentIdx + 1) % LIGHT_MODES.length;
+                window.roomLightMode = LIGHT_MODES[nextIdx];
+
+                // Swap background texture
+                const newKey = window.roomLightMode === 'default' ? 'room1' : ('room1_' + window.roomLightMode);
+                this.bg.setTexture(newKey);
+
+                // Update item state
+                nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
+                this.interactionCooldown = 500;
+                return;
+            }
+
+            // === TV SWITCH: cycles through games ===
+            if (nearestItem.isTVSwitch) {
+                // Hide current game overlay
+                if (window.tvGameMode !== 'off' && nearestItem.tvSprites[window.tvGameMode]) {
+                    nearestItem.tvSprites[window.tvGameMode].setVisible(false);
                 }
+
+                const currentIdx = TV_GAMES.indexOf(window.tvGameMode);
+                const nextIdx = (currentIdx + 1) % TV_GAMES.length;
+                window.tvGameMode = TV_GAMES[nextIdx];
+
+                // Show new game overlay
+                if (window.tvGameMode !== 'off' && nearestItem.tvSprites[window.tvGameMode]) {
+                    nearestItem.tvSprites[window.tvGameMode].setVisible(true);
+                }
+
+                // Update item state
+                nearestItem.state = (window.tvGameMode !== 'off') ? 'active' : 'idle';
+                window.activeItems[nearestItem.id] = (window.tvGameMode !== 'off') ? true : undefined;
+                if (window.tvGameMode === 'off') delete window.activeItems[nearestItem.id];
+                this.interactionCooldown = 500;
+                return;
+            }
+
+            // If this item is already active — turn it OFF
+            if (nearestItem.state === 'active') {
+                if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(false);
+                nearestItem.lineSprite.setVisible(false);
+                nearestItem._glowVisible = false;
+                // Stop global audio if this item had sound
+                if (window.activeAudio && window.activeAudio.itemId === nearestItem.id && window.activeAudio.sound) {
+                    window.activeAudio.sound.stop();
+                    window.activeAudio.sound.destroy();
+                    window.activeAudio = null;
+                }
+                delete window.activeItems[nearestItem.id];
+                nearestItem.state = 'idle';
+                this.interactionCooldown = 500;
+                return;
+            }
+
+            // If near an item — turn it ON (line glow stays since we're in circle)
+            if (nearestItem.state === 'near') {
+                if (nearestItem.actionSprite) { nearestItem.actionSprite.setVisible(true); }
+                // Start global audio if item has sound
+                if (nearestItem.soundKey) {
+                    if (window.activeAudio && window.activeAudio.sound) {
+                        window.activeAudio.sound.stop();
+                        window.activeAudio.sound.destroy();
+                    }
+                    const snd = this.sound.add(nearestItem.soundKey, { loop: true, volume: 0.5 });
+                    snd.play();
+                    window.activeAudio = { itemId: nearestItem.id, soundKey: nearestItem.soundKey, sound: snd };
+                }
+                window.activeItems[nearestItem.id] = true;
                 nearestItem.state = 'active';
-                this.activeInteraction = nearestItem;
-                this.player.body.setVelocity(0, 0);
-                this.targetX = null;
-                this.targetY = null;
+                nearestItem._glowVisible = true;
             }
         }
 
-        // Point-in-polygon test (ray casting algorithm)
         pointInPolygon(px, py, polygon, rw, rh) {
             let inside = false;
             for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
                 const xi = polygon[i].x * rw, yi = polygon[i].y * rh;
                 const xj = polygon[j].x * rw, yj = polygon[j].y * rh;
-                const intersect = ((yi > py) !== (yj > py)) &&
-                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+                const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
                 if (intersect) inside = !inside;
             }
             return inside;
@@ -1471,8 +718,7 @@
 
         pointToLineDistance(px, py, x1, y1, x2, y2) {
             const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
-            const dot = A * C + B * D;
-            const lenSq = C * C + D * D;
+            const dot = A * C + B * D, lenSq = C * C + D * D;
             let t = lenSq !== 0 ? dot / lenSq : -1;
             t = Math.max(0, Math.min(1, t));
             const xx = x1 + t * C, yy = y1 + t * D;
@@ -1484,115 +730,77 @@
             const rw = this.roomWidth;
             const rh = this.roomHeight;
 
-            // --- INTERACTION: E key detection (must be at top of update) ---
-            if (Phaser.Input.Keyboard.JustDown(this.eKey)) {
-                this.handleInteraction();
-            }
+            if (Phaser.Input.Keyboard.JustDown(this.eKey)) { this.handleInteraction(); }
+            if (this.interactionCooldown > 0) { this.interactionCooldown -= this.game.loop.delta; }
 
-            // If an action is active, block ALL movement, show mobile E, skip rest
-            if (this.activeInteraction) {
-                this.player.body.setVelocity(0, 0);
-                this.ePrompt.setVisible(false);
-                this.mobileEBtn.setVisible(true);
-                this.mobileEText.setVisible(true);
-                this.player.anims.play('idle-' + this.playerDirection, true);
-                return; // Skip all movement, collision, transition logic
-            }
-
-            let vx = 0;
-            let vy = 0;
-
+            let vx = 0, vy = 0;
             const left = this.wasd.left.isDown || this.cursors.left.isDown || this.virtualInput.left;
             const right = this.wasd.right.isDown || this.cursors.right.isDown || this.virtualInput.right;
             const up = this.wasd.up.isDown || this.cursors.up.isDown || this.virtualInput.up;
             const down = this.wasd.down.isDown || this.cursors.down.isDown || this.virtualInput.down;
 
-            if (left) vx = -moveSpeed;
-            else if (right) vx = moveSpeed;
-            if (up) vy = -moveSpeed;
-            else if (down) vy = moveSpeed;
-
+            if (left) vx = -moveSpeed; else if (right) vx = moveSpeed;
+            if (up) vy = -moveSpeed; else if (down) vy = moveSpeed;
             const usingKeyboard = left || right || up || down;
-
-            if (usingKeyboard) {
-                this.targetX = null;
-                this.targetY = null;
-            }
+            if (usingKeyboard) { this.targetX = null; this.targetY = null; }
 
             if (this.targetX !== null && this.targetY !== null) {
-                const distance = Phaser.Math.Distance.Between(
-                    this.player.x, this.player.y, this.targetX, this.targetY
-                );
-                if (distance < 10) {
-                    this.targetX = null;
-                    this.targetY = null;
-                } else {
-                    const angle = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x);
-                    vx = Math.cos(angle) * moveSpeed;
-                    vy = Math.sin(angle) * moveSpeed;
-                }
+                const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
+                if (distance < 10) { this.targetX = null; this.targetY = null; }
+                else { const angle = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x); vx = Math.cos(angle) * moveSpeed; vy = Math.sin(angle) * moveSpeed; }
             }
 
-            // --- POLYGON COLLISION CHECK ---
             const dt = this.game.loop.delta / 1000;
             const nextX = this.player.x + vx * dt;
             const nextY = this.player.y + vy * dt;
-
             const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh);
-            const inChair = this.pointInPolygon(nextX, nextY, this.chairPolygon, rw, rh);
+            const inOttoman = this.pointInPolygon(nextX, nextY, this.ottomanPolygon, rw, rh);
 
-            if (inOuter && !inChair) {
-                this.player.body.setVelocity(vx, vy);
-            } else {
-                const slideX_x = this.player.x + vx * dt;
-                const slideX_y = this.player.y;
-                const xOk = this.pointInPolygon(slideX_x, slideX_y, this.walkablePolygon, rw, rh)
-                          && !this.pointInPolygon(slideX_x, slideX_y, this.chairPolygon, rw, rh);
-
-                const slideY_x = this.player.x;
-                const slideY_y = this.player.y + vy * dt;
-                const yOk = this.pointInPolygon(slideY_x, slideY_y, this.walkablePolygon, rw, rh)
-                          && !this.pointInPolygon(slideY_x, slideY_y, this.chairPolygon, rw, rh);
-
+            if (inOuter && !inOttoman) { this.player.body.setVelocity(vx, vy); }
+            else {
+                const xOk = this.pointInPolygon(this.player.x + vx * dt, this.player.y, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x + vx * dt, this.player.y, this.ottomanPolygon, rw, rh);
+                const yOk = this.pointInPolygon(this.player.x, this.player.y + vy * dt, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x, this.player.y + vy * dt, this.ottomanPolygon, rw, rh);
                 if (xOk && !yOk) this.player.body.setVelocity(vx, 0);
                 else if (yOk && !xOk) this.player.body.setVelocity(0, vy);
                 else this.player.body.setVelocity(0, 0);
             }
 
-            if (!usingKeyboard && this.targetX === null) {
-                this.player.body.setVelocity(0, 0);
-            }
+            if (!usingKeyboard && this.targetX === null) { this.player.body.setVelocity(0, 0); }
 
-            // --- GREEN LINE TRANSITION CHECK ---
             if (!this.isTransitioning) {
-                const dist = this.pointToLineDistance(
-                    this.player.x, this.player.y,
-                    this.greenLineStart.x * rw, this.greenLineStart.y * rh,
-                    this.greenLineEnd.x * rw, this.greenLineEnd.y * rh
-                );
+                const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x * rw, this.greenLineStart.y * rh, this.greenLineEnd.x * rw, this.greenLineEnd.y * rh);
                 if (dist < 30) {
                     this.isTransitioning = true;
                     this.player.body.setVelocity(0, 0);
-                    this.cameras.main.fadeOut(800, 0, 0, 0);
-                    this.time.delayedCall(800, () => {
-                        this.scene.start('MainScene', { fromStudio: true });
+                    // Clean up visuals before transitioning (audio + activeItems persist globally)
+                    this.interactiveItems.forEach(item => {
+                        if (item.state === 'active') {
+                            if (item.actionSprite) item.actionSprite.setVisible(false);
+                            if (item.lineSprite) item.lineSprite.setVisible(false);
+                            // Hide TV game sprites
+                            if (item.tvSprites) Object.values(item.tvSprites).forEach(s => s.setVisible(false));
+                            item._glowVisible = false;
+                        }
+                    });
+                    this.scene.transition({
+                        target: 'StudioScene',
+                        data: { fromLiving: true },
+                        duration: 800,
+                        moveBelow: true,
+                        onUpdate: (progress) => { this.cameras.main.setAlpha(1 - progress); }
                     });
                 }
             }
 
-            // --- LOCKED DOOR CHECK ---
             if (this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh)) {
                 if (this.lockedDoorTimer <= 0) {
                     this.lockedDoorTimer = 2500;
                     this.tweens.add({ targets: this.lockedDoorMessage, alpha: 1, duration: 300 });
-                    this.time.delayedCall(2500, () => {
-                        this.tweens.add({ targets: this.lockedDoorMessage, alpha: 0, duration: 300 });
-                    });
+                    this.time.delayedCall(2500, () => { this.tweens.add({ targets: this.lockedDoorMessage, alpha: 0, duration: 300 }); });
                 }
             }
             if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
 
-            // --- ANIMATION ---
             const speed = this.player.body.velocity.length();
             if (speed > 10) {
                 const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
@@ -1601,48 +809,537 @@
                 else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
                 else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
                 else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
-            } else {
-                this.player.anims.play('idle-' + this.playerDirection, true);
+            } else { this.player.anims.play('idle-' + this.playerDirection, true); }
+
+            // --- INTERACTION PROXIMITY CHECK (skipped during cooldown) ---
+            let playerInCircle = false;
+            if (this.interactionCooldown <= 0) {
+                this.interactiveItems.forEach(item => {
+                    const cx = item.proximityCenter.x * rw, cy = item.proximityCenter.y * rh;
+                    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+                    const inRange = dist < item.proximityRadius;
+
+                    // Light switch: no line glow, just track proximity for [E] prompt
+                    if (item.isLightSwitch) {
+                        if (inRange) {
+                            if (item.state === 'idle') item.state = 'near';
+                            playerInCircle = true;
+                        } else {
+                            if (item.state === 'near') item.state = 'idle';
+                        }
+                        return;
+                    }
+
+                    if (item.state === 'active') {
+                        // Active item: show/hide line glow when entering/leaving circle
+                        if (inRange) {
+                            if (!item._glowVisible) {
+                                item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
+                                this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
+                                item._glowVisible = true;
+                            }
+                            playerInCircle = true;
+                        } else {
+                            if (item._glowVisible) {
+                                this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } });
+                                item._glowVisible = false;
+                            }
+                        }
+                        return;
+                    }
+
+                    if (inRange) {
+                        if (item.state !== 'near') {
+                            item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
+                            this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
+                            item.state = 'near';
+                        }
+                        playerInCircle = true;
+                    } else if (item.state === 'near') {
+                        this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } });
+                        item.state = 'idle';
+                    }
+                });
             }
 
-            // --- INTERACTION PROXIMITY CHECK ---
-            let nearAnyItem = false;
-            this.interactiveItems.forEach(item => {
-                const cx = item.proximityCenter.x * rw;
-                const cy = item.proximityCenter.y * rh;
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+            this.debugPlayerDot.setPosition(this.player.x, this.player.y);
+            this.debugPlayerDot.setFillStyle(playerInCircle ? 0xffffff : 0x00ff00, 0.9);
 
-                if (dist < item.proximityRadius && item.state !== 'active') {
-                    if (item.state !== 'near') {
-                        item.lineSprite.setVisible(true);
-                        item.lineSprite.setAlpha(0);
-                        this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
-                        item.state = 'near';
-                    }
-                    nearAnyItem = true;
-                } else if (item.state === 'near') {
-                    this.tweens.add({
-                        targets: item.lineSprite, alpha: 0, duration: 200,
-                        onComplete: () => { item.lineSprite.setVisible(false); }
-                    });
+            // [E] prompt — show context label when near special switches
+            if (playerInCircle) {
+                this.ePrompt.setPosition(this.player.x, this.player.y - 140);
+                const nearLight = this.interactiveItems.find(i => i.isLightSwitch &&
+                    Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
+                const nearTV = this.interactiveItems.find(i => i.isTVSwitch &&
+                    Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
+                if (nearLight) {
+                    const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
+                    this.ePrompt.setText('[E] Lights: ' + modeLabel);
+                } else if (nearTV) {
+                    const gameLabel = window.tvGameMode === 'off' ? 'OFF' : window.tvGameMode.replace('_', ' ').toUpperCase();
+                    this.ePrompt.setText('[E] TV: ' + gameLabel);
+                } else {
+                    this.ePrompt.setText('[E]');
+                }
+                this.ePrompt.setVisible(true); this.mobileEBtn.setVisible(true); this.mobileEText.setVisible(true);
+            } else {
+                this.ePrompt.setText('[E]');
+                this.ePrompt.setVisible(false); this.mobileEBtn.setVisible(false); this.mobileEText.setVisible(false);
+            }
+        }
+    }
+
+    // --- СТУДИЯ ---
+    class StudioScene extends Phaser.Scene {
+        constructor() { super('StudioScene'); }
+
+        preload() {
+            const style = MAP_STYLES[window.mapStyle] || MAP_STYLES['default'];
+            this.load.image('room2', style.room2);
+
+            // --- INTERACTION OVERLAYS for Room 2 (Studio) ---
+            this.load.image('line_audio_interface', '/assets/interaction/action_audio_interface.png');
+            this.load.image('line_rick_owens', '/assets/interaction/action_rick_owens.png');
+
+            // --- LIGHT VARIANTS for Room 2 ---
+            this.load.image('room2_blue', 'assets/default/room2_blue.png');
+            this.load.image('room2_pink', 'assets/default/room2_pink.png');
+            this.load.image('room2_green', 'assets/default/room2_green.png');
+
+            // --- AUDIO for interactions (load all so they persist across scenes) ---
+            this.load.audio('sound_guitar', '/assets/sound/sound_guitar.mp3');
+            this.load.audio('sound_audio_interface', '/assets/sound/sound_audio_interface.mp3');
+        }
+
+        create() {
+            const screenWidth = this.scale.width;
+            const screenHeight = this.scale.height;
+
+            // Determine which room2 texture to use based on current light mode
+            const lightMode = window.roomLightMode || 'default';
+            const room2Key = lightMode === 'default' ? 'room2' : ('room2_' + lightMode);
+            const bg = this.add.image(0, 0, room2Key).setOrigin(0, 0);
+            this.bg = bg; // store reference for texture swapping
+            const scaleX = screenWidth / bg.width;
+            const scaleY = screenHeight / bg.height;
+            const scale = Math.max(scaleX, scaleY);
+            bg.setScale(scale);
+
+            const roomWidth = bg.width * scale;
+            const roomHeight = bg.height * scale;
+
+            this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
+
+            const fromLiving = this.scene.settings.data?.fromLiving;
+            if (fromLiving) { this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.70, 'playerSprite'); }
+            else { this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite'); }
+
+            this.player.setScale(0.7);
+            this.player.setOrigin(0.5, 1);
+            this.player.setCollideWorldBounds(true);
+            this.player.body.setSize(20, 10);
+            this.player.body.setOffset(22, 54);
+            this.player.anims.play('idle-down');
+            this.playerDirection = 'down';
+
+            this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+            this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
+            this.cameras.main.setZoom(1.4);
+
+            this.targetX = null;
+            this.targetY = null;
+            this.isTransitioning = false;
+
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.wasd = this.input.keyboard.addKeys({
+                up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S,
+                left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
+            });
+
+            const buttonSize = 80, buttonAlpha = 0.6, buttonColor = 0x444444;
+            this.btnLeft = this.add.circle(120, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha).setScrollFactor(0).setInteractive();
+            this.add.text(120, screenHeight - 150, '◄', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
+            this.btnRight = this.add.circle(280, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha).setScrollFactor(0).setInteractive();
+            this.add.text(280, screenHeight - 150, '►', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
+            this.btnUp = this.add.circle(screenWidth - 120, screenHeight - 230, buttonSize/2, buttonColor, buttonAlpha).setScrollFactor(0).setInteractive();
+            this.add.text(screenWidth - 120, screenHeight - 230, '▲', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
+            this.btnDown = this.add.circle(screenWidth - 120, screenHeight - 70, buttonSize/2, buttonColor, buttonAlpha).setScrollFactor(0).setInteractive();
+            this.add.text(screenWidth - 120, screenHeight - 70, '▼', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
+
+            this.virtualInput = { left: false, right: false, up: false, down: false };
+            this.btnLeft.on('pointerdown', () => { this.virtualInput.left = true; }); this.btnLeft.on('pointerup', () => { this.virtualInput.left = false; }); this.btnLeft.on('pointerout', () => { this.virtualInput.left = false; });
+            this.btnRight.on('pointerdown', () => { this.virtualInput.right = true; }); this.btnRight.on('pointerup', () => { this.virtualInput.right = false; }); this.btnRight.on('pointerout', () => { this.virtualInput.right = false; });
+            this.btnUp.on('pointerdown', () => { this.virtualInput.up = true; }); this.btnUp.on('pointerup', () => { this.virtualInput.up = false; }); this.btnUp.on('pointerout', () => { this.virtualInput.up = false; });
+            this.btnDown.on('pointerdown', () => { this.virtualInput.down = true; }); this.btnDown.on('pointerup', () => { this.virtualInput.down = false; }); this.btnDown.on('pointerout', () => { this.virtualInput.down = false; });
+
+            this.input.on('pointerdown', (pointer) => {
+                if (this.isTransitioning) return;
+                if (pointer.y > screenHeight - 300) return;
+                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                this.targetX = worldPoint.x; this.targetY = worldPoint.y;
+                this.physics.moveToObject(this.player, worldPoint, 250);
+            });
+
+            this.walkablePolygon = [
+                { x: 0.08, y: 0.72 }, { x: 0.26, y: 0.625 }, { x: 0.35, y: 0.68 },
+                { x: 0.36, y: 0.675 }, { x: 0.32, y: 0.63 }, { x: 0.38, y: 0.60 },
+                { x: 0.40, y: 0.66 }, { x: 0.47, y: 0.70 }, { x: 0.53, y: 0.66 },
+                { x: 0.56, y: 0.65 }, { x: 0.51, y: 0.61 }, { x: 0.53, y: 0.60 },
+                { x: 0.54, y: 0.54 }, { x: 0.59, y: 0.51 }, { x: 0.645, y: 0.55 },
+                { x: 0.645, y: 0.60 }, { x: 0.73, y: 0.66 }, { x: 0.27, y: 0.84 },
+            ];
+            this.chairPolygon = [
+                { x: 0.40, y: 0.66 }, { x: 0.47, y: 0.60 },
+                { x: 0.54, y: 0.66 }, { x: 0.47, y: 0.70 },
+            ];
+
+            this.roomWidth = roomWidth;
+            this.roomHeight = roomHeight;
+            this.greenLineStart = { x: 0.26, y: 0.85 };
+            this.greenLineEnd = { x: 0.72, y: 0.67 };
+
+            this.lockedDoorPoly = [
+                { x: 0.04, y: 0.58 }, { x: 0.14, y: 0.52 },
+                { x: 0.14, y: 0.62 }, { x: 0.04, y: 0.68 },
+            ];
+            this.lockedDoorMessage = this.add.text(roomWidth * 0.20, roomHeight * 0.45,
+                'Еще не время', {
+                fontSize: '48px', fontFamily: 'Courier New', color: '#ffffff',
+                backgroundColor: '#000000', padding: { x: 25, y: 12 }, alpha: 0
+            }).setOrigin(0.5).setDepth(100);
+            this.lockedDoorTimer = 0;
+
+            const debugGfx = this.add.graphics();
+            debugGfx.setDepth(50);
+
+            debugGfx.lineStyle(3, 0xff0000, 0.8); debugGfx.beginPath();
+            this.walkablePolygon.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
+            debugGfx.closePath(); debugGfx.strokePath();
+
+            debugGfx.lineStyle(3, 0xff0000, 0.8); debugGfx.fillStyle(0xff0000, 0.15); debugGfx.beginPath();
+            this.chairPolygon.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
+            debugGfx.closePath(); debugGfx.strokePath(); debugGfx.fillPath();
+
+            debugGfx.lineStyle(4, 0x00ff00, 0.8); debugGfx.beginPath();
+            debugGfx.moveTo(this.greenLineStart.x * roomWidth, this.greenLineStart.y * roomHeight);
+            debugGfx.lineTo(this.greenLineEnd.x * roomWidth, this.greenLineEnd.y * roomHeight);
+            debugGfx.strokePath();
+
+            debugGfx.lineStyle(2, 0xffff00, 0.6); debugGfx.beginPath();
+            this.lockedDoorPoly.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
+            debugGfx.closePath(); debugGfx.strokePath();
+
+            // === INTERACTION SYSTEM ===
+            this.interactiveItems = [
+                { id: 'audio_interface', proximityCenter: { x: 0.35, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_audio_interface', actionOverlay: null, soundKey: 'sound_audio_interface' },
+                { id: 'rick_owens', proximityCenter: { x: 0.60, y: 0.53 }, proximityRadius: 90, lineOverlay: 'line_rick_owens', actionOverlay: null, soundKey: null },
+                { id: 'lights', proximityCenter: { x: 0.20, y: 0.70 }, proximityRadius: 80, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
+            ];
+
+            this.interactiveItems.forEach(item => {
+                if (item.isLightSwitch) {
+                    // Light switch has no overlay sprites — it changes the background
+                    item.lineSprite = null;
+                    item.actionSprite = null;
+                    item.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
+                    item._glowVisible = false;
+                    return;
+                }
+                item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
+                if (item.actionOverlay) { item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10); }
+                else { item.actionSprite = null; }
+                // Restore active state if this item was globally active
+                if (window.activeItems[item.id]) {
+                    item.state = 'active';
+                    item._glowVisible = false;
+                    if (item.actionSprite) item.actionSprite.setVisible(true);
+                } else {
                     item.state = 'idle';
                 }
             });
 
-            // DEBUG: Update player dot position + color (green=normal, white=in zone)
-            this.debugPlayerDot.setPosition(this.player.x, this.player.y);
-            this.debugPlayerDot.setFillStyle(nearAnyItem ? 0xffffff : 0x00ff00, 0.9);
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * roomWidth, cy = item.proximityCenter.y * roomHeight;
+                debugGfx.lineStyle(2, 0xffff00, 0.8); debugGfx.fillStyle(0xffff00, 0.1);
+                debugGfx.strokeCircle(cx, cy, item.proximityRadius);
+                debugGfx.fillCircle(cx, cy, item.proximityRadius);
+                this.add.text(cx, cy - item.proximityRadius - 10, item.id, {
+                    fontSize: '18px', fontFamily: 'Courier New', color: '#ffff00', stroke: '#000000', strokeThickness: 3
+                }).setOrigin(0.5).setDepth(51);
+            });
 
-            // Show/hide E prompt and mobile E button
-            if (nearAnyItem) {
+            this.debugPlayerDot = this.add.circle(0, 0, 8, 0x00ff00, 0.9).setDepth(55);
+
+            this.interactionCooldown = 0;
+
+            this.ePrompt = this.add.text(0, 0, '[E]', {
+                fontSize: '36px', fontFamily: 'Courier New', color: '#ffffff',
+                backgroundColor: '#000000aa', padding: { x: 12, y: 6 }, fontStyle: 'bold'
+            }).setOrigin(0.5).setDepth(150).setVisible(false);
+
+            this.tweens.add({
+                targets: this.ePrompt, alpha: { from: 0.6, to: 1 },
+                scaleX: { from: 0.95, to: 1.05 }, scaleY: { from: 0.95, to: 1.05 },
+                duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
+            });
+
+            this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+            const eBtnSize = 70;
+            this.mobileEBtn = this.add.circle(screenWidth / 2, screenHeight - 150, eBtnSize / 2, 0x4a90d9, 0.7)
+                .setScrollFactor(0).setDepth(200).setVisible(false).setInteractive({ useHandCursor: true });
+            this.mobileEText = this.add.text(screenWidth / 2, screenHeight - 150, 'E', {
+                fontSize: '40px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
+            this.mobileEBtn.on('pointerdown', () => { this.handleInteraction(); });
+
+            this.player.setCollideWorldBounds(false);
+
+            // Fade in AFTER everything is set up — black cover prevents any flash
+            const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000)
+                .setScrollFactor(0).setDepth(9999);
+            this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
+        }
+
+        handleInteraction() {
+            const rw = this.roomWidth, rh = this.roomHeight;
+
+            // Check what item the player is currently near (inside circle)
+            let nearestItem = null, nearestDist = Infinity;
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * rw, cy = item.proximityCenter.y * rh;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+                if (dist < item.proximityRadius && dist < nearestDist) { nearestDist = dist; nearestItem = item; }
+            });
+
+            // Can only interact when inside a circle
+            if (!nearestItem) return;
+
+            // === LIGHT SWITCH: cycles through modes ===
+            if (nearestItem.isLightSwitch) {
+                const currentIdx = LIGHT_MODES.indexOf(window.roomLightMode);
+                const nextIdx = (currentIdx + 1) % LIGHT_MODES.length;
+                window.roomLightMode = LIGHT_MODES[nextIdx];
+
+                // Swap background texture
+                const newKey = window.roomLightMode === 'default' ? 'room2' : ('room2_' + window.roomLightMode);
+                this.bg.setTexture(newKey);
+
+                // Update item state
+                nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
+                this.interactionCooldown = 500;
+                return;
+            }
+
+            // If this item is already active — turn it OFF
+            if (nearestItem.state === 'active') {
+                if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(false);
+                nearestItem.lineSprite.setVisible(false);
+                nearestItem._glowVisible = false;
+                // Stop global audio if this item had sound
+                if (window.activeAudio && window.activeAudio.itemId === nearestItem.id && window.activeAudio.sound) {
+                    window.activeAudio.sound.stop();
+                    window.activeAudio.sound.destroy();
+                    window.activeAudio = null;
+                }
+                delete window.activeItems[nearestItem.id];
+                nearestItem.state = 'idle';
+                this.interactionCooldown = 500;
+                return;
+            }
+
+            // If near an item — turn it ON (line glow stays since we're in circle)
+            if (nearestItem.state === 'near') {
+                if (nearestItem.actionSprite) { nearestItem.actionSprite.setVisible(true); }
+                // Start global audio if item has sound
+                if (nearestItem.soundKey) {
+                    if (window.activeAudio && window.activeAudio.sound) {
+                        window.activeAudio.sound.stop();
+                        window.activeAudio.sound.destroy();
+                    }
+                    const snd = this.sound.add(nearestItem.soundKey, { loop: true, volume: 0.5 });
+                    snd.play();
+                    window.activeAudio = { itemId: nearestItem.id, soundKey: nearestItem.soundKey, sound: snd };
+                }
+                window.activeItems[nearestItem.id] = true;
+                nearestItem.state = 'active';
+                nearestItem._glowVisible = true;
+            }
+        }
+
+        pointInPolygon(px, py, polygon, rw, rh) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x * rw, yi = polygon[i].y * rh;
+                const xj = polygon[j].x * rw, yj = polygon[j].y * rh;
+                const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        pointToLineDistance(px, py, x1, y1, x2, y2) {
+            const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+            const dot = A * C + B * D, lenSq = C * C + D * D;
+            let t = lenSq !== 0 ? dot / lenSq : -1;
+            t = Math.max(0, Math.min(1, t));
+            const xx = x1 + t * C, yy = y1 + t * D;
+            return Math.sqrt((px - xx) * (px - xx) + (py - yy) * (py - yy));
+        }
+
+        update() {
+            const moveSpeed = 250;
+            const rw = this.roomWidth, rh = this.roomHeight;
+
+            if (Phaser.Input.Keyboard.JustDown(this.eKey)) { this.handleInteraction(); }
+            if (this.interactionCooldown > 0) { this.interactionCooldown -= this.game.loop.delta; }
+
+            let vx = 0, vy = 0;
+            const left = this.wasd.left.isDown || this.cursors.left.isDown || this.virtualInput.left;
+            const right = this.wasd.right.isDown || this.cursors.right.isDown || this.virtualInput.right;
+            const up = this.wasd.up.isDown || this.cursors.up.isDown || this.virtualInput.up;
+            const down = this.wasd.down.isDown || this.cursors.down.isDown || this.virtualInput.down;
+
+            if (left) vx = -moveSpeed; else if (right) vx = moveSpeed;
+            if (up) vy = -moveSpeed; else if (down) vy = moveSpeed;
+            const usingKeyboard = left || right || up || down;
+            if (usingKeyboard) { this.targetX = null; this.targetY = null; }
+
+            if (this.targetX !== null && this.targetY !== null) {
+                const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
+                if (distance < 10) { this.targetX = null; this.targetY = null; }
+                else { const angle = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x); vx = Math.cos(angle) * moveSpeed; vy = Math.sin(angle) * moveSpeed; }
+            }
+
+            const dt = this.game.loop.delta / 1000;
+            const nextX = this.player.x + vx * dt, nextY = this.player.y + vy * dt;
+            const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh);
+            const inChair = this.pointInPolygon(nextX, nextY, this.chairPolygon, rw, rh);
+
+            if (inOuter && !inChair) { this.player.body.setVelocity(vx, vy); }
+            else {
+                const xOk = this.pointInPolygon(this.player.x + vx * dt, this.player.y, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x + vx * dt, this.player.y, this.chairPolygon, rw, rh);
+                const yOk = this.pointInPolygon(this.player.x, this.player.y + vy * dt, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x, this.player.y + vy * dt, this.chairPolygon, rw, rh);
+                if (xOk && !yOk) this.player.body.setVelocity(vx, 0);
+                else if (yOk && !xOk) this.player.body.setVelocity(0, vy);
+                else this.player.body.setVelocity(0, 0);
+            }
+
+            if (!usingKeyboard && this.targetX === null) { this.player.body.setVelocity(0, 0); }
+
+            if (!this.isTransitioning) {
+                const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x * rw, this.greenLineStart.y * rh, this.greenLineEnd.x * rw, this.greenLineEnd.y * rh);
+                if (dist < 30) {
+                    this.isTransitioning = true;
+                    this.player.body.setVelocity(0, 0);
+                    // Clean up visuals before transitioning (audio + activeItems persist globally)
+                    this.interactiveItems.forEach(item => {
+                        if (item.state === 'active') {
+                            if (item.actionSprite) item.actionSprite.setVisible(false);
+                            if (item.lineSprite) item.lineSprite.setVisible(false);
+                            // Hide TV game sprites
+                            if (item.tvSprites) Object.values(item.tvSprites).forEach(s => s.setVisible(false));
+                            item._glowVisible = false;
+                        }
+                    });
+                    this.scene.transition({
+                        target: 'MainScene',
+                        data: { fromStudio: true },
+                        duration: 800,
+                        moveBelow: true,
+                        onUpdate: (progress) => { this.cameras.main.setAlpha(1 - progress); }
+                    });
+                }
+            }
+
+            if (this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh)) {
+                if (this.lockedDoorTimer <= 0) {
+                    this.lockedDoorTimer = 2500;
+                    this.tweens.add({ targets: this.lockedDoorMessage, alpha: 1, duration: 300 });
+                    this.time.delayedCall(2500, () => { this.tweens.add({ targets: this.lockedDoorMessage, alpha: 0, duration: 300 }); });
+                }
+            }
+            if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
+
+            const speed = this.player.body.velocity.length();
+            if (speed > 10) {
+                const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
+                const deg = Phaser.Math.RadToDeg(angle);
+                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
+                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
+                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
+                else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
+            } else { this.player.anims.play('idle-' + this.playerDirection, true); }
+
+            // --- INTERACTION PROXIMITY CHECK (skipped during cooldown) ---
+            let playerInCircle = false;
+            if (this.interactionCooldown <= 0) {
+                this.interactiveItems.forEach(item => {
+                    const cx = item.proximityCenter.x * rw, cy = item.proximityCenter.y * rh;
+                    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+                    const inRange = dist < item.proximityRadius;
+
+                    // Light switch: no line glow, just track proximity for [E] prompt
+                    if (item.isLightSwitch) {
+                        if (inRange) {
+                            if (item.state === 'idle') item.state = 'near';
+                            playerInCircle = true;
+                        } else {
+                            if (item.state === 'near') item.state = 'idle';
+                        }
+                        return;
+                    }
+
+                    if (item.state === 'active') {
+                        // Active item: show/hide line glow when entering/leaving circle
+                        if (inRange) {
+                            if (!item._glowVisible) {
+                                item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
+                                this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
+                                item._glowVisible = true;
+                            }
+                            playerInCircle = true;
+                        } else {
+                            if (item._glowVisible) {
+                                this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } });
+                                item._glowVisible = false;
+                            }
+                        }
+                        return;
+                    }
+
+                    if (inRange) {
+                        if (item.state !== 'near') {
+                            item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
+                            this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
+                            item.state = 'near';
+                        }
+                        playerInCircle = true;
+                    } else if (item.state === 'near') {
+                        this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } });
+                        item.state = 'idle';
+                    }
+                });
+            }
+
+            this.debugPlayerDot.setPosition(this.player.x, this.player.y);
+            this.debugPlayerDot.setFillStyle(playerInCircle ? 0xffffff : 0x00ff00, 0.9);
+
+            // [E] prompt — show light mode label when near light switch
+            if (playerInCircle) {
                 this.ePrompt.setPosition(this.player.x, this.player.y - 140);
-                this.ePrompt.setVisible(true);
-                this.mobileEBtn.setVisible(true);
-                this.mobileEText.setVisible(true);
+                const nearLight = this.interactiveItems.find(i => i.isLightSwitch &&
+                    Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
+                if (nearLight) {
+                    const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
+                    this.ePrompt.setText('[E] Lights: ' + modeLabel);
+                } else {
+                    this.ePrompt.setText('[E]');
+                }
+                this.ePrompt.setVisible(true); this.mobileEBtn.setVisible(true); this.mobileEText.setVisible(true);
             } else {
-                this.ePrompt.setVisible(false);
-                this.mobileEBtn.setVisible(false);
-                this.mobileEText.setVisible(false);
+                this.ePrompt.setText('[E]');
+                this.ePrompt.setVisible(false); this.mobileEBtn.setVisible(false); this.mobileEText.setVisible(false);
             }
         }
     }
@@ -1650,25 +1347,10 @@
     // --- КОНФИГУРАЦИЯ ---
     const config = {
         type: Phaser.AUTO,
-        backgroundColor: 'transparent', // ВАЖНО: прозрачный фон для Canvas
-        scale: {
-            mode: Phaser.Scale.FIT,
-            autoCenter: Phaser.Scale.CENTER_BOTH,
-            width: 1080,
-            height: 1920
-        },
-        physics: {
-            default: 'arcade',
-            arcade: {
-                debug: true,
-                gravity: { y: 0 }
-            }
-        },
-        render: {
-            antialias: false,  // Отключаем антиалиасинг для пиксель-арта
-            pixelArt: true,    // КРИТИЧНО: включаем режим пиксель-арта
-            transparent: true  // Прозрачность
-        },
+        backgroundColor: '#000000',
+        scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 1080, height: 1920 },
+        physics: { default: 'arcade', arcade: { debug: true, gravity: { y: 0 } } },
+        render: { antialias: false, pixelArt: true },
         scene: [MenuScene, MainScene, StudioScene]
     };
 
