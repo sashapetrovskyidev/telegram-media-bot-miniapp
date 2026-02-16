@@ -27,6 +27,8 @@
     window.activeItems = {};   // { itemId: true } — tracks all active interactions (with or without sound)
     window.roomLightMode = 'default'; // 'default' | 'blue' | 'pink' | 'green'
     window.tvGameMode = 'off'; // 'off' | 'fortnite' | 'mortal_kombat' | 'naruto'
+    window.timeOfDay = 'day'; // 'day' | 'night' — switches to night 10s after game start
+    window.nightTriggered = false; // tracks if the day→night transition has already happened
 
     // Light mode cycle order
     const LIGHT_MODES = ['default', 'blue', 'pink', 'green'];
@@ -40,19 +42,17 @@
         'naruto': 'tv_naruto',
     };
 
-    // Room image filenames per light mode (per map style)
-    const ROOM_LIGHT_IMAGES = {
-        'default': { room1: 'assets/default/room1.png',       room2: 'assets/default/room2.png' },
-        'blue':    { room1: 'assets/default/room1_blue.png',   room2: 'assets/default/room2_blue.png' },
-        'pink':    { room1: 'assets/default/room1_pink.png',   room2: 'assets/default/room2_pink.png' },
-        'green':   { room1: 'assets/default/room1_green.png',  room2: 'assets/default/room2_green.png' },
-    };
+    // Returns the asset folder path for the current map style
+    function getStyleFolder() {
+        return 'assets/' + (window.mapStyle || 'default') + '/';
+    }
 
-    // Map style to room image filenames
-    const MAP_STYLES = {
-        'default':   { room1: 'assets/default/room1.png',           room2: 'assets/default/room2.png' },
-        'realistic': { room1: 'assets/default/room1_realistic.png',  room2: 'assets/default/room2_realistic.png' },
-        'anime':     { room1: 'assets/default/room1_anime.png',      room2: 'assets/default/room2_anime.png' },
+    // Person sprite texture keys per light mode
+    const PERSON_TEXTURES = {
+        'default': 'playerSprite',
+        'blue': 'playerSprite_blue',
+        'pink': 'playerSprite_pink',
+        'green': 'playerSprite_green',
     };
 
     // --- START MENU SCENE ---
@@ -334,12 +334,24 @@
         preload() {
             console.log('🔄 Начинаем загрузку ресурсов...');
 
-            const style = MAP_STYLES[window.mapStyle] || MAP_STYLES['default'];
-            this.load.image('room1', style.room1);
+            const folder = getStyleFolder();
 
-            this.load.spritesheet('playerSprite', '/assets/default/person.png', {
-                frameWidth: 512,
-                frameHeight: 512
+            // --- DAY / NIGHT room backgrounds ---
+            this.load.image('room1_day', folder + 'room1_day.png');
+            this.load.image('room1_night', folder + 'room1_night.png');
+
+            // --- PLAYER SPRITE VARIANTS ---
+            this.load.spritesheet('playerSprite', folder + 'person.png', {
+                frameWidth: 512, frameHeight: 512
+            });
+            this.load.spritesheet('playerSprite_blue', folder + 'person_blue.png', {
+                frameWidth: 512, frameHeight: 512
+            });
+            this.load.spritesheet('playerSprite_pink', folder + 'person_pink.png', {
+                frameWidth: 512, frameHeight: 512
+            });
+            this.load.spritesheet('playerSprite_green', folder + 'person_green.png', {
+                frameWidth: 512, frameHeight: 512
             });
 
             // --- INTERACTION OVERLAYS for Room 1 (Living Room) ---
@@ -350,10 +362,10 @@
             this.load.image('tv_mortal_kombat', '/assets/interaction/action_ps_controller_tv_mortal_kombat.png');
             this.load.image('tv_naruto', '/assets/interaction/action_ps_controller_tv_naruto.png');
 
-            // --- LIGHT VARIANTS for Room 1 ---
-            this.load.image('room1_blue', '/assets/default/room1_blue.png');
-            this.load.image('room1_pink', '/assets/default/room1_pink.png');
-            this.load.image('room1_green', '/assets/default/room1_green.png');
+            // --- LIGHT VARIANTS for Room 1 (night colored rooms) ---
+            this.load.image('room1_blue', folder + 'room1_blue.png');
+            this.load.image('room1_pink', folder + 'room1_pink.png');
+            this.load.image('room1_green', folder + 'room1_green.png');
 
             // --- AUDIO for interactions (load all so they persist across scenes) ---
             this.load.audio('sound_guitar', '/assets/sound/sound_guitar.mp3');
@@ -373,9 +385,13 @@
             const screenWidth = this.scale.width;
             const screenHeight = this.scale.height;
 
-            // Determine which room1 texture to use based on current light mode
-            const lightMode = window.roomLightMode || 'default';
-            const room1Key = lightMode === 'default' ? 'room1' : ('room1_' + lightMode);
+            // Determine which room1 texture to use based on time of day & light mode
+            let room1Key;
+            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') {
+                room1Key = 'room1_' + window.roomLightMode;
+            } else {
+                room1Key = window.timeOfDay === 'night' ? 'room1_night' : 'room1_day';
+            }
             const bg = this.add.image(0, 0, room1Key).setOrigin(0, 0);
             this.bg = bg; // store reference for texture swapping
 
@@ -390,22 +406,36 @@
 
             this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
 
-            if (!this.anims.exists('walk-down')) {
-                this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('playerSprite', { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
-                this.anims.create({ key: 'walk-left', frames: this.anims.generateFrameNumbers('playerSprite', { start: 4, end: 7 }), frameRate: 8, repeat: -1 });
-                this.anims.create({ key: 'walk-up', frames: this.anims.generateFrameNumbers('playerSprite', { start: 8, end: 11 }), frameRate: 8, repeat: -1 });
-                this.anims.create({ key: 'walk-right', frames: this.anims.generateFrameNumbers('playerSprite', { start: 12, end: 15 }), frameRate: 8, repeat: -1 });
-                this.anims.create({ key: 'idle-down', frames: [{ key: 'playerSprite', frame: 0 }] });
-                this.anims.create({ key: 'idle-left', frames: [{ key: 'playerSprite', frame: 4 }] });
-                this.anims.create({ key: 'idle-up', frames: [{ key: 'playerSprite', frame: 8 }] });
-                this.anims.create({ key: 'idle-right', frames: [{ key: 'playerSprite', frame: 12 }] });
+            // Create animations for each person sprite variant
+            const personVariants = ['playerSprite', 'playerSprite_blue', 'playerSprite_pink', 'playerSprite_green'];
+            personVariants.forEach(spriteKey => {
+                const suffix = spriteKey === 'playerSprite' ? '' : spriteKey.replace('playerSprite', '');
+                if (!this.anims.exists('walk-down' + suffix)) {
+                    this.anims.create({ key: 'walk-down' + suffix, frames: this.anims.generateFrameNumbers(spriteKey, { start: 0, end: 3 }), frameRate: 8, repeat: -1 });
+                    this.anims.create({ key: 'walk-left' + suffix, frames: this.anims.generateFrameNumbers(spriteKey, { start: 4, end: 7 }), frameRate: 8, repeat: -1 });
+                    this.anims.create({ key: 'walk-up' + suffix, frames: this.anims.generateFrameNumbers(spriteKey, { start: 8, end: 11 }), frameRate: 8, repeat: -1 });
+                    this.anims.create({ key: 'walk-right' + suffix, frames: this.anims.generateFrameNumbers(spriteKey, { start: 12, end: 15 }), frameRate: 8, repeat: -1 });
+                    this.anims.create({ key: 'idle-down' + suffix, frames: [{ key: spriteKey, frame: 0 }] });
+                    this.anims.create({ key: 'idle-left' + suffix, frames: [{ key: spriteKey, frame: 4 }] });
+                    this.anims.create({ key: 'idle-up' + suffix, frames: [{ key: spriteKey, frame: 8 }] });
+                    this.anims.create({ key: 'idle-right' + suffix, frames: [{ key: spriteKey, frame: 12 }] });
+                }
+            });
+            // Track current animation suffix for person sprite swapping
+            this.playerAnimSuffix = '';
+            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') {
+                this.playerAnimSuffix = '_' + window.roomLightMode;
             }
+
+            // Use correct person sprite for current light mode at night
+            const personKey = (window.timeOfDay === 'night' && window.roomLightMode !== 'default')
+                ? PERSON_TEXTURES[window.roomLightMode] : 'playerSprite';
 
             const fromStudio = this.scene.settings.data?.fromStudio;
             if (fromStudio) {
-                this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.72, 'playerSprite');
+                this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.72, personKey);
             } else {
-                this.player = this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.75, 'playerSprite');
+                this.player = this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.75, personKey);
             }
 
             this.player.setScale(0.7);
@@ -413,7 +443,7 @@
             this.player.setCollideWorldBounds(true);
             this.player.body.setSize(20, 10);
             this.player.body.setOffset(22, 54);
-            this.player.anims.play('idle-down');
+            this.player.anims.play('idle-down' + this.playerAnimSuffix);
             this.playerDirection = 'down';
 
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
@@ -476,8 +506,8 @@
                 { x: 0.485, y: 0.70 }, { x: 0.46, y: 0.695 }, { x: 0.43, y: 0.71 },
             ];
             this.ottomanPolygon = [
-                { x: 0.32, y: 0.60 }, { x: 0.41, y: 0.56 },
-                { x: 0.50, y: 0.60 }, { x: 0.41, y: 0.65 },
+                { x: 0.34, y: 0.60 }, { x: 0.43, y: 0.54 },
+                { x: 0.52, y: 0.59 }, { x: 0.43, y: 0.65 },
             ];
 
             this.roomWidth = roomWidth;
@@ -610,6 +640,36 @@
             const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000)
                 .setScrollFactor(0).setDepth(9999);
             this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
+
+            // --- DAY → NIGHT TRANSITION (10 seconds after game start) ---
+            if (window.timeOfDay === 'day' && !window.nightTriggered) {
+                this.time.delayedCall(10000, () => {
+                    if (window.nightTriggered) return; // another scene already triggered it
+                    window.timeOfDay = 'night';
+                    window.nightTriggered = true;
+                    if (!this.scene.isActive()) return; // scene no longer active
+                    // Smooth crossfade to night background
+                    const nightBg = this.add.image(0, 0, 'room1_night').setOrigin(0, 0).setScale(scale).setAlpha(0).setDepth(this.bg.depth);
+                    this.tweens.add({
+                        targets: nightBg, alpha: 1, duration: 2000,
+                        onComplete: () => {
+                            this.bg.setTexture('room1_night');
+                            nightBg.destroy();
+                        }
+                    });
+                });
+            }
+        }
+
+        // Swap player sprite and animations to match the current light mode
+        updatePlayerSprite() {
+            const suffix = (window.timeOfDay === 'night' && window.roomLightMode !== 'default')
+                ? '_' + window.roomLightMode : '';
+            if (this.playerAnimSuffix === suffix) return;
+            this.playerAnimSuffix = suffix;
+            const speed = this.player.body.velocity.length();
+            const animType = speed > 10 ? 'walk-' : 'idle-';
+            this.player.anims.play(animType + this.playerDirection + suffix, true);
         }
 
         handleInteraction() {
@@ -629,15 +689,22 @@
             // Can only interact when inside a circle
             if (!nearestItem) return;
 
-            // === LIGHT SWITCH: cycles through modes ===
+            // === LIGHT SWITCH: cycles through modes (only at night) ===
             if (nearestItem.isLightSwitch) {
+                if (window.timeOfDay !== 'night') {
+                    this.interactionCooldown = 500;
+                    return; // lights only work at night
+                }
                 const currentIdx = LIGHT_MODES.indexOf(window.roomLightMode);
                 const nextIdx = (currentIdx + 1) % LIGHT_MODES.length;
                 window.roomLightMode = LIGHT_MODES[nextIdx];
 
-                // Swap background texture
-                const newKey = window.roomLightMode === 'default' ? 'room1' : ('room1_' + window.roomLightMode);
+                // Swap background texture: colored variant or night default
+                const newKey = window.roomLightMode === 'default' ? 'room1_night' : ('room1_' + window.roomLightMode);
                 this.bg.setTexture(newKey);
+
+                // Swap player sprite to match light color
+                this.updatePlayerSprite();
 
                 // Update item state
                 nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
@@ -801,15 +868,16 @@
             }
             if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
 
+            const s = this.playerAnimSuffix;
             const speed = this.player.body.velocity.length();
             if (speed > 10) {
                 const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
                 const deg = Phaser.Math.RadToDeg(angle);
-                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
-                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
-                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
-                else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
-            } else { this.player.anims.play('idle-' + this.playerDirection, true); }
+                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right' + s, true); this.playerDirection = 'right'; }
+                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down' + s, true); this.playerDirection = 'down'; }
+                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left' + s, true); this.playerDirection = 'left'; }
+                else { this.player.anims.play('walk-up' + s, true); this.playerDirection = 'up'; }
+            } else { this.player.anims.play('idle-' + this.playerDirection + s, true); }
 
             // --- INTERACTION PROXIMITY CHECK (skipped during cooldown) ---
             let playerInCircle = false;
@@ -821,7 +889,8 @@
 
                     // Light switch: no line glow, just track proximity for [E] prompt
                     if (item.isLightSwitch) {
-                        if (inRange) {
+                        // Only show light switch prompt at night
+                        if (inRange && window.timeOfDay === 'night') {
                             if (item.state === 'idle') item.state = 'near';
                             playerInCircle = true;
                         } else {
@@ -831,7 +900,6 @@
                     }
 
                     if (item.state === 'active') {
-                        // Active item: show/hide line glow when entering/leaving circle
                         if (inRange) {
                             if (!item._glowVisible) {
                                 item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
@@ -869,6 +937,7 @@
             if (playerInCircle) {
                 this.ePrompt.setPosition(this.player.x, this.player.y - 140);
                 const nearLight = this.interactiveItems.find(i => i.isLightSwitch &&
+                    window.timeOfDay === 'night' &&
                     Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
                 const nearTV = this.interactiveItems.find(i => i.isTVSwitch &&
                     Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
@@ -894,17 +963,20 @@
         constructor() { super('StudioScene'); }
 
         preload() {
-            const style = MAP_STYLES[window.mapStyle] || MAP_STYLES['default'];
-            this.load.image('room2', style.room2);
+            const folder = getStyleFolder();
+
+            // --- DAY / NIGHT room backgrounds ---
+            this.load.image('room2_day', folder + 'room2_day.png');
+            this.load.image('room2_night', folder + 'room2_night.png');
 
             // --- INTERACTION OVERLAYS for Room 2 (Studio) ---
             this.load.image('line_audio_interface', '/assets/interaction/action_audio_interface.png');
             this.load.image('line_rick_owens', '/assets/interaction/action_rick_owens.png');
 
             // --- LIGHT VARIANTS for Room 2 ---
-            this.load.image('room2_blue', 'assets/default/room2_blue.png');
-            this.load.image('room2_pink', 'assets/default/room2_pink.png');
-            this.load.image('room2_green', 'assets/default/room2_green.png');
+            this.load.image('room2_blue', folder + 'room2_blue.png');
+            this.load.image('room2_pink', folder + 'room2_pink.png');
+            this.load.image('room2_green', folder + 'room2_green.png');
 
             // --- AUDIO for interactions (load all so they persist across scenes) ---
             this.load.audio('sound_guitar', '/assets/sound/sound_guitar.mp3');
@@ -915,9 +987,13 @@
             const screenWidth = this.scale.width;
             const screenHeight = this.scale.height;
 
-            // Determine which room2 texture to use based on current light mode
-            const lightMode = window.roomLightMode || 'default';
-            const room2Key = lightMode === 'default' ? 'room2' : ('room2_' + lightMode);
+            // Determine which room2 texture to use based on time of day & light mode
+            let room2Key;
+            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') {
+                room2Key = 'room2_' + window.roomLightMode;
+            } else {
+                room2Key = window.timeOfDay === 'night' ? 'room2_night' : 'room2_day';
+            }
             const bg = this.add.image(0, 0, room2Key).setOrigin(0, 0);
             this.bg = bg; // store reference for texture swapping
             const scaleX = screenWidth / bg.width;
@@ -930,16 +1006,25 @@
 
             this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
 
+            // Track current animation suffix for person sprite swapping
+            this.playerAnimSuffix = '';
+            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') {
+                this.playerAnimSuffix = '_' + window.roomLightMode;
+            }
+
+            const personKey = (window.timeOfDay === 'night' && window.roomLightMode !== 'default')
+                ? PERSON_TEXTURES[window.roomLightMode] : 'playerSprite';
+
             const fromLiving = this.scene.settings.data?.fromLiving;
-            if (fromLiving) { this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.70, 'playerSprite'); }
-            else { this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, 'playerSprite'); }
+            if (fromLiving) { this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.70, personKey); }
+            else { this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, personKey); }
 
             this.player.setScale(0.7);
             this.player.setOrigin(0.5, 1);
             this.player.setCollideWorldBounds(true);
             this.player.body.setSize(20, 10);
             this.player.body.setOffset(22, 54);
-            this.player.anims.play('idle-down');
+            this.player.anims.play('idle-down' + this.playerAnimSuffix);
             this.playerDirection = 'down';
 
             this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
@@ -1099,6 +1184,25 @@
             const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000)
                 .setScrollFactor(0).setDepth(9999);
             this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
+
+            // --- DAY → NIGHT TRANSITION (if still day, wait remaining time) ---
+            if (window.timeOfDay === 'day' && !window.nightTriggered) {
+                this.time.delayedCall(10000, () => {
+                    if (window.nightTriggered) return;
+                    window.timeOfDay = 'night';
+                    window.nightTriggered = true;
+                    if (!this.scene.isActive()) return;
+                    // Smooth crossfade to night background
+                    const nightBg = this.add.image(0, 0, 'room2_night').setOrigin(0, 0).setScale(scale).setAlpha(0).setDepth(this.bg.depth);
+                    this.tweens.add({
+                        targets: nightBg, alpha: 1, duration: 2000,
+                        onComplete: () => {
+                            this.bg.setTexture('room2_night');
+                            nightBg.destroy();
+                        }
+                    });
+                });
+            }
         }
 
         handleInteraction() {
@@ -1115,15 +1219,22 @@
             // Can only interact when inside a circle
             if (!nearestItem) return;
 
-            // === LIGHT SWITCH: cycles through modes ===
+            // === LIGHT SWITCH: cycles through modes (only at night) ===
             if (nearestItem.isLightSwitch) {
+                if (window.timeOfDay !== 'night') {
+                    this.interactionCooldown = 500;
+                    return; // lights only work at night
+                }
                 const currentIdx = LIGHT_MODES.indexOf(window.roomLightMode);
                 const nextIdx = (currentIdx + 1) % LIGHT_MODES.length;
                 window.roomLightMode = LIGHT_MODES[nextIdx];
 
-                // Swap background texture
-                const newKey = window.roomLightMode === 'default' ? 'room2' : ('room2_' + window.roomLightMode);
+                // Swap background texture: colored variant or night default
+                const newKey = window.roomLightMode === 'default' ? 'room2_night' : ('room2_' + window.roomLightMode);
                 this.bg.setTexture(newKey);
+
+                // Swap player sprite to match light color
+                this.updatePlayerSprite();
 
                 // Update item state
                 nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
@@ -1165,6 +1276,17 @@
                 nearestItem.state = 'active';
                 nearestItem._glowVisible = true;
             }
+        }
+
+        // Swap player sprite and animations to match the current light mode
+        updatePlayerSprite() {
+            const suffix = (window.timeOfDay === 'night' && window.roomLightMode !== 'default')
+                ? '_' + window.roomLightMode : '';
+            if (this.playerAnimSuffix === suffix) return;
+            this.playerAnimSuffix = suffix;
+            const speed = this.player.body.velocity.length();
+            const animType = speed > 10 ? 'walk-' : 'idle-';
+            this.player.anims.play(animType + this.playerDirection + suffix, true);
         }
 
         pointInPolygon(px, py, polygon, rw, rh) {
@@ -1261,15 +1383,16 @@
             }
             if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
 
+            const s = this.playerAnimSuffix;
             const speed = this.player.body.velocity.length();
             if (speed > 10) {
                 const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
                 const deg = Phaser.Math.RadToDeg(angle);
-                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right', true); this.playerDirection = 'right'; }
-                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down', true); this.playerDirection = 'down'; }
-                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left', true); this.playerDirection = 'left'; }
-                else { this.player.anims.play('walk-up', true); this.playerDirection = 'up'; }
-            } else { this.player.anims.play('idle-' + this.playerDirection, true); }
+                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right' + s, true); this.playerDirection = 'right'; }
+                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down' + s, true); this.playerDirection = 'down'; }
+                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left' + s, true); this.playerDirection = 'left'; }
+                else { this.player.anims.play('walk-up' + s, true); this.playerDirection = 'up'; }
+            } else { this.player.anims.play('idle-' + this.playerDirection + s, true); }
 
             // --- INTERACTION PROXIMITY CHECK (skipped during cooldown) ---
             let playerInCircle = false;
@@ -1279,9 +1402,9 @@
                     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
                     const inRange = dist < item.proximityRadius;
 
-                    // Light switch: no line glow, just track proximity for [E] prompt
+                    // Light switch: no line glow, just track proximity for [E] prompt (night only)
                     if (item.isLightSwitch) {
-                        if (inRange) {
+                        if (inRange && window.timeOfDay === 'night') {
                             if (item.state === 'idle') item.state = 'near';
                             playerInCircle = true;
                         } else {
@@ -1291,7 +1414,6 @@
                     }
 
                     if (item.state === 'active') {
-                        // Active item: show/hide line glow when entering/leaving circle
                         if (inRange) {
                             if (!item._glowVisible) {
                                 item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
@@ -1325,10 +1447,11 @@
             this.debugPlayerDot.setPosition(this.player.x, this.player.y);
             this.debugPlayerDot.setFillStyle(playerInCircle ? 0xffffff : 0x00ff00, 0.9);
 
-            // [E] prompt — show light mode label when near light switch
+            // [E] prompt — show light mode label when near light switch (night only)
             if (playerInCircle) {
                 this.ePrompt.setPosition(this.player.x, this.player.y - 140);
                 const nearLight = this.interactiveItems.find(i => i.isLightSwitch &&
+                    window.timeOfDay === 'night' &&
                     Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
                 if (nearLight) {
                     const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
