@@ -383,6 +383,7 @@
 
             this.player.setScale(0.7);
             this.player.setOrigin(0.5, 1);
+            this.player.setDepth(15); // above TV/interaction overlays (depth 10), below UI (depth 150+)
             this.player.setCollideWorldBounds(true);
             this.player.body.setSize(20, 10);
             this.player.body.setOffset(22, 54);
@@ -391,7 +392,8 @@
 
             this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.setZoom(1.8);
+            this.cameras.main.setZoom(1.6);
+            this.cameras.main.setFollowOffset(0, -300); // push camera up so player sits at ~20% from top
 
             this.targetX = null;
             this.targetY = null;
@@ -418,20 +420,23 @@
             // Joystick hit area
             const joyHit = this.add.circle(joyX, joyY, joyR, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
             this.joyActive = false;
+            this.joyPointerId = -1; // track which pointer owns the joystick
             this.joyCenter = { x: joyX, y: joyY };
             this.joyRadius = joyR;
 
             joyHit.on('pointerdown', (pointer) => {
                 this.joyActive = true;
+                this.joyPointerId = pointer.id;
                 this.joyThumbGlow.setFillStyle(0xffffff, 0.15);
                 this._updateJoystick(pointer);
             });
             this.input.on('pointermove', (pointer) => {
-                if (this.joyActive) this._updateJoystick(pointer);
+                if (this.joyActive && pointer.id === this.joyPointerId) this._updateJoystick(pointer);
             });
             this.input.on('pointerup', (pointer) => {
-                if (this.joyActive) {
+                if (this.joyActive && pointer.id === this.joyPointerId) {
                     this.joyActive = false;
+                    this.joyPointerId = -1;
                     this.joyThumb.setPosition(joyX, joyY);
                     this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0);
                     this.virtualInput = { left: false, right: false, up: false, down: false };
@@ -999,6 +1004,7 @@
 
             this.player.setScale(0.7);
             this.player.setOrigin(0.5, 1);
+            this.player.setDepth(15); // above TV/interaction overlays (depth 10), below UI (depth 150+)
             this.player.setCollideWorldBounds(true);
             this.player.body.setSize(20, 10);
             this.player.body.setOffset(22, 54);
@@ -1007,7 +1013,8 @@
 
             this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.setZoom(1.8);
+            this.cameras.main.setZoom(1.6);
+            this.cameras.main.setFollowOffset(0, -300); // push camera up so player sits at ~20% from top
 
             this.targetX = null;
             this.targetY = null;
@@ -1031,20 +1038,23 @@
             this.joyThumbGlow = this.add.circle(joyX, joyY, 44, 0xffffff, 0).setScrollFactor(0).setDepth(191);
             const joyHit2 = this.add.circle(joyX, joyY, joyR, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
             this.joyActive = false;
+            this.joyPointerId = -1; // track which pointer owns the joystick
             this.joyCenter = { x: joyX, y: joyY };
             this.joyRadius = joyR;
 
             joyHit2.on('pointerdown', (pointer) => {
                 this.joyActive = true;
+                this.joyPointerId = pointer.id;
                 this.joyThumbGlow.setFillStyle(0xffffff, 0.15);
                 this._updateJoystick(pointer);
             });
             this.input.on('pointermove', (pointer) => {
-                if (this.joyActive) this._updateJoystick(pointer);
+                if (this.joyActive && pointer.id === this.joyPointerId) this._updateJoystick(pointer);
             });
             this.input.on('pointerup', (pointer) => {
-                if (this.joyActive) {
+                if (this.joyActive && pointer.id === this.joyPointerId) {
                     this.joyActive = false;
+                    this.joyPointerId = -1;
                     this.joyThumb.setPosition(joyX, joyY);
                     this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0);
                     this.virtualInput = { left: false, right: false, up: false, down: false };
