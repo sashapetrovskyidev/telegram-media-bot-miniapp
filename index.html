@@ -393,7 +393,7 @@
             this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
             this.cameras.main.setZoom(1.6);
-            this.cameras.main.setFollowOffset(0, -300); // push camera up so player sits at ~20% from top
+            this.cameras.main.setFollowOffset(0, +270); // push camera up so player sits at ~20% from top
 
             this.targetX = null;
             this.targetY = null;
@@ -407,7 +407,7 @@
 
             // --- MOBILE VIRTUAL JOYSTICK ---
             this.virtualInput = { left: false, right: false, up: false, down: false };
-            const joyX = 170, joyY = screenHeight - 280, joyR = 120;
+            const joyX = 350, joyY = screenHeight - 500, joyR = 120;
             // Joystick base (outer ring)
             const joyBase = this.add.graphics().setScrollFactor(0).setDepth(190);
             joyBase.fillStyle(0x000000, 0.3);
@@ -1014,7 +1014,7 @@
             this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
             this.cameras.main.setZoom(1.6);
-            this.cameras.main.setFollowOffset(0, -300); // push camera up so player sits at ~20% from top
+            this.cameras.main.setFollowOffset(0, +270); // push camera up so player sits at ~20% from top
 
             this.targetX = null;
             this.targetY = null;
@@ -1028,7 +1028,7 @@
 
             // --- MOBILE VIRTUAL JOYSTICK ---
             this.virtualInput = { left: false, right: false, up: false, down: false };
-            const joyX = 170, joyY = screenHeight - 280, joyR = 120;
+            const joyX = 350, joyY = screenHeight - 500, joyR = 120;
             const joyBase2 = this.add.graphics().setScrollFactor(0).setDepth(190);
             joyBase2.fillStyle(0x000000, 0.3);
             joyBase2.fillCircle(joyX, joyY, joyR);
