@@ -29,9 +29,22 @@
     window.tvGameMode = 'off'; // 'off' | 'fortnite' | 'mortal_kombat' | 'naruto'
     window.timeOfDay = 'day'; // 'day' | 'night' — switches to night 10s after game start
     window.nightTriggered = false; // tracks if the day→night transition has already happened
+    window.currentTrack = 'off'; // 'off' | 'track1' | 'track2' — Apollo track cycling
 
     // Light mode cycle order
     const LIGHT_MODES = ['default', 'blue', 'pink', 'green'];
+
+    // Apollo track cycle order and config
+    const APOLLO_TRACKS = ['off', 'track1', 'track2'];
+    const APOLLO_TRACK_KEYS = {
+        'track1': 'sound_audio_interface',
+        'track2': 'sound_guitar',
+    };
+    const APOLLO_TRACK_NAMES = {
+        'off': 'OFF',
+        'track1': 'TRACK 1',
+        'track2': 'TRACK 2',
+    };
 
     // TV game cycle order
     const TV_GAMES = ['off', 'fortnite', 'mortal_kombat', 'naruto'];
@@ -61,8 +74,6 @@
 
         preload() {
             this.load.image('menuBg', '/assets/menu_bg.jpg');
-            this.load.image('menuUI', '/assets/menu.png');
-
             this.load.on('loaderror', (file) => {
                 console.error('Ошибка загрузки: ' + file.key);
             });
@@ -71,257 +82,189 @@
         create() {
             const { width, height } = this.scale;
 
-            // Full-screen studio artwork background
+            // Full-screen artwork background
             const bg = this.add.image(width / 2, height / 2, 'menuBg');
-            const bgScaleX = width / bg.width;
-            const bgScaleY = height / bg.height;
-            const bgScale = Math.max(bgScaleX, bgScaleY);
+            const bgScale = Math.max(width / bg.width, height / bg.height);
             bg.setScale(bgScale);
 
-            // Dark overlay — subtle, let the artwork show through
+            // Dark vignette overlay
             const overlay = this.add.graphics();
-            overlay.fillStyle(0x000000, 0.3);
+            overlay.fillStyle(0x000000, 0.45);
             overlay.fillRect(0, 0, width, height);
 
-            // --- PIXEL-ART MENU BOX (transparent) ---
-            const boxW = 620;
-            const boxH = 380;
-            const boxX = width / 2 - boxW / 2;
-            const boxY = height / 2 - boxH / 2 - 60;
+            // --- FROSTED GLASS PANEL behind all menu content ---
+            const panelW = 580;
+            const panelH = 520;
+            const panelX = width / 2;
+            const panelY = height * 0.46;
+            const panelR = 30;
+            const panelGfx = this.add.graphics();
+            // Dark frosted base
+            panelGfx.fillStyle(0x0a0a0f, 0.65);
+            panelGfx.fillRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, panelR);
+            // Subtle bright border
+            panelGfx.lineStyle(1, 0xffffff, 0.12);
+            panelGfx.strokeRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, panelR);
+            // Top edge highlight
+            panelGfx.fillStyle(0xffffff, 0.06);
+            panelGfx.fillRoundedRect(panelX - panelW/2 + 1, panelY - panelH/2 + 1, panelW - 2, panelH * 0.3, { tl: panelR, tr: panelR, bl: 0, br: 0 });
 
-            const menuBox = this.add.graphics();
-            menuBox.fillStyle(0x6b7a8d, 0.5);
-            menuBox.fillRect(boxX - 6, boxY - 6, boxW + 12, boxH + 12);
-            menuBox.fillStyle(0x4a5568, 0.5);
-            menuBox.fillRect(boxX - 3, boxY - 3, boxW + 6, boxH + 6);
-            menuBox.fillStyle(0x2d3748, 0.55);
-            menuBox.fillRect(boxX, boxY, boxW, boxH);
-            menuBox.fillStyle(0x4a5568, 0.4);
-            menuBox.fillRect(boxX + 4, boxY + 4, boxW - 8, 2);
-            menuBox.fillStyle(0x1a202c, 0.4);
-            menuBox.fillRect(boxX + 4, boxY + boxH - 6, boxW - 8, 2);
-
-            const title = this.add.text(width / 2, boxY + 75, 'WERYPEAS', {
-                fontSize: '64px',
+            // --- TITLE ---
+            const title = this.add.text(width / 2, panelY - panelH/2 + 80, 'WERYPEAS', {
+                fontSize: '72px',
                 fontFamily: 'Courier New, monospace',
-                color: '#e2e8f0',
+                color: '#ffffff',
                 fontStyle: 'bold',
                 stroke: '#000000',
-                strokeThickness: 8,
-                align: 'center'
+                strokeThickness: 4,
             }).setOrigin(0.5);
 
             this.tweens.add({
                 targets: title,
                 alpha: { from: 0.85, to: 1 },
-                duration: 2000,
+                duration: 2500,
                 yoyo: true,
                 repeat: -1,
                 ease: 'Sine.easeInOut'
             });
 
-            const btnW = 380;
-            const btnH = 60;
+            // Decorative line under title
+            const lineGfx = this.add.graphics();
+            lineGfx.fillStyle(0xffffff, 0.15);
+            lineGfx.fillRect(width / 2 - 140, panelY - panelH/2 + 125, 280, 1);
 
-            this.createMenuButton(width / 2, boxY + 175, btnW, btnH, 'START GAME', () => {
+            // --- GLASS START BUTTON ---
+            const btnY = panelY - panelH/2 + 210;
+            this.createGlassButton(width / 2, btnY, 400, 68, 'START GAME', () => {
                 this.cameras.main.fadeOut(500, 0, 0, 0);
                 this.time.delayedCall(500, () => {
                     this.scene.start('MainScene');
                 });
             });
 
-            this.createMenuButton(width / 2, boxY + 260, btnW, btnH, 'OPTIONS', () => {
-                this.showOptionsPanel(width, height);
+            // --- SOCIAL BUTTONS ---
+            const socialY = panelY - panelH/2 + 340;
+            const socialSpacing = 110;
+            const socials = [
+                { label: 'TG',   color: 0x26A5E4 },
+                { label: 'IG',   color: 0xE1306C },
+                { label: 'YT',   color: 0xFF0000 },
+                { label: 'SC',   color: 0xFF5500 },
+            ];
+            const totalSocialW = (socials.length - 1) * socialSpacing;
+            const startX = width / 2 - totalSocialW / 2;
+
+            socials.forEach((s, i) => {
+                const sx = startX + i * socialSpacing;
+                this.createSocialButton(sx, socialY, 80, s.label, s.color);
             });
 
-            this.optionsContainer = this.add.container(0, 0).setVisible(false).setDepth(200);
+            // --- "FOLLOW US" label ---
+            this.add.text(width / 2, socialY - 60, 'FOLLOW US', {
+                fontSize: '20px', fontFamily: 'Courier New',
+                color: '#ffffff', fontStyle: 'bold',
+            }).setOrigin(0.5).setAlpha(0.35);
 
             this.cameras.main.fadeIn(800, 0, 0, 0);
         }
 
-        showOptionsPanel(width, height) {
-            if (this.optionsContainer.visible) {
-                this.optionsContainer.setVisible(false);
-                return;
-            }
+        // Modern glass-style rounded button
+        createGlassButton(x, y, w, h, text, callback) {
+            const r = h / 2; // pill radius
+            const gfx = this.add.graphics();
 
-            this.optionsContainer.removeAll(true);
+            const drawGlass = (fillAlpha, borderAlpha, highlightAlpha) => {
+                gfx.clear();
+                // Outer glow
+                gfx.fillStyle(0xffffff, borderAlpha * 0.15);
+                gfx.fillRoundedRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4, r + 2);
+                // Main glass body
+                gfx.fillStyle(0xffffff, fillAlpha);
+                gfx.fillRoundedRect(x - w/2, y - h/2, w, h, r);
+                // Top highlight stripe
+                gfx.fillStyle(0xffffff, highlightAlpha);
+                gfx.fillRoundedRect(x - w/2 + 6, y - h/2 + 3, w - 12, h * 0.35, { tl: r - 3, tr: r - 3, bl: 0, br: 0 });
+                // Thin bottom border
+                gfx.lineStyle(1, 0xffffff, borderAlpha * 0.3);
+                gfx.strokeRoundedRect(x - w/2, y - h/2, w, h, r);
+            };
 
-            const dimBg = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.5)
-                .setInteractive();
-            this.optionsContainer.add(dimBg);
+            drawGlass(0.12, 0.25, 0.08);
 
-            const panelW = 560;
-            const panelH = 420;
-            const px = width / 2 - panelW / 2;
-            const py = height / 2 - panelH / 2;
-
-            const panelGfx = this.add.graphics();
-            panelGfx.fillStyle(0x6b7a8d, 0.6);
-            panelGfx.fillRect(px - 6, py - 6, panelW + 12, panelH + 12);
-            panelGfx.fillStyle(0x4a5568, 0.6);
-            panelGfx.fillRect(px - 3, py - 3, panelW + 6, panelH + 6);
-            panelGfx.fillStyle(0x1a202c, 0.9);
-            panelGfx.fillRect(px, py, panelW, panelH);
-            this.optionsContainer.add(panelGfx);
-
-            const optTitle = this.add.text(width / 2, py + 45, 'MAP STYLE', {
-                fontSize: '40px',
-                fontFamily: 'Courier New',
-                color: '#e2e8f0',
+            const btnText = this.add.text(x, y, text, {
+                fontSize: '34px', fontFamily: 'Courier New', color: '#ffffff',
                 fontStyle: 'bold',
-                stroke: '#000000',
-                strokeThickness: 4
             }).setOrigin(0.5);
-            this.optionsContainer.add(optTitle);
-
-            const styles = [
-                { key: 'default',   label: 'DEFAULT',   desc: 'Pixel art rooms' },
-                { key: 'realistic', label: 'REALISTIC',  desc: 'Realistic style rooms' },
-                { key: 'anime',     label: 'ANIME',      desc: 'Anime style rooms' },
-            ];
-
-            const optBtnW = 440;
-            const optBtnH = 70;
-            const startY = py + 110;
-
-            styles.forEach((style, i) => {
-                const by = startY + i * 90;
-                const isSelected = window.mapStyle === style.key;
-
-                const sBtnGfx = this.add.graphics();
-                sBtnGfx.fillStyle(isSelected ? 0x48bb78 : 0x6b7a8d, 0.6);
-                sBtnGfx.fillRect(width/2 - optBtnW/2 - 3, by - 3, optBtnW + 6, optBtnH + 6);
-                sBtnGfx.fillStyle(isSelected ? 0x2f855a : 0x2d3748, isSelected ? 0.7 : 0.6);
-                sBtnGfx.fillRect(width/2 - optBtnW/2, by, optBtnW, optBtnH);
-                this.optionsContainer.add(sBtnGfx);
-
-                const marker = this.add.text(width/2 - optBtnW/2 + 30, by + optBtnH/2, isSelected ? '>' : ' ', {
-                    fontSize: '32px', fontFamily: 'Courier New',
-                    color: isSelected ? '#48bb78' : '#64748b', fontStyle: 'bold'
-                }).setOrigin(0.5);
-                this.optionsContainer.add(marker);
-
-                const sLabel = this.add.text(width/2 - 20, by + optBtnH/2 - 8, style.label, {
-                    fontSize: '32px', fontFamily: 'Courier New',
-                    color: isSelected ? '#ffffff' : '#cbd5e1',
-                    fontStyle: 'bold', stroke: '#000000', strokeThickness: 2
-                }).setOrigin(0.5);
-                this.optionsContainer.add(sLabel);
-
-                const sDesc = this.add.text(width/2 - 20, by + optBtnH/2 + 18, style.desc, {
-                    fontSize: '20px', fontFamily: 'Courier New',
-                    color: isSelected ? '#c6f6d5' : '#94a3b8',
-                }).setOrigin(0.5);
-                this.optionsContainer.add(sDesc);
-
-                const sHit = this.add.rectangle(width/2, by + optBtnH/2, optBtnW, optBtnH, 0x000000, 0)
-                    .setInteractive({ useHandCursor: true });
-                this.optionsContainer.add(sHit);
-
-                sHit.on('pointerover', () => {
-                    if (window.mapStyle !== style.key) {
-                        sBtnGfx.clear();
-                        sBtnGfx.fillStyle(0x8a9bb0, 0.6);
-                        sBtnGfx.fillRect(width/2 - optBtnW/2 - 3, by - 3, optBtnW + 6, optBtnH + 6);
-                        sBtnGfx.fillStyle(0x3d4a5c, 0.7);
-                        sBtnGfx.fillRect(width/2 - optBtnW/2, by, optBtnW, optBtnH);
-                    }
-                });
-
-                sHit.on('pointerout', () => {
-                    if (window.mapStyle !== style.key) {
-                        sBtnGfx.clear();
-                        sBtnGfx.fillStyle(0x6b7a8d, 0.6);
-                        sBtnGfx.fillRect(width/2 - optBtnW/2 - 3, by - 3, optBtnW + 6, optBtnH + 6);
-                        sBtnGfx.fillStyle(0x2d3748, 0.6);
-                        sBtnGfx.fillRect(width/2 - optBtnW/2, by, optBtnW, optBtnH);
-                    }
-                });
-
-                sHit.on('pointerdown', () => {
-                    window.mapStyle = style.key;
-                    this.showOptionsPanel(width, height);
-                });
-            });
-
-            const backY = startY + 3 * 90 + 10;
-            const backGfx = this.add.graphics();
-            backGfx.fillStyle(0x6b7a8d, 0.5);
-            backGfx.fillRect(width/2 - 100 - 3, backY - 3, 206, 52);
-            backGfx.fillStyle(0x4a5568, 0.6);
-            backGfx.fillRect(width/2 - 100, backY, 200, 46);
-            this.optionsContainer.add(backGfx);
-
-            const backText = this.add.text(width / 2, backY + 23, 'BACK', {
-                fontSize: '30px', fontFamily: 'Courier New', color: '#e2e8f0',
-                fontStyle: 'bold', stroke: '#000000', strokeThickness: 2
-            }).setOrigin(0.5);
-            this.optionsContainer.add(backText);
-
-            const backHit = this.add.rectangle(width/2, backY + 23, 200, 46, 0x000000, 0)
-                .setInteractive({ useHandCursor: true });
-            this.optionsContainer.add(backHit);
-
-            backHit.on('pointerdown', () => {
-                this.optionsContainer.setVisible(false);
-            });
-
-            this.optionsContainer.setVisible(true);
-        }
-
-        createMenuButton(x, y, w, h, text, callback) {
-            const btnGfx = this.add.graphics();
-            btnGfx.fillStyle(0x8a9bb0, 0.5);
-            btnGfx.fillRect(x - w/2 - 4, y - h/2 - 4, w + 8, h + 8);
-            btnGfx.fillStyle(0x5a6b7d, 0.5);
-            btnGfx.fillRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4);
-            btnGfx.fillStyle(0x4a5568, 0.55);
-            btnGfx.fillRect(x - w/2, y - h/2, w, h);
-            btnGfx.fillStyle(0x5a6b7d, 0.4);
-            btnGfx.fillRect(x - w/2 + 3, y - h/2 + 3, w - 6, 2);
 
             const hitArea = this.add.rectangle(x, y, w, h, 0x000000, 0)
                 .setInteractive({ useHandCursor: true });
 
-            const btnText = this.add.text(x, y, text, {
-                fontSize: '36px', fontFamily: 'Courier New', color: '#e2e8f0',
-                fontStyle: 'bold', stroke: '#000000', strokeThickness: 3
-            }).setOrigin(0.5);
-
             hitArea.on('pointerover', () => {
-                btnGfx.clear();
-                btnGfx.fillStyle(0x8a9bb0, 0.6);
-                btnGfx.fillRect(x - w/2 - 4, y - h/2 - 4, w + 8, h + 8);
-                btnGfx.fillStyle(0x5a6b7d, 0.6);
-                btnGfx.fillRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4);
-                btnGfx.fillStyle(0x5a6b7d, 0.65);
-                btnGfx.fillRect(x - w/2, y - h/2, w, h);
-                btnGfx.fillStyle(0x6b7d8f, 0.5);
-                btnGfx.fillRect(x - w/2 + 3, y - h/2 + 3, w - 6, 2);
+                drawGlass(0.20, 0.4, 0.14);
                 btnText.setColor('#ffffff');
             });
 
             hitArea.on('pointerout', () => {
-                btnGfx.clear();
-                btnGfx.fillStyle(0x8a9bb0, 0.5);
-                btnGfx.fillRect(x - w/2 - 4, y - h/2 - 4, w + 8, h + 8);
-                btnGfx.fillStyle(0x5a6b7d, 0.5);
-                btnGfx.fillRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4);
-                btnGfx.fillStyle(0x4a5568, 0.55);
-                btnGfx.fillRect(x - w/2, y - h/2, w, h);
-                btnGfx.fillStyle(0x5a6b7d, 0.4);
-                btnGfx.fillRect(x - w/2 + 3, y - h/2 + 3, w - 6, 2);
-                btnText.setColor('#e2e8f0');
+                drawGlass(0.12, 0.25, 0.08);
+                btnText.setColor('#ffffff');
+            });
+
+            hitArea.on('pointerdown', () => {
+                drawGlass(0.08, 0.15, 0.04);
+                this.tweens.add({
+                    targets: [gfx, hitArea, btnText],
+                    scaleX: 0.96, scaleY: 0.96,
+                    duration: 80,
+                    yoyo: true,
+                    onComplete: callback
+                });
+            });
+        }
+
+        // Circular glass social button
+        createSocialButton(x, y, size, label, accentColor) {
+            const r = size / 2;
+            const gfx = this.add.graphics();
+
+            const drawCircle = (fillAlpha, borderAlpha) => {
+                gfx.clear();
+                // Colored outer ring
+                gfx.lineStyle(2, accentColor, borderAlpha);
+                gfx.strokeCircle(x, y, r + 1);
+                // Glass fill
+                gfx.fillStyle(0xffffff, fillAlpha);
+                gfx.fillCircle(x, y, r);
+                // Top highlight
+                gfx.fillStyle(0xffffff, fillAlpha * 0.6);
+                gfx.fillEllipse(x, y - r * 0.25, size * 0.6, size * 0.35);
+            };
+
+            drawCircle(0.10, 0.4);
+
+            const btnText = this.add.text(x, y, label, {
+                fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff',
+                fontStyle: 'bold',
+            }).setOrigin(0.5);
+
+            const hitArea = this.add.circle(x, y, r, 0x000000, 0)
+                .setInteractive({ useHandCursor: true });
+
+            hitArea.on('pointerover', () => {
+                drawCircle(0.20, 0.7);
+                btnText.setStyle({ color: Phaser.Display.Color.IntegerToColor(accentColor).rgba });
+            });
+
+            hitArea.on('pointerout', () => {
+                drawCircle(0.10, 0.4);
+                btnText.setColor('#ffffff');
             });
 
             hitArea.on('pointerdown', () => {
                 this.tweens.add({
-                    targets: [btnGfx, hitArea, btnText],
-                    scale: 0.95,
-                    duration: 80,
+                    targets: [gfx, hitArea, btnText],
+                    scaleX: 0.90, scaleY: 0.90,
+                    duration: 100,
                     yoyo: true,
-                    onComplete: callback
                 });
             });
         }
@@ -446,9 +389,9 @@
             this.player.anims.play('idle-down' + this.playerAnimSuffix);
             this.playerDirection = 'down';
 
-            this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+            this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.setZoom(1.4);
+            this.cameras.main.setZoom(1.8);
 
             this.targetX = null;
             this.targetY = null;
@@ -460,40 +403,64 @@
                 left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
             });
 
-            const buttonSize = 80;
-            const buttonAlpha = 0.6;
-            const buttonColor = 0x444444;
-
-            this.btnLeft = this.add.circle(120, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
-            this.btnLeft.setScrollFactor(0).setInteractive();
-            this.add.text(120, screenHeight - 150, '◄', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-            this.btnRight = this.add.circle(280, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha);
-            this.btnRight.setScrollFactor(0).setInteractive();
-            this.add.text(280, screenHeight - 150, '►', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-            this.btnUp = this.add.circle(screenWidth - 120, screenHeight - 230, buttonSize/2, buttonColor, buttonAlpha);
-            this.btnUp.setScrollFactor(0).setInteractive();
-            this.add.text(screenWidth - 120, screenHeight - 230, '▲', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-            this.btnDown = this.add.circle(screenWidth - 120, screenHeight - 70, buttonSize/2, buttonColor, buttonAlpha);
-            this.btnDown.setScrollFactor(0).setInteractive();
-            this.add.text(screenWidth - 120, screenHeight - 70, '▼', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-
+            // --- MOBILE VIRTUAL JOYSTICK ---
             this.virtualInput = { left: false, right: false, up: false, down: false };
-            this.btnLeft.on('pointerdown', () => { this.virtualInput.left = true; });
-            this.btnLeft.on('pointerup', () => { this.virtualInput.left = false; });
-            this.btnLeft.on('pointerout', () => { this.virtualInput.left = false; });
-            this.btnRight.on('pointerdown', () => { this.virtualInput.right = true; });
-            this.btnRight.on('pointerup', () => { this.virtualInput.right = false; });
-            this.btnRight.on('pointerout', () => { this.virtualInput.right = false; });
-            this.btnUp.on('pointerdown', () => { this.virtualInput.up = true; });
-            this.btnUp.on('pointerup', () => { this.virtualInput.up = false; });
-            this.btnUp.on('pointerout', () => { this.virtualInput.up = false; });
-            this.btnDown.on('pointerdown', () => { this.virtualInput.down = true; });
-            this.btnDown.on('pointerup', () => { this.virtualInput.down = false; });
-            this.btnDown.on('pointerout', () => { this.virtualInput.down = false; });
+            const joyX = 170, joyY = screenHeight - 280, joyR = 120;
+            // Joystick base (outer ring)
+            const joyBase = this.add.graphics().setScrollFactor(0).setDepth(190);
+            joyBase.fillStyle(0x000000, 0.3);
+            joyBase.fillCircle(joyX, joyY, joyR);
+            joyBase.lineStyle(2, 0xffffff, 0.15);
+            joyBase.strokeCircle(joyX, joyY, joyR);
+            // Joystick thumb (inner knob)
+            this.joyThumb = this.add.circle(joyX, joyY, 44, 0xffffff, 0.25).setScrollFactor(0).setDepth(191);
+            this.joyThumbGlow = this.add.circle(joyX, joyY, 44, 0xffffff, 0).setScrollFactor(0).setDepth(191);
+            // Joystick hit area
+            const joyHit = this.add.circle(joyX, joyY, joyR, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+            this.joyActive = false;
+            this.joyCenter = { x: joyX, y: joyY };
+            this.joyRadius = joyR;
+
+            joyHit.on('pointerdown', (pointer) => {
+                this.joyActive = true;
+                this.joyThumbGlow.setFillStyle(0xffffff, 0.15);
+                this._updateJoystick(pointer);
+            });
+            this.input.on('pointermove', (pointer) => {
+                if (this.joyActive) this._updateJoystick(pointer);
+            });
+            this.input.on('pointerup', (pointer) => {
+                if (this.joyActive) {
+                    this.joyActive = false;
+                    this.joyThumb.setPosition(joyX, joyY);
+                    this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0);
+                    this.virtualInput = { left: false, right: false, up: false, down: false };
+                }
+            });
+
+            // --- MOBILE ACTION BUTTON (E) — always visible ---
+            const actX = screenWidth - 140, actY = screenHeight - 260;
+            const actBtnGfx = this.add.graphics().setScrollFactor(0).setDepth(190);
+            actBtnGfx.fillStyle(0xffffff, 0.12);
+            actBtnGfx.fillCircle(actX, actY, 52);
+            actBtnGfx.lineStyle(2, 0xffffff, 0.2);
+            actBtnGfx.strokeCircle(actX, actY, 52);
+            this.mobileActionLabel = this.add.text(actX, actY, 'E', {
+                fontSize: '44px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.6);
+            const actHit = this.add.circle(actX, actY, 52, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+            actHit.on('pointerdown', () => {
+                this.handleInteraction();
+                this.tweens.add({ targets: this.mobileActionLabel, scale: 0.85, duration: 80, yoyo: true });
+            });
 
             this.input.on('pointerdown', (pointer) => {
                 if (this.isTransitioning) return;
-                if (pointer.y > screenHeight - 300) return;
+                // Ignore taps on joystick or action button areas
+                const dJoy = Phaser.Math.Distance.Between(pointer.x, pointer.y, joyX, joyY);
+                const dAct = Phaser.Math.Distance.Between(pointer.x, pointer.y, actX, actY);
+                if (dJoy < joyR + 20 || dAct < 70) return;
+                if (pointer.y > screenHeight - 350) return;
                 const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
                 this.targetX = worldPoint.x;
                 this.targetY = worldPoint.y;
@@ -501,7 +468,7 @@
             });
 
             this.walkablePolygon = [
-                { x: 0.20, y: 0.60 }, { x: 0.44, y: 0.48 }, { x: 0.67, y: 0.60 },
+                { x: 0.21, y: 0.60 }, { x: 0.38, y: 0.51 }, { x: 0.42, y: 0.50 }, { x: 0.475, y: 0.505 }, { x: 0.67, y: 0.60 },
                 { x: 0.74, y: 0.57 }, { x: 0.90, y: 0.65 }, { x: 0.50, y: 0.80 },
                 { x: 0.485, y: 0.70 }, { x: 0.46, y: 0.695 }, { x: 0.43, y: 0.71 },
             ];
@@ -519,34 +486,20 @@
                 { x: 0.74, y: 0.48 }, { x: 0.86, y: 0.52 },
                 { x: 0.86, y: 0.62 }, { x: 0.74, y: 0.58 },
             ];
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.75, roomHeight * 0.35,
-                'Еще не время', {
-                fontSize: '48px', fontFamily: 'Courier New', color: '#ffffff',
-                backgroundColor: '#000000', padding: { x: 25, y: 12 }, alpha: 0
-            }).setOrigin(0.5).setDepth(100);
-            this.lockedDoorTimer = 0;
-
-            // DEBUG: Draw the polygons
-            const debugGfx = this.add.graphics();
-            debugGfx.setDepth(50);
-
-            debugGfx.lineStyle(3, 0xff0000, 0.8);
-            debugGfx.beginPath();
-            this.walkablePolygon.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
-            debugGfx.closePath(); debugGfx.strokePath();
-
-            debugGfx.lineStyle(3, 0xff0000, 0.8); debugGfx.fillStyle(0xff0000, 0.15); debugGfx.beginPath();
-            this.ottomanPolygon.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
-            debugGfx.closePath(); debugGfx.strokePath(); debugGfx.fillPath();
-
-            debugGfx.lineStyle(4, 0x00ff00, 0.8); debugGfx.beginPath();
-            debugGfx.moveTo(this.greenLineStart.x * roomWidth, this.greenLineStart.y * roomHeight);
-            debugGfx.lineTo(this.greenLineEnd.x * roomWidth, this.greenLineEnd.y * roomHeight);
-            debugGfx.strokePath();
-
-            debugGfx.lineStyle(2, 0xffff00, 0.6); debugGfx.beginPath();
-            this.lockedDoorPoly.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
-            debugGfx.closePath(); debugGfx.strokePath();
+            // --- STYLED LOCKED DOOR MESSAGE ---
+            this.lockedDoorContainer = this.add.container(roomWidth * 0.80, roomHeight * 0.42).setDepth(100).setAlpha(0);
+            const msgBg = this.add.graphics();
+            const msgW = 320, msgH = 60, msgR = 16;
+            msgBg.fillStyle(0x000000, 0.75);
+            msgBg.fillRoundedRect(-msgW/2, -msgH/2, msgW, msgH, msgR);
+            msgBg.lineStyle(1, 0xffffff, 0.15);
+            msgBg.strokeRoundedRect(-msgW/2, -msgH/2, msgW, msgH, msgR);
+            const msgText = this.add.text(0, 0, 'Еще не время...', {
+                fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
+            this.lockedDoorContainer.add([msgBg, msgText]);
+            this.lockedDoorShowing = false;
 
             // === INTERACTION SYSTEM ===
             this.interactiveItems = [
@@ -597,20 +550,6 @@
                 }
             });
 
-            // DEBUG: yellow interaction zones
-            this.interactiveItems.forEach(item => {
-                const cx = item.proximityCenter.x * roomWidth;
-                const cy = item.proximityCenter.y * roomHeight;
-                debugGfx.lineStyle(2, 0xffff00, 0.8); debugGfx.fillStyle(0xffff00, 0.1);
-                debugGfx.strokeCircle(cx, cy, item.proximityRadius);
-                debugGfx.fillCircle(cx, cy, item.proximityRadius);
-                this.add.text(cx, cy - item.proximityRadius - 10, item.id, {
-                    fontSize: '18px', fontFamily: 'Courier New', color: '#ffff00', stroke: '#000000', strokeThickness: 3
-                }).setOrigin(0.5).setDepth(51);
-            });
-
-            this.debugPlayerDot = this.add.circle(0, 0, 8, 0x00ff00, 0.9).setDepth(55);
-
             this.interactionCooldown = 0;
 
             this.ePrompt = this.add.text(0, 0, '[E]', {
@@ -626,13 +565,19 @@
 
             this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
-            const eBtnSize = 70;
-            this.mobileEBtn = this.add.circle(screenWidth / 2, screenHeight - 150, eBtnSize / 2, 0x4a90d9, 0.7)
-                .setScrollFactor(0).setDepth(200).setVisible(false).setInteractive({ useHandCursor: true });
-            this.mobileEText = this.add.text(screenWidth / 2, screenHeight - 150, 'E', {
-                fontSize: '40px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
-            this.mobileEBtn.on('pointerdown', () => { this.handleInteraction(); });
+            // --- FLOATING TOAST POPUP SYSTEM ---
+            this.toastContainer = this.add.container(screenWidth / 2, 120).setScrollFactor(0).setDepth(300).setAlpha(0);
+            const toastW = 400, toastH = 56, toastR = 14;
+            const toastBgGfx = this.add.graphics();
+            toastBgGfx.fillStyle(0x0a0a0f, 0.8);
+            toastBgGfx.fillRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
+            toastBgGfx.lineStyle(1, 0xffffff, 0.12);
+            toastBgGfx.strokeRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
+            this.toastText = this.add.text(0, 0, '', {
+                fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5);
+            this.toastContainer.add([toastBgGfx, this.toastText]);
+            this.toastTimer = null;
 
             this.player.setCollideWorldBounds(false);
 
@@ -689,11 +634,12 @@
             // Can only interact when inside a circle
             if (!nearestItem) return;
 
-            // === LIGHT SWITCH: cycles through modes (only at night) ===
+            // === LIGHT SWITCH: cycles through modes (shows toast during day) ===
             if (nearestItem.isLightSwitch) {
                 if (window.timeOfDay !== 'night') {
+                    this.showToast('Смысл включать свет днём?');
                     this.interactionCooldown = 500;
-                    return; // lights only work at night
+                    return;
                 }
                 const currentIdx = LIGHT_MODES.indexOf(window.roomLightMode);
                 const nextIdx = (currentIdx + 1) % LIGHT_MODES.length;
@@ -770,6 +716,35 @@
                 nearestItem.state = 'active';
                 nearestItem._glowVisible = true;
             }
+        }
+
+        showToast(message) {
+            this.toastText.setText(message);
+            this.tweens.killTweensOf(this.toastContainer);
+            if (this.toastTimer) { this.toastTimer.remove(); this.toastTimer = null; }
+            this.toastContainer.setY(80).setAlpha(0).setScale(0.9);
+            this.tweens.add({ targets: this.toastContainer, alpha: 1, y: 120, scale: 1, duration: 350, ease: 'Back.easeOut' });
+            this.toastTimer = this.time.delayedCall(2500, () => {
+                this.tweens.add({ targets: this.toastContainer, alpha: 0, y: 80, scale: 0.9, duration: 250, ease: 'Sine.easeIn' });
+            });
+        }
+
+        _updateJoystick(pointer) {
+            const dx = pointer.x - this.joyCenter.x;
+            const dy = pointer.y - this.joyCenter.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = this.joyRadius - 20;
+            const clampDist = Math.min(dist, maxDist);
+            const angle = Math.atan2(dy, dx);
+            const tx = this.joyCenter.x + Math.cos(angle) * clampDist;
+            const ty = this.joyCenter.y + Math.sin(angle) * clampDist;
+            this.joyThumb.setPosition(tx, ty);
+            this.joyThumbGlow.setPosition(tx, ty);
+            const deadzone = 25;
+            this.virtualInput.left = dx < -deadzone;
+            this.virtualInput.right = dx > deadzone;
+            this.virtualInput.up = dy < -deadzone;
+            this.virtualInput.down = dy > deadzone;
         }
 
         pointInPolygon(px, py, polygon, rw, rh) {
@@ -859,14 +834,18 @@
                 }
             }
 
-            if (this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh)) {
-                if (this.lockedDoorTimer <= 0) {
-                    this.lockedDoorTimer = 2500;
-                    this.tweens.add({ targets: this.lockedDoorMessage, alpha: 1, duration: 300 });
-                    this.time.delayedCall(2500, () => { this.tweens.add({ targets: this.lockedDoorMessage, alpha: 0, duration: 300 }); });
-                }
+            // --- LOCKED DOOR: proximity-based show/hide ---
+            const inDoorZone = this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh);
+            if (inDoorZone && !this.lockedDoorShowing) {
+                this.lockedDoorShowing = true;
+                this.tweens.killTweensOf(this.lockedDoorContainer);
+                this.lockedDoorContainer.setScale(0.8);
+                this.tweens.add({ targets: this.lockedDoorContainer, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' });
+            } else if (!inDoorZone && this.lockedDoorShowing) {
+                this.lockedDoorShowing = false;
+                this.tweens.killTweensOf(this.lockedDoorContainer);
+                this.tweens.add({ targets: this.lockedDoorContainer, alpha: 0, scale: 0.8, duration: 200, ease: 'Sine.easeIn' });
             }
-            if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
 
             const s = this.playerAnimSuffix;
             const speed = this.player.body.velocity.length();
@@ -887,10 +866,9 @@
                     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
                     const inRange = dist < item.proximityRadius;
 
-                    // Light switch: no line glow, just track proximity for [E] prompt
+                    // Light switch: track proximity for [E] prompt (works day and night now)
                     if (item.isLightSwitch) {
-                        // Only show light switch prompt at night
-                        if (inRange && window.timeOfDay === 'night') {
+                        if (inRange) {
                             if (item.state === 'idle') item.state = 'near';
                             playerInCircle = true;
                         } else {
@@ -930,30 +908,30 @@
                 });
             }
 
-            this.debugPlayerDot.setPosition(this.player.x, this.player.y);
-            this.debugPlayerDot.setFillStyle(playerInCircle ? 0xffffff : 0x00ff00, 0.9);
-
             // [E] prompt — show context label when near special switches
             if (playerInCircle) {
                 this.ePrompt.setPosition(this.player.x, this.player.y - 140);
                 const nearLight = this.interactiveItems.find(i => i.isLightSwitch &&
-                    window.timeOfDay === 'night' &&
                     Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
                 const nearTV = this.interactiveItems.find(i => i.isTVSwitch &&
                     Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
                 if (nearLight) {
-                    const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
-                    this.ePrompt.setText('[E] Lights: ' + modeLabel);
+                    if (window.timeOfDay === 'night') {
+                        const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
+                        this.ePrompt.setText('[E] Lights: ' + modeLabel);
+                    } else {
+                        this.ePrompt.setText('[E] Lights');
+                    }
                 } else if (nearTV) {
                     const gameLabel = window.tvGameMode === 'off' ? 'OFF' : window.tvGameMode.replace('_', ' ').toUpperCase();
                     this.ePrompt.setText('[E] TV: ' + gameLabel);
                 } else {
                     this.ePrompt.setText('[E]');
                 }
-                this.ePrompt.setVisible(true); this.mobileEBtn.setVisible(true); this.mobileEText.setVisible(true);
+                this.ePrompt.setVisible(true);
             } else {
                 this.ePrompt.setText('[E]');
-                this.ePrompt.setVisible(false); this.mobileEBtn.setVisible(false); this.mobileEText.setVisible(false);
+                this.ePrompt.setVisible(false);
             }
         }
     }
@@ -1027,9 +1005,9 @@
             this.player.anims.play('idle-down' + this.playerAnimSuffix);
             this.playerDirection = 'down';
 
-            this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+            this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.setZoom(1.4);
+            this.cameras.main.setZoom(1.8);
 
             this.targetX = null;
             this.targetY = null;
@@ -1041,25 +1019,60 @@
                 left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
             });
 
-            const buttonSize = 80, buttonAlpha = 0.6, buttonColor = 0x444444;
-            this.btnLeft = this.add.circle(120, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha).setScrollFactor(0).setInteractive();
-            this.add.text(120, screenHeight - 150, '◄', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-            this.btnRight = this.add.circle(280, screenHeight - 150, buttonSize/2, buttonColor, buttonAlpha).setScrollFactor(0).setInteractive();
-            this.add.text(280, screenHeight - 150, '►', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-            this.btnUp = this.add.circle(screenWidth - 120, screenHeight - 230, buttonSize/2, buttonColor, buttonAlpha).setScrollFactor(0).setInteractive();
-            this.add.text(screenWidth - 120, screenHeight - 230, '▲', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-            this.btnDown = this.add.circle(screenWidth - 120, screenHeight - 70, buttonSize/2, buttonColor, buttonAlpha).setScrollFactor(0).setInteractive();
-            this.add.text(screenWidth - 120, screenHeight - 70, '▼', { fontSize: '50px', color: '#ffffff' }).setOrigin(0.5).setScrollFactor(0);
-
+            // --- MOBILE VIRTUAL JOYSTICK ---
             this.virtualInput = { left: false, right: false, up: false, down: false };
-            this.btnLeft.on('pointerdown', () => { this.virtualInput.left = true; }); this.btnLeft.on('pointerup', () => { this.virtualInput.left = false; }); this.btnLeft.on('pointerout', () => { this.virtualInput.left = false; });
-            this.btnRight.on('pointerdown', () => { this.virtualInput.right = true; }); this.btnRight.on('pointerup', () => { this.virtualInput.right = false; }); this.btnRight.on('pointerout', () => { this.virtualInput.right = false; });
-            this.btnUp.on('pointerdown', () => { this.virtualInput.up = true; }); this.btnUp.on('pointerup', () => { this.virtualInput.up = false; }); this.btnUp.on('pointerout', () => { this.virtualInput.up = false; });
-            this.btnDown.on('pointerdown', () => { this.virtualInput.down = true; }); this.btnDown.on('pointerup', () => { this.virtualInput.down = false; }); this.btnDown.on('pointerout', () => { this.virtualInput.down = false; });
+            const joyX = 170, joyY = screenHeight - 280, joyR = 120;
+            const joyBase2 = this.add.graphics().setScrollFactor(0).setDepth(190);
+            joyBase2.fillStyle(0x000000, 0.3);
+            joyBase2.fillCircle(joyX, joyY, joyR);
+            joyBase2.lineStyle(2, 0xffffff, 0.15);
+            joyBase2.strokeCircle(joyX, joyY, joyR);
+            this.joyThumb = this.add.circle(joyX, joyY, 44, 0xffffff, 0.25).setScrollFactor(0).setDepth(191);
+            this.joyThumbGlow = this.add.circle(joyX, joyY, 44, 0xffffff, 0).setScrollFactor(0).setDepth(191);
+            const joyHit2 = this.add.circle(joyX, joyY, joyR, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+            this.joyActive = false;
+            this.joyCenter = { x: joyX, y: joyY };
+            this.joyRadius = joyR;
+
+            joyHit2.on('pointerdown', (pointer) => {
+                this.joyActive = true;
+                this.joyThumbGlow.setFillStyle(0xffffff, 0.15);
+                this._updateJoystick(pointer);
+            });
+            this.input.on('pointermove', (pointer) => {
+                if (this.joyActive) this._updateJoystick(pointer);
+            });
+            this.input.on('pointerup', (pointer) => {
+                if (this.joyActive) {
+                    this.joyActive = false;
+                    this.joyThumb.setPosition(joyX, joyY);
+                    this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0);
+                    this.virtualInput = { left: false, right: false, up: false, down: false };
+                }
+            });
+
+            // --- MOBILE ACTION BUTTON (E) — always visible ---
+            const actX = screenWidth - 140, actY = screenHeight - 260;
+            const actBtnGfx2 = this.add.graphics().setScrollFactor(0).setDepth(190);
+            actBtnGfx2.fillStyle(0xffffff, 0.12);
+            actBtnGfx2.fillCircle(actX, actY, 52);
+            actBtnGfx2.lineStyle(2, 0xffffff, 0.2);
+            actBtnGfx2.strokeCircle(actX, actY, 52);
+            this.mobileActionLabel = this.add.text(actX, actY, 'E', {
+                fontSize: '44px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.6);
+            const actHit2 = this.add.circle(actX, actY, 52, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+            actHit2.on('pointerdown', () => {
+                this.handleInteraction();
+                this.tweens.add({ targets: this.mobileActionLabel, scale: 0.85, duration: 80, yoyo: true });
+            });
 
             this.input.on('pointerdown', (pointer) => {
                 if (this.isTransitioning) return;
-                if (pointer.y > screenHeight - 300) return;
+                const dJoy = Phaser.Math.Distance.Between(pointer.x, pointer.y, joyX, joyY);
+                const dAct = Phaser.Math.Distance.Between(pointer.x, pointer.y, actX, actY);
+                if (dJoy < joyR + 20 || dAct < 70) return;
+                if (pointer.y > screenHeight - 350) return;
                 const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
                 this.targetX = worldPoint.x; this.targetY = worldPoint.y;
                 this.physics.moveToObject(this.player, worldPoint, 250);
@@ -1087,53 +1100,53 @@
                 { x: 0.04, y: 0.58 }, { x: 0.14, y: 0.52 },
                 { x: 0.14, y: 0.62 }, { x: 0.04, y: 0.68 },
             ];
-            this.lockedDoorMessage = this.add.text(roomWidth * 0.20, roomHeight * 0.45,
-                'Еще не время', {
-                fontSize: '48px', fontFamily: 'Courier New', color: '#ffffff',
-                backgroundColor: '#000000', padding: { x: 25, y: 12 }, alpha: 0
-            }).setOrigin(0.5).setDepth(100);
-            this.lockedDoorTimer = 0;
-
-            const debugGfx = this.add.graphics();
-            debugGfx.setDepth(50);
-
-            debugGfx.lineStyle(3, 0xff0000, 0.8); debugGfx.beginPath();
-            this.walkablePolygon.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
-            debugGfx.closePath(); debugGfx.strokePath();
-
-            debugGfx.lineStyle(3, 0xff0000, 0.8); debugGfx.fillStyle(0xff0000, 0.15); debugGfx.beginPath();
-            this.chairPolygon.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
-            debugGfx.closePath(); debugGfx.strokePath(); debugGfx.fillPath();
-
-            debugGfx.lineStyle(4, 0x00ff00, 0.8); debugGfx.beginPath();
-            debugGfx.moveTo(this.greenLineStart.x * roomWidth, this.greenLineStart.y * roomHeight);
-            debugGfx.lineTo(this.greenLineEnd.x * roomWidth, this.greenLineEnd.y * roomHeight);
-            debugGfx.strokePath();
-
-            debugGfx.lineStyle(2, 0xffff00, 0.6); debugGfx.beginPath();
-            this.lockedDoorPoly.forEach((p, i) => { if (i === 0) debugGfx.moveTo(p.x * roomWidth, p.y * roomHeight); else debugGfx.lineTo(p.x * roomWidth, p.y * roomHeight); });
-            debugGfx.closePath(); debugGfx.strokePath();
+            // --- STYLED LOCKED DOOR MESSAGE ---
+            this.lockedDoorContainer = this.add.container(roomWidth * 0.12, roomHeight * 0.48).setDepth(100).setAlpha(0);
+            const msgBg2 = this.add.graphics();
+            const msg2W = 320, msg2H = 60, msg2R = 16;
+            msgBg2.fillStyle(0x000000, 0.75);
+            msgBg2.fillRoundedRect(-msg2W/2, -msg2H/2, msg2W, msg2H, msg2R);
+            msgBg2.lineStyle(1, 0xffffff, 0.15);
+            msgBg2.strokeRoundedRect(-msg2W/2, -msg2H/2, msg2W, msg2H, msg2R);
+            const msgText2 = this.add.text(0, 0, 'Еще не время...', {
+                fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff',
+                fontStyle: 'bold'
+            }).setOrigin(0.5);
+            this.lockedDoorContainer.add([msgBg2, msgText2]);
+            this.lockedDoorShowing = false;
 
             // === INTERACTION SYSTEM ===
             this.interactiveItems = [
-                { id: 'audio_interface', proximityCenter: { x: 0.35, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_audio_interface', actionOverlay: null, soundKey: 'sound_audio_interface' },
+                { id: 'audio_interface', proximityCenter: { x: 0.35, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_audio_interface', actionOverlay: null, soundKey: null, isTrackSwitch: true },
                 { id: 'rick_owens', proximityCenter: { x: 0.60, y: 0.53 }, proximityRadius: 90, lineOverlay: 'line_rick_owens', actionOverlay: null, soundKey: null },
-                { id: 'lights', proximityCenter: { x: 0.20, y: 0.70 }, proximityRadius: 80, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
+                { id: 'lights', proximityCenter: { x: 0.67, y: 0.63 }, proximityRadius: 90, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
             ];
 
             this.interactiveItems.forEach(item => {
                 if (item.isLightSwitch) {
-                    // Light switch has no overlay sprites — it changes the background
                     item.lineSprite = null;
                     item.actionSprite = null;
                     item.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
                     item._glowVisible = false;
                     return;
                 }
+                if (item.isTrackSwitch) {
+                    // Track switch: has overlay, cycles audio tracks
+                    item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
+                    item.actionSprite = null;
+                    // Restore state from global
+                    if (window.currentTrack !== 'off') {
+                        item.state = 'active';
+                        item._glowVisible = false;
+                    } else {
+                        item.state = 'idle';
+                        item._glowVisible = false;
+                    }
+                    return;
+                }
                 item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
                 if (item.actionOverlay) { item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10); }
                 else { item.actionSprite = null; }
-                // Restore active state if this item was globally active
                 if (window.activeItems[item.id]) {
                     item.state = 'active';
                     item._glowVisible = false;
@@ -1142,18 +1155,6 @@
                     item.state = 'idle';
                 }
             });
-
-            this.interactiveItems.forEach(item => {
-                const cx = item.proximityCenter.x * roomWidth, cy = item.proximityCenter.y * roomHeight;
-                debugGfx.lineStyle(2, 0xffff00, 0.8); debugGfx.fillStyle(0xffff00, 0.1);
-                debugGfx.strokeCircle(cx, cy, item.proximityRadius);
-                debugGfx.fillCircle(cx, cy, item.proximityRadius);
-                this.add.text(cx, cy - item.proximityRadius - 10, item.id, {
-                    fontSize: '18px', fontFamily: 'Courier New', color: '#ffff00', stroke: '#000000', strokeThickness: 3
-                }).setOrigin(0.5).setDepth(51);
-            });
-
-            this.debugPlayerDot = this.add.circle(0, 0, 8, 0x00ff00, 0.9).setDepth(55);
 
             this.interactionCooldown = 0;
 
@@ -1170,13 +1171,19 @@
 
             this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
-            const eBtnSize = 70;
-            this.mobileEBtn = this.add.circle(screenWidth / 2, screenHeight - 150, eBtnSize / 2, 0x4a90d9, 0.7)
-                .setScrollFactor(0).setDepth(200).setVisible(false).setInteractive({ useHandCursor: true });
-            this.mobileEText = this.add.text(screenWidth / 2, screenHeight - 150, 'E', {
-                fontSize: '40px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(201).setVisible(false);
-            this.mobileEBtn.on('pointerdown', () => { this.handleInteraction(); });
+            // --- FLOATING TOAST POPUP SYSTEM ---
+            this.toastContainer = this.add.container(screenWidth / 2, 120).setScrollFactor(0).setDepth(300).setAlpha(0);
+            const toastW = 400, toastH = 56, toastR = 14;
+            const toastBgGfx = this.add.graphics();
+            toastBgGfx.fillStyle(0x0a0a0f, 0.8);
+            toastBgGfx.fillRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
+            toastBgGfx.lineStyle(1, 0xffffff, 0.12);
+            toastBgGfx.strokeRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
+            this.toastText = this.add.text(0, 0, '', {
+                fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5);
+            this.toastContainer.add([toastBgGfx, this.toastText]);
+            this.toastTimer = null;
 
             this.player.setCollideWorldBounds(false);
 
@@ -1219,25 +1226,46 @@
             // Can only interact when inside a circle
             if (!nearestItem) return;
 
-            // === LIGHT SWITCH: cycles through modes (only at night) ===
+            // === LIGHT SWITCH: cycles through modes (shows toast during day) ===
             if (nearestItem.isLightSwitch) {
                 if (window.timeOfDay !== 'night') {
+                    this.showToast('Смысл включать свет днём?');
                     this.interactionCooldown = 500;
-                    return; // lights only work at night
+                    return;
                 }
                 const currentIdx = LIGHT_MODES.indexOf(window.roomLightMode);
                 const nextIdx = (currentIdx + 1) % LIGHT_MODES.length;
                 window.roomLightMode = LIGHT_MODES[nextIdx];
-
-                // Swap background texture: colored variant or night default
                 const newKey = window.roomLightMode === 'default' ? 'room2_night' : ('room2_' + window.roomLightMode);
                 this.bg.setTexture(newKey);
-
-                // Swap player sprite to match light color
                 this.updatePlayerSprite();
-
-                // Update item state
                 nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
+                this.interactionCooldown = 500;
+                return;
+            }
+
+            // === TRACK SWITCH (Apollo): cycles through tracks ===
+            if (nearestItem.isTrackSwitch) {
+                // Stop current track audio
+                if (window.activeAudio && window.activeAudio.sound) {
+                    window.activeAudio.sound.stop();
+                    window.activeAudio.sound.destroy();
+                    window.activeAudio = null;
+                }
+                // Cycle to next track
+                const currentIdx = APOLLO_TRACKS.indexOf(window.currentTrack);
+                const nextIdx = (currentIdx + 1) % APOLLO_TRACKS.length;
+                window.currentTrack = APOLLO_TRACKS[nextIdx];
+                // Play new track if not off
+                if (window.currentTrack !== 'off') {
+                    const soundKey = APOLLO_TRACK_KEYS[window.currentTrack];
+                    const snd = this.sound.add(soundKey, { loop: true, volume: 0.5 });
+                    snd.play();
+                    window.activeAudio = { itemId: nearestItem.id, soundKey: soundKey, sound: snd };
+                }
+                nearestItem.state = (window.currentTrack !== 'off') ? 'active' : 'idle';
+                window.activeItems[nearestItem.id] = (window.currentTrack !== 'off') ? true : undefined;
+                if (window.currentTrack === 'off') delete window.activeItems[nearestItem.id];
                 this.interactionCooldown = 500;
                 return;
             }
@@ -1272,10 +1300,43 @@
                     snd.play();
                     window.activeAudio = { itemId: nearestItem.id, soundKey: nearestItem.soundKey, sound: snd };
                 }
+                // Show toast for rick_owens
+                if (nearestItem.id === 'rick_owens') {
+                    this.showToast('Сладкие и зелёные');
+                }
                 window.activeItems[nearestItem.id] = true;
                 nearestItem.state = 'active';
                 nearestItem._glowVisible = true;
             }
+        }
+
+        showToast(message) {
+            this.toastText.setText(message);
+            this.tweens.killTweensOf(this.toastContainer);
+            if (this.toastTimer) { this.toastTimer.remove(); this.toastTimer = null; }
+            this.toastContainer.setY(80).setAlpha(0).setScale(0.9);
+            this.tweens.add({ targets: this.toastContainer, alpha: 1, y: 120, scale: 1, duration: 350, ease: 'Back.easeOut' });
+            this.toastTimer = this.time.delayedCall(2500, () => {
+                this.tweens.add({ targets: this.toastContainer, alpha: 0, y: 80, scale: 0.9, duration: 250, ease: 'Sine.easeIn' });
+            });
+        }
+
+        _updateJoystick(pointer) {
+            const dx = pointer.x - this.joyCenter.x;
+            const dy = pointer.y - this.joyCenter.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = this.joyRadius - 20;
+            const clampDist = Math.min(dist, maxDist);
+            const angle = Math.atan2(dy, dx);
+            const tx = this.joyCenter.x + Math.cos(angle) * clampDist;
+            const ty = this.joyCenter.y + Math.sin(angle) * clampDist;
+            this.joyThumb.setPosition(tx, ty);
+            this.joyThumbGlow.setPosition(tx, ty);
+            const deadzone = 25;
+            this.virtualInput.left = dx < -deadzone;
+            this.virtualInput.right = dx > deadzone;
+            this.virtualInput.up = dy < -deadzone;
+            this.virtualInput.down = dy > deadzone;
         }
 
         // Swap player sprite and animations to match the current light mode
@@ -1374,14 +1435,18 @@
                 }
             }
 
-            if (this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh)) {
-                if (this.lockedDoorTimer <= 0) {
-                    this.lockedDoorTimer = 2500;
-                    this.tweens.add({ targets: this.lockedDoorMessage, alpha: 1, duration: 300 });
-                    this.time.delayedCall(2500, () => { this.tweens.add({ targets: this.lockedDoorMessage, alpha: 0, duration: 300 }); });
-                }
+            // --- LOCKED DOOR: proximity-based show/hide ---
+            const inDoorZone = this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh);
+            if (inDoorZone && !this.lockedDoorShowing) {
+                this.lockedDoorShowing = true;
+                this.tweens.killTweensOf(this.lockedDoorContainer);
+                this.lockedDoorContainer.setScale(0.8);
+                this.tweens.add({ targets: this.lockedDoorContainer, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' });
+            } else if (!inDoorZone && this.lockedDoorShowing) {
+                this.lockedDoorShowing = false;
+                this.tweens.killTweensOf(this.lockedDoorContainer);
+                this.tweens.add({ targets: this.lockedDoorContainer, alpha: 0, scale: 0.8, duration: 200, ease: 'Sine.easeIn' });
             }
-            if (this.lockedDoorTimer > 0) this.lockedDoorTimer -= this.game.loop.delta;
 
             const s = this.playerAnimSuffix;
             const speed = this.player.body.velocity.length();
@@ -1402,9 +1467,9 @@
                     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
                     const inRange = dist < item.proximityRadius;
 
-                    // Light switch: no line glow, just track proximity for [E] prompt (night only)
+                    // Light switch: track proximity for [E] prompt (works day and night now)
                     if (item.isLightSwitch) {
-                        if (inRange && window.timeOfDay === 'night') {
+                        if (inRange) {
                             if (item.state === 'idle') item.state = 'near';
                             playerInCircle = true;
                         } else {
@@ -1444,25 +1509,29 @@
                 });
             }
 
-            this.debugPlayerDot.setPosition(this.player.x, this.player.y);
-            this.debugPlayerDot.setFillStyle(playerInCircle ? 0xffffff : 0x00ff00, 0.9);
-
-            // [E] prompt — show light mode label when near light switch (night only)
+            // [E] prompt — show context label when near special switches
             if (playerInCircle) {
                 this.ePrompt.setPosition(this.player.x, this.player.y - 140);
                 const nearLight = this.interactiveItems.find(i => i.isLightSwitch &&
-                    window.timeOfDay === 'night' &&
+                    Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
+                const nearTrack = this.interactiveItems.find(i => i.isTrackSwitch &&
                     Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
                 if (nearLight) {
-                    const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
-                    this.ePrompt.setText('[E] Lights: ' + modeLabel);
+                    if (window.timeOfDay === 'night') {
+                        const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
+                        this.ePrompt.setText('[E] Lights: ' + modeLabel);
+                    } else {
+                        this.ePrompt.setText('[E] Lights');
+                    }
+                } else if (nearTrack) {
+                    this.ePrompt.setText('[E] Apollo: ' + APOLLO_TRACK_NAMES[window.currentTrack]);
                 } else {
                     this.ePrompt.setText('[E]');
                 }
-                this.ePrompt.setVisible(true); this.mobileEBtn.setVisible(true); this.mobileEText.setVisible(true);
+                this.ePrompt.setVisible(true);
             } else {
                 this.ePrompt.setText('[E]');
-                this.ePrompt.setVisible(false); this.mobileEBtn.setVisible(false); this.mobileEText.setVisible(false);
+                this.ePrompt.setVisible(false);
             }
         }
     }
@@ -1472,7 +1541,8 @@
         type: Phaser.AUTO,
         backgroundColor: '#000000',
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 1080, height: 1920 },
-        physics: { default: 'arcade', arcade: { debug: true, gravity: { y: 0 } } },
+        input: { activePointers: 3 },
+        physics: { default: 'arcade', arcade: { debug: false, gravity: { y: 0 } } },
         render: { antialias: false, pixelArt: true },
         scene: [MenuScene, MainScene, StudioScene]
     };
