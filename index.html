@@ -393,7 +393,7 @@
             this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
             this.cameras.main.setZoom(1.6);
-            this.cameras.main.setFollowOffset(0, +270); // push camera up so player sits at ~20% from top
+            this.cameras.main.setFollowOffset(0, 300); // camera looks BELOW player → player appears at top ~20%
 
             this.targetX = null;
             this.targetY = null;
@@ -405,29 +405,29 @@
                 left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
             });
 
-            // --- MOBILE VIRTUAL JOYSTICK ---
-            this.virtualInput = { left: false, right: false, up: false, down: false };
-            const joyX = 350, joyY = screenHeight - 500, joyR = 120;
-            // Joystick base (outer ring)
+            // --- MOBILE VIRTUAL JOYSTICK (bigger, more visible, analog) ---
+            this.virtualInput = { x: 0, y: 0 };
+            const joyX = 350, joyY = screenHeight - 500, joyR = 100;
+            // Joystick base (outer ring) — more visible
             const joyBase = this.add.graphics().setScrollFactor(0).setDepth(190);
-            joyBase.fillStyle(0x000000, 0.3);
+            joyBase.fillStyle(0x000000, 0.45);
             joyBase.fillCircle(joyX, joyY, joyR);
-            joyBase.lineStyle(2, 0xffffff, 0.15);
+            joyBase.lineStyle(3, 0xffffff, 0.3);
             joyBase.strokeCircle(joyX, joyY, joyR);
-            // Joystick thumb (inner knob)
-            this.joyThumb = this.add.circle(joyX, joyY, 44, 0xffffff, 0.25).setScrollFactor(0).setDepth(191);
-            this.joyThumbGlow = this.add.circle(joyX, joyY, 44, 0xffffff, 0).setScrollFactor(0).setDepth(191);
-            // Joystick hit area
-            const joyHit = this.add.circle(joyX, joyY, joyR, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+            // Joystick thumb (inner knob) — bigger and brighter
+            this.joyThumb = this.add.circle(joyX, joyY, 54, 0xffffff, 0.4).setScrollFactor(0).setDepth(191);
+            this.joyThumbGlow = this.add.circle(joyX, joyY, 54, 0xffffff, 0).setScrollFactor(0).setDepth(191);
+            // Joystick hit area — covers generous touch zone
+            const joyHit = this.add.circle(joyX, joyY, joyR + 40, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
             this.joyActive = false;
-            this.joyPointerId = -1; // track which pointer owns the joystick
+            this.joyPointerId = -1;
             this.joyCenter = { x: joyX, y: joyY };
             this.joyRadius = joyR;
 
             joyHit.on('pointerdown', (pointer) => {
                 this.joyActive = true;
                 this.joyPointerId = pointer.id;
-                this.joyThumbGlow.setFillStyle(0xffffff, 0.15);
+                this.joyThumbGlow.setFillStyle(0xffffff, 0.2);
                 this._updateJoystick(pointer);
             });
             this.input.on('pointermove', (pointer) => {
@@ -439,21 +439,21 @@
                     this.joyPointerId = -1;
                     this.joyThumb.setPosition(joyX, joyY);
                     this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0);
-                    this.virtualInput = { left: false, right: false, up: false, down: false };
+                    this.virtualInput = { x: 0, y: 0 };
                 }
             });
 
-            // --- MOBILE ACTION BUTTON (E) — always visible ---
-            const actX = screenWidth - 140, actY = screenHeight - 260;
+            // --- MOBILE ACTION BUTTON (E) — bigger, brighter, always visible ---
+            const actX = screenWidth - 300, actY = screenHeight - 450;
             const actBtnGfx = this.add.graphics().setScrollFactor(0).setDepth(190);
-            actBtnGfx.fillStyle(0xffffff, 0.12);
-            actBtnGfx.fillCircle(actX, actY, 52);
-            actBtnGfx.lineStyle(2, 0xffffff, 0.2);
-            actBtnGfx.strokeCircle(actX, actY, 52);
+            actBtnGfx.fillStyle(0xffffff, 0.2);
+            actBtnGfx.fillCircle(actX, actY, 68);
+            actBtnGfx.lineStyle(3, 0xffffff, 0.35);
+            actBtnGfx.strokeCircle(actX, actY, 68);
             this.mobileActionLabel = this.add.text(actX, actY, 'E', {
-                fontSize: '44px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.6);
-            const actHit = this.add.circle(actX, actY, 52, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+                fontSize: '56px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.8);
+            const actHit = this.add.circle(actX, actY, 80, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
             actHit.on('pointerdown', () => {
                 this.handleInteraction();
                 this.tweens.add({ targets: this.mobileActionLabel, scale: 0.85, duration: 80, yoyo: true });
@@ -464,8 +464,8 @@
                 // Ignore taps on joystick or action button areas
                 const dJoy = Phaser.Math.Distance.Between(pointer.x, pointer.y, joyX, joyY);
                 const dAct = Phaser.Math.Distance.Between(pointer.x, pointer.y, actX, actY);
-                if (dJoy < joyR + 20 || dAct < 70) return;
-                if (pointer.y > screenHeight - 350) return;
+                if (dJoy < joyR + 60 || dAct < 100) return;
+                if (pointer.y > screenHeight - 500) return;
                 const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
                 this.targetX = worldPoint.x;
                 this.targetY = worldPoint.y;
@@ -745,11 +745,12 @@
             const ty = this.joyCenter.y + Math.sin(angle) * clampDist;
             this.joyThumb.setPosition(tx, ty);
             this.joyThumbGlow.setPosition(tx, ty);
-            const deadzone = 25;
-            this.virtualInput.left = dx < -deadzone;
-            this.virtualInput.right = dx > deadzone;
-            this.virtualInput.up = dy < -deadzone;
-            this.virtualInput.down = dy > deadzone;
+            // Analog: normalize to -1..1 range with deadzone
+            const deadzone = 20;
+            const norm = Math.max(0, dist - deadzone) / (maxDist - deadzone);
+            const clamped = Math.min(norm, 1);
+            this.virtualInput.x = clamped > 0 ? Math.cos(angle) * clamped : 0;
+            this.virtualInput.y = clamped > 0 ? Math.sin(angle) * clamped : 0;
         }
 
         pointInPolygon(px, py, polygon, rw, rh) {
@@ -781,15 +782,20 @@
             if (this.interactionCooldown > 0) { this.interactionCooldown -= this.game.loop.delta; }
 
             let vx = 0, vy = 0;
-            const left = this.wasd.left.isDown || this.cursors.left.isDown || this.virtualInput.left;
-            const right = this.wasd.right.isDown || this.cursors.right.isDown || this.virtualInput.right;
-            const up = this.wasd.up.isDown || this.cursors.up.isDown || this.virtualInput.up;
-            const down = this.wasd.down.isDown || this.cursors.down.isDown || this.virtualInput.down;
-
-            if (left) vx = -moveSpeed; else if (right) vx = moveSpeed;
-            if (up) vy = -moveSpeed; else if (down) vy = moveSpeed;
-            const usingKeyboard = left || right || up || down;
-            if (usingKeyboard) { this.targetX = null; this.targetY = null; }
+            // Keyboard input
+            const kbLeft = this.wasd.left.isDown || this.cursors.left.isDown;
+            const kbRight = this.wasd.right.isDown || this.cursors.right.isDown;
+            const kbUp = this.wasd.up.isDown || this.cursors.up.isDown;
+            const kbDown = this.wasd.down.isDown || this.cursors.down.isDown;
+            if (kbLeft) vx = -moveSpeed; else if (kbRight) vx = moveSpeed;
+            if (kbUp) vy = -moveSpeed; else if (kbDown) vy = moveSpeed;
+            // Analog joystick input (overrides keyboard if active)
+            if (this.joyActive && (Math.abs(this.virtualInput.x) > 0.01 || Math.abs(this.virtualInput.y) > 0.01)) {
+                vx = this.virtualInput.x * moveSpeed;
+                vy = this.virtualInput.y * moveSpeed;
+            }
+            const usingInput = kbLeft || kbRight || kbUp || kbDown || this.joyActive;
+            if (usingInput) { this.targetX = null; this.targetY = null; }
 
             if (this.targetX !== null && this.targetY !== null) {
                 const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
@@ -812,7 +818,7 @@
                 else this.player.body.setVelocity(0, 0);
             }
 
-            if (!usingKeyboard && this.targetX === null) { this.player.body.setVelocity(0, 0); }
+            if (!usingInput && this.targetX === null) { this.player.body.setVelocity(0, 0); }
 
             if (!this.isTransitioning) {
                 const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x * rw, this.greenLineStart.y * rh, this.greenLineEnd.x * rw, this.greenLineEnd.y * rh);
@@ -1014,7 +1020,7 @@
             this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
             this.cameras.main.setZoom(1.6);
-            this.cameras.main.setFollowOffset(0, +270); // push camera up so player sits at ~20% from top
+            this.cameras.main.setFollowOffset(0, 300); // camera looks BELOW player → player appears at top ~20%
 
             this.targetX = null;
             this.targetY = null;
@@ -1026,26 +1032,26 @@
                 left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
             });
 
-            // --- MOBILE VIRTUAL JOYSTICK ---
-            this.virtualInput = { left: false, right: false, up: false, down: false };
-            const joyX = 350, joyY = screenHeight - 500, joyR = 120;
+            // --- MOBILE VIRTUAL JOYSTICK (bigger, more visible, analog) ---
+            this.virtualInput = { x: 0, y: 0 };
+            const joyX = 350, joyY = screenHeight - 500, joyR = 100;
             const joyBase2 = this.add.graphics().setScrollFactor(0).setDepth(190);
-            joyBase2.fillStyle(0x000000, 0.3);
+            joyBase2.fillStyle(0x000000, 0.45);
             joyBase2.fillCircle(joyX, joyY, joyR);
-            joyBase2.lineStyle(2, 0xffffff, 0.15);
+            joyBase2.lineStyle(3, 0xffffff, 0.3);
             joyBase2.strokeCircle(joyX, joyY, joyR);
-            this.joyThumb = this.add.circle(joyX, joyY, 44, 0xffffff, 0.25).setScrollFactor(0).setDepth(191);
-            this.joyThumbGlow = this.add.circle(joyX, joyY, 44, 0xffffff, 0).setScrollFactor(0).setDepth(191);
-            const joyHit2 = this.add.circle(joyX, joyY, joyR, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+            this.joyThumb = this.add.circle(joyX, joyY, 54, 0xffffff, 0.4).setScrollFactor(0).setDepth(191);
+            this.joyThumbGlow = this.add.circle(joyX, joyY, 54, 0xffffff, 0).setScrollFactor(0).setDepth(191);
+            const joyHit2 = this.add.circle(joyX, joyY, joyR + 40, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
             this.joyActive = false;
-            this.joyPointerId = -1; // track which pointer owns the joystick
+            this.joyPointerId = -1;
             this.joyCenter = { x: joyX, y: joyY };
             this.joyRadius = joyR;
 
             joyHit2.on('pointerdown', (pointer) => {
                 this.joyActive = true;
                 this.joyPointerId = pointer.id;
-                this.joyThumbGlow.setFillStyle(0xffffff, 0.15);
+                this.joyThumbGlow.setFillStyle(0xffffff, 0.2);
                 this._updateJoystick(pointer);
             });
             this.input.on('pointermove', (pointer) => {
@@ -1057,21 +1063,21 @@
                     this.joyPointerId = -1;
                     this.joyThumb.setPosition(joyX, joyY);
                     this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0);
-                    this.virtualInput = { left: false, right: false, up: false, down: false };
+                    this.virtualInput = { x: 0, y: 0 };
                 }
             });
 
-            // --- MOBILE ACTION BUTTON (E) — always visible ---
-            const actX = screenWidth - 140, actY = screenHeight - 260;
+            // --- MOBILE ACTION BUTTON (E) — bigger, brighter, always visible ---
+            const actX = screenWidth - 300, actY = screenHeight - 450;
             const actBtnGfx2 = this.add.graphics().setScrollFactor(0).setDepth(190);
-            actBtnGfx2.fillStyle(0xffffff, 0.12);
-            actBtnGfx2.fillCircle(actX, actY, 52);
-            actBtnGfx2.lineStyle(2, 0xffffff, 0.2);
-            actBtnGfx2.strokeCircle(actX, actY, 52);
+            actBtnGfx2.fillStyle(0xffffff, 0.2);
+            actBtnGfx2.fillCircle(actX, actY, 68);
+            actBtnGfx2.lineStyle(3, 0xffffff, 0.35);
+            actBtnGfx2.strokeCircle(actX, actY, 68);
             this.mobileActionLabel = this.add.text(actX, actY, 'E', {
-                fontSize: '44px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.6);
-            const actHit2 = this.add.circle(actX, actY, 52, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+                fontSize: '56px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.8);
+            const actHit2 = this.add.circle(actX, actY, 80, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
             actHit2.on('pointerdown', () => {
                 this.handleInteraction();
                 this.tweens.add({ targets: this.mobileActionLabel, scale: 0.85, duration: 80, yoyo: true });
@@ -1081,8 +1087,8 @@
                 if (this.isTransitioning) return;
                 const dJoy = Phaser.Math.Distance.Between(pointer.x, pointer.y, joyX, joyY);
                 const dAct = Phaser.Math.Distance.Between(pointer.x, pointer.y, actX, actY);
-                if (dJoy < joyR + 20 || dAct < 70) return;
-                if (pointer.y > screenHeight - 350) return;
+                if (dJoy < joyR + 60 || dAct < 100) return;
+                if (pointer.y > screenHeight - 500) return;
                 const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
                 this.targetX = worldPoint.x; this.targetY = worldPoint.y;
                 this.physics.moveToObject(this.player, worldPoint, 250);
@@ -1342,11 +1348,12 @@
             const ty = this.joyCenter.y + Math.sin(angle) * clampDist;
             this.joyThumb.setPosition(tx, ty);
             this.joyThumbGlow.setPosition(tx, ty);
-            const deadzone = 25;
-            this.virtualInput.left = dx < -deadzone;
-            this.virtualInput.right = dx > deadzone;
-            this.virtualInput.up = dy < -deadzone;
-            this.virtualInput.down = dy > deadzone;
+            // Analog: normalize to -1..1 range with deadzone
+            const deadzone = 20;
+            const norm = Math.max(0, dist - deadzone) / (maxDist - deadzone);
+            const clamped = Math.min(norm, 1);
+            this.virtualInput.x = clamped > 0 ? Math.cos(angle) * clamped : 0;
+            this.virtualInput.y = clamped > 0 ? Math.sin(angle) * clamped : 0;
         }
 
         // Swap player sprite and animations to match the current light mode
@@ -1388,15 +1395,20 @@
             if (this.interactionCooldown > 0) { this.interactionCooldown -= this.game.loop.delta; }
 
             let vx = 0, vy = 0;
-            const left = this.wasd.left.isDown || this.cursors.left.isDown || this.virtualInput.left;
-            const right = this.wasd.right.isDown || this.cursors.right.isDown || this.virtualInput.right;
-            const up = this.wasd.up.isDown || this.cursors.up.isDown || this.virtualInput.up;
-            const down = this.wasd.down.isDown || this.cursors.down.isDown || this.virtualInput.down;
-
-            if (left) vx = -moveSpeed; else if (right) vx = moveSpeed;
-            if (up) vy = -moveSpeed; else if (down) vy = moveSpeed;
-            const usingKeyboard = left || right || up || down;
-            if (usingKeyboard) { this.targetX = null; this.targetY = null; }
+            // Keyboard input
+            const kbLeft = this.wasd.left.isDown || this.cursors.left.isDown;
+            const kbRight = this.wasd.right.isDown || this.cursors.right.isDown;
+            const kbUp = this.wasd.up.isDown || this.cursors.up.isDown;
+            const kbDown = this.wasd.down.isDown || this.cursors.down.isDown;
+            if (kbLeft) vx = -moveSpeed; else if (kbRight) vx = moveSpeed;
+            if (kbUp) vy = -moveSpeed; else if (kbDown) vy = moveSpeed;
+            // Analog joystick input (overrides keyboard if active)
+            if (this.joyActive && (Math.abs(this.virtualInput.x) > 0.01 || Math.abs(this.virtualInput.y) > 0.01)) {
+                vx = this.virtualInput.x * moveSpeed;
+                vy = this.virtualInput.y * moveSpeed;
+            }
+            const usingInput = kbLeft || kbRight || kbUp || kbDown || this.joyActive;
+            if (usingInput) { this.targetX = null; this.targetY = null; }
 
             if (this.targetX !== null && this.targetY !== null) {
                 const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
@@ -1418,7 +1430,7 @@
                 else this.player.body.setVelocity(0, 0);
             }
 
-            if (!usingKeyboard && this.targetX === null) { this.player.body.setVelocity(0, 0); }
+            if (!usingInput && this.targetX === null) { this.player.body.setVelocity(0, 0); }
 
             if (!this.isTransitioning) {
                 const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x * rw, this.greenLineStart.y * rh, this.greenLineEnd.x * rw, this.greenLineEnd.y * rh);
