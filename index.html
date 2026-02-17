@@ -19,337 +19,145 @@
 <body>
 <script>
     // --- GLOBAL MAP STYLE ---
-    // 'default', 'realistic', or 'anime'
     window.mapStyle = 'default';
-
     // --- GLOBAL STATE (persists across scenes) ---
-    window.activeAudio = null; // { itemId, soundKey, sound } or null
-    window.activeItems = {};   // { itemId: true } — tracks all active interactions (with or without sound)
-    window.roomLightMode = 'default'; // 'default' | 'blue' | 'pink' | 'green'
-    window.tvGameMode = 'off'; // 'off' | 'fortnite' | 'mortal_kombat' | 'naruto'
-    window.timeOfDay = 'day'; // 'day' | 'night' — switches to night 10s after game start
-    window.nightTriggered = false; // tracks if the day→night transition has already happened
-    window.currentTrack = 'off'; // 'off' | 'track1' | 'track2' — Apollo track cycling
-
-    // Light mode cycle order
+    window.activeAudio = null;
+    window.activeItems = {};
+    window.roomLightMode = 'default';
+    window.tvGameMode = 'off';
+    window.timeOfDay = 'day';
+    window.nightTriggered = false;
+    window.currentTrack = 'off';
     const LIGHT_MODES = ['default', 'blue', 'pink', 'green'];
-
-    // Apollo track cycle order and config
     const APOLLO_TRACKS = ['off', 'track1', 'track2'];
-    const APOLLO_TRACK_KEYS = {
-        'track1': 'sound_audio_interface',
-        'track2': 'sound_guitar',
-    };
-    const APOLLO_TRACK_NAMES = {
-        'off': 'OFF',
-        'track1': 'TRACK 1',
-        'track2': 'TRACK 2',
-    };
-
-    // TV game cycle order
+    const APOLLO_TRACK_KEYS = { 'track1': 'sound_audio_interface', 'track2': 'sound_guitar' };
+    const APOLLO_TRACK_NAMES = { 'off': 'OFF', 'track1': 'TRACK 1', 'track2': 'TRACK 2' };
     const TV_GAMES = ['off', 'fortnite', 'mortal_kombat', 'naruto'];
-    // Maps game mode to texture key
-    const TV_GAME_TEXTURES = {
-        'fortnite': 'tv_fortnite',
-        'mortal_kombat': 'tv_mortal_kombat',
-        'naruto': 'tv_naruto',
-    };
-
-    // Returns the asset folder path for the current map style
-    function getStyleFolder() {
-        return 'assets/' + (window.mapStyle || 'default') + '/';
-    }
-
-    // Person sprite texture keys per light mode
-    const PERSON_TEXTURES = {
-        'default': 'playerSprite',
-        'blue': 'playerSprite_blue',
-        'pink': 'playerSprite_pink',
-        'green': 'playerSprite_green',
-    };
+    const TV_GAME_TEXTURES = { 'fortnite': 'tv_fortnite', 'mortal_kombat': 'tv_mortal_kombat', 'naruto': 'tv_naruto' };
+    function getStyleFolder() { return 'assets/' + (window.mapStyle || 'default') + '/'; }
+    const PERSON_TEXTURES = { 'default': 'playerSprite', 'blue': 'playerSprite_blue', 'pink': 'playerSprite_pink', 'green': 'playerSprite_green' };
 
     // --- START MENU SCENE ---
     class MenuScene extends Phaser.Scene {
         constructor() { super('MenuScene'); }
-
         preload() {
-            this.load.image('menuBg', '/assets/menu_bg.jpg');
-            this.load.on('loaderror', (file) => {
-                console.error('Ошибка загрузки: ' + file.key);
-            });
+            this.load.image('menuBg', 'assets/menu_bg.jpg');
+            this.load.on('loaderror', (file) => { console.error('Ошибка загрузки: ' + file.key); });
         }
-
         create() {
             const { width, height } = this.scale;
-
-            // Full-screen artwork background
             const bg = this.add.image(width / 2, height / 2, 'menuBg');
             const bgScale = Math.max(width / bg.width, height / bg.height);
             bg.setScale(bgScale);
-
-            // Dark vignette overlay
             const overlay = this.add.graphics();
             overlay.fillStyle(0x000000, 0.45);
             overlay.fillRect(0, 0, width, height);
-
-            // --- FROSTED GLASS PANEL behind all menu content ---
-            const panelW = 580;
-            const panelH = 520;
-            const panelX = width / 2;
-            const panelY = height * 0.46;
-            const panelR = 30;
+            const panelW = 580, panelH = 520, panelX = width / 2, panelY = height * 0.46, panelR = 30;
             const panelGfx = this.add.graphics();
-            // Dark frosted base
             panelGfx.fillStyle(0x0a0a0f, 0.65);
             panelGfx.fillRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, panelR);
-            // Subtle bright border
             panelGfx.lineStyle(1, 0xffffff, 0.12);
             panelGfx.strokeRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, panelR);
-            // Top edge highlight
             panelGfx.fillStyle(0xffffff, 0.06);
             panelGfx.fillRoundedRect(panelX - panelW/2 + 1, panelY - panelH/2 + 1, panelW - 2, panelH * 0.3, { tl: panelR, tr: panelR, bl: 0, br: 0 });
-
-            // --- TITLE ---
             const title = this.add.text(width / 2, panelY - panelH/2 + 80, 'WERYPEAS', {
-                fontSize: '72px',
-                fontFamily: 'Courier New, monospace',
-                color: '#ffffff',
-                fontStyle: 'bold',
-                stroke: '#000000',
-                strokeThickness: 4,
+                fontSize: '72px', fontFamily: 'Courier New, monospace', color: '#ffffff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4,
             }).setOrigin(0.5);
-
-            this.tweens.add({
-                targets: title,
-                alpha: { from: 0.85, to: 1 },
-                duration: 2500,
-                yoyo: true,
-                repeat: -1,
-                ease: 'Sine.easeInOut'
-            });
-
-            // Decorative line under title
+            this.tweens.add({ targets: title, alpha: { from: 0.85, to: 1 }, duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
             const lineGfx = this.add.graphics();
             lineGfx.fillStyle(0xffffff, 0.15);
             lineGfx.fillRect(width / 2 - 140, panelY - panelH/2 + 125, 280, 1);
-
-            // --- GLASS START BUTTON ---
             const btnY = panelY - panelH/2 + 210;
             this.createGlassButton(width / 2, btnY, 400, 68, 'START GAME', () => {
                 this.cameras.main.fadeOut(500, 0, 0, 0);
-                this.time.delayedCall(500, () => {
-                    this.scene.start('MainScene');
-                });
+                this.time.delayedCall(500, () => { this.scene.start('MainScene'); });
             });
-
-            // --- SOCIAL BUTTONS ---
-            const socialY = panelY - panelH/2 + 340;
-            const socialSpacing = 110;
-            const socials = [
-                { label: 'TG',   color: 0x26A5E4 },
-                { label: 'IG',   color: 0xE1306C },
-                { label: 'YT',   color: 0xFF0000 },
-                { label: 'SC',   color: 0xFF5500 },
-            ];
+            const socialY = panelY - panelH/2 + 340, socialSpacing = 110;
+            const socials = [{ label: 'TG', color: 0x26A5E4 }, { label: 'IG', color: 0xE1306C }, { label: 'YT', color: 0xFF0000 }, { label: 'SC', color: 0xFF5500 }];
             const totalSocialW = (socials.length - 1) * socialSpacing;
             const startX = width / 2 - totalSocialW / 2;
-
-            socials.forEach((s, i) => {
-                const sx = startX + i * socialSpacing;
-                this.createSocialButton(sx, socialY, 80, s.label, s.color);
-            });
-
-            // --- "FOLLOW US" label ---
-            this.add.text(width / 2, socialY - 60, 'FOLLOW US', {
-                fontSize: '20px', fontFamily: 'Courier New',
-                color: '#ffffff', fontStyle: 'bold',
-            }).setOrigin(0.5).setAlpha(0.35);
-
+            socials.forEach((s, i) => { this.createSocialButton(startX + i * socialSpacing, socialY, 80, s.label, s.color); });
+            this.add.text(width / 2, socialY - 60, 'FOLLOW US', { fontSize: '20px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0.35);
             this.cameras.main.fadeIn(800, 0, 0, 0);
         }
-
-        // Modern glass-style rounded button
         createGlassButton(x, y, w, h, text, callback) {
-            const r = h / 2; // pill radius
+            const r = h / 2;
             const gfx = this.add.graphics();
-
             const drawGlass = (fillAlpha, borderAlpha, highlightAlpha) => {
                 gfx.clear();
-                // Outer glow
-                gfx.fillStyle(0xffffff, borderAlpha * 0.15);
-                gfx.fillRoundedRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4, r + 2);
-                // Main glass body
-                gfx.fillStyle(0xffffff, fillAlpha);
-                gfx.fillRoundedRect(x - w/2, y - h/2, w, h, r);
-                // Top highlight stripe
-                gfx.fillStyle(0xffffff, highlightAlpha);
-                gfx.fillRoundedRect(x - w/2 + 6, y - h/2 + 3, w - 12, h * 0.35, { tl: r - 3, tr: r - 3, bl: 0, br: 0 });
-                // Thin bottom border
-                gfx.lineStyle(1, 0xffffff, borderAlpha * 0.3);
-                gfx.strokeRoundedRect(x - w/2, y - h/2, w, h, r);
+                gfx.fillStyle(0xffffff, borderAlpha * 0.15); gfx.fillRoundedRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4, r + 2);
+                gfx.fillStyle(0xffffff, fillAlpha); gfx.fillRoundedRect(x - w/2, y - h/2, w, h, r);
+                gfx.fillStyle(0xffffff, highlightAlpha); gfx.fillRoundedRect(x - w/2 + 6, y - h/2 + 3, w - 12, h * 0.35, { tl: r - 3, tr: r - 3, bl: 0, br: 0 });
+                gfx.lineStyle(1, 0xffffff, borderAlpha * 0.3); gfx.strokeRoundedRect(x - w/2, y - h/2, w, h, r);
             };
-
             drawGlass(0.12, 0.25, 0.08);
-
-            const btnText = this.add.text(x, y, text, {
-                fontSize: '34px', fontFamily: 'Courier New', color: '#ffffff',
-                fontStyle: 'bold',
-            }).setOrigin(0.5);
-
-            const hitArea = this.add.rectangle(x, y, w, h, 0x000000, 0)
-                .setInteractive({ useHandCursor: true });
-
-            hitArea.on('pointerover', () => {
-                drawGlass(0.20, 0.4, 0.14);
-                btnText.setColor('#ffffff');
-            });
-
-            hitArea.on('pointerout', () => {
-                drawGlass(0.12, 0.25, 0.08);
-                btnText.setColor('#ffffff');
-            });
-
-            hitArea.on('pointerdown', () => {
-                drawGlass(0.08, 0.15, 0.04);
-                this.tweens.add({
-                    targets: [gfx, hitArea, btnText],
-                    scaleX: 0.96, scaleY: 0.96,
-                    duration: 80,
-                    yoyo: true,
-                    onComplete: callback
-                });
-            });
+            const btnText = this.add.text(x, y, text, { fontSize: '34px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+            const hitArea = this.add.rectangle(x, y, w, h, 0x000000, 0).setInteractive({ useHandCursor: true });
+            hitArea.on('pointerover', () => { drawGlass(0.20, 0.4, 0.14); });
+            hitArea.on('pointerout', () => { drawGlass(0.12, 0.25, 0.08); });
+            hitArea.on('pointerdown', () => { drawGlass(0.08, 0.15, 0.04); this.tweens.add({ targets: [gfx, hitArea, btnText], scaleX: 0.96, scaleY: 0.96, duration: 80, yoyo: true, onComplete: callback }); });
         }
-
-        // Circular glass social button
         createSocialButton(x, y, size, label, accentColor) {
             const r = size / 2;
             const gfx = this.add.graphics();
-
             const drawCircle = (fillAlpha, borderAlpha) => {
                 gfx.clear();
-                // Colored outer ring
-                gfx.lineStyle(2, accentColor, borderAlpha);
-                gfx.strokeCircle(x, y, r + 1);
-                // Glass fill
-                gfx.fillStyle(0xffffff, fillAlpha);
-                gfx.fillCircle(x, y, r);
-                // Top highlight
-                gfx.fillStyle(0xffffff, fillAlpha * 0.6);
-                gfx.fillEllipse(x, y - r * 0.25, size * 0.6, size * 0.35);
+                gfx.lineStyle(2, accentColor, borderAlpha); gfx.strokeCircle(x, y, r + 1);
+                gfx.fillStyle(0xffffff, fillAlpha); gfx.fillCircle(x, y, r);
+                gfx.fillStyle(0xffffff, fillAlpha * 0.6); gfx.fillEllipse(x, y - r * 0.25, size * 0.6, size * 0.35);
             };
-
             drawCircle(0.10, 0.4);
-
-            const btnText = this.add.text(x, y, label, {
-                fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff',
-                fontStyle: 'bold',
-            }).setOrigin(0.5);
-
-            const hitArea = this.add.circle(x, y, r, 0x000000, 0)
-                .setInteractive({ useHandCursor: true });
-
-            hitArea.on('pointerover', () => {
-                drawCircle(0.20, 0.7);
-                btnText.setStyle({ color: Phaser.Display.Color.IntegerToColor(accentColor).rgba });
-            });
-
-            hitArea.on('pointerout', () => {
-                drawCircle(0.10, 0.4);
-                btnText.setColor('#ffffff');
-            });
-
-            hitArea.on('pointerdown', () => {
-                this.tweens.add({
-                    targets: [gfx, hitArea, btnText],
-                    scaleX: 0.90, scaleY: 0.90,
-                    duration: 100,
-                    yoyo: true,
-                });
-            });
+            const btnText = this.add.text(x, y, label, { fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+            const hitArea = this.add.circle(x, y, r, 0x000000, 0).setInteractive({ useHandCursor: true });
+            hitArea.on('pointerover', () => { drawCircle(0.20, 0.7); btnText.setStyle({ color: Phaser.Display.Color.IntegerToColor(accentColor).rgba }); });
+            hitArea.on('pointerout', () => { drawCircle(0.10, 0.4); btnText.setColor('#ffffff'); });
+            hitArea.on('pointerdown', () => { this.tweens.add({ targets: [gfx, hitArea, btnText], scaleX: 0.90, scaleY: 0.90, duration: 100, yoyo: true }); });
         }
     }
 
     // --- ГЛАВНАЯ СЦЕНА (ГОСТИНАЯ) ---
     class MainScene extends Phaser.Scene {
         constructor() { super('MainScene'); }
-
         preload() {
-            console.log('🔄 Начинаем загрузку ресурсов...');
-
             const folder = getStyleFolder();
-
-            // --- DAY / NIGHT room backgrounds ---
             this.load.image('room1_day', folder + 'room1_day.png');
             this.load.image('room1_night', folder + 'room1_night.png');
-
-            // --- PLAYER SPRITE VARIANTS ---
-            this.load.spritesheet('playerSprite', folder + 'person.png', {
-                frameWidth: 512, frameHeight: 512
-            });
-            this.load.spritesheet('playerSprite_blue', folder + 'person_blue.png', {
-                frameWidth: 512, frameHeight: 512
-            });
-            this.load.spritesheet('playerSprite_pink', folder + 'person_pink.png', {
-                frameWidth: 512, frameHeight: 512
-            });
-            this.load.spritesheet('playerSprite_green', folder + 'person_green.png', {
-                frameWidth: 512, frameHeight: 512
-            });
-
-            // --- INTERACTION OVERLAYS for Room 1 (Living Room) ---
-            this.load.image('line_guitar', '/assets/interaction/action_guitar.png');
-            this.load.image('line_ps_controller', '/assets/interaction/action_ps_controller.png');
-            // TV game overlays (cycle through with E)
-            this.load.image('tv_fortnite', '/assets/interaction/action_ps_controller_tv_fortnite.png');
-            this.load.image('tv_mortal_kombat', '/assets/interaction/action_ps_controller_tv_mortal_kombat.png');
-            this.load.image('tv_naruto', '/assets/interaction/action_ps_controller_tv_naruto.png');
-
-            // --- LIGHT VARIANTS for Room 1 (night colored rooms) ---
+            this.load.spritesheet('playerSprite', folder + 'person.png', { frameWidth: 512, frameHeight: 512 });
+            this.load.spritesheet('playerSprite_blue', folder + 'person_blue.png', { frameWidth: 512, frameHeight: 512 });
+            this.load.spritesheet('playerSprite_pink', folder + 'person_pink.png', { frameWidth: 512, frameHeight: 512 });
+            this.load.spritesheet('playerSprite_green', folder + 'person_green.png', { frameWidth: 512, frameHeight: 512 });
+            this.load.image('line_guitar', 'assets/interaction/action_guitar.png');
+            this.load.image('line_ps_controller', 'assets/interaction/action_ps_controller.png');
+            this.load.image('tv_fortnite', 'assets/interaction/action_ps_controller_tv_fortnite.png');
+            this.load.image('tv_mortal_kombat', 'assets/interaction/action_ps_controller_tv_mortal_kombat.png');
+            this.load.image('tv_naruto', 'assets/interaction/action_ps_controller_tv_naruto.png');
             this.load.image('room1_blue', folder + 'room1_blue.png');
             this.load.image('room1_pink', folder + 'room1_pink.png');
             this.load.image('room1_green', folder + 'room1_green.png');
-
-            // --- AUDIO for interactions (load all so they persist across scenes) ---
-            this.load.audio('sound_guitar', '/assets/sound/sound_guitar.mp3');
-            this.load.audio('sound_audio_interface', '/assets/sound/sound_audio_interface.mp3');
-
-            this.load.on('loaderror', (file) => {
-                console.error('❌ ОШИБКА загрузки файла: ' + file.key);
-                console.error('❌ Путь к файлу:', file.url);
-            });
-
-            this.load.on('complete', () => {
-                console.log('✅ Все файлы загружены! Style:', window.mapStyle);
-            });
+            this.load.audio('sound_guitar', 'assets/sound/sound_guitar.mp3');
+            this.load.audio('sound_audio_interface', 'assets/sound/sound_audio_interface.mp3');
+            this.load.on('loaderror', (file) => { console.error('ОШИБКА загрузки: ' + file.key, file.url); });
         }
-
         create() {
             const screenWidth = this.scale.width;
             const screenHeight = this.scale.height;
-
-            // Determine which room1 texture to use based on time of day & light mode
             let room1Key;
-            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') {
-                room1Key = 'room1_' + window.roomLightMode;
-            } else {
-                room1Key = window.timeOfDay === 'night' ? 'room1_night' : 'room1_day';
-            }
+            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') { room1Key = 'room1_' + window.roomLightMode; }
+            else { room1Key = window.timeOfDay === 'night' ? 'room1_night' : 'room1_day'; }
             const bg = this.add.image(0, 0, room1Key).setOrigin(0, 0);
-            this.bg = bg; // store reference for texture swapping
-
+            this.bg = bg;
             const scaleX = screenWidth / bg.width;
             const scaleY = screenHeight / bg.height;
             const scale = Math.max(scaleX, scaleY);
-
             bg.setScale(scale);
-
             const roomWidth = bg.width * scale;
             const roomHeight = bg.height * scale;
-
             this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
 
-            // Create animations for each person sprite variant
+            // Store scale for overlays
+            this.bgScale = scale;
+
+            // Create animations
             const personVariants = ['playerSprite', 'playerSprite_blue', 'playerSprite_pink', 'playerSprite_green'];
             personVariants.forEach(spriteKey => {
                 const suffix = spriteKey === 'playerSprite' ? '' : spriteKey.replace('playerSprite', '');
@@ -364,725 +172,49 @@
                     this.anims.create({ key: 'idle-right' + suffix, frames: [{ key: spriteKey, frame: 12 }] });
                 }
             });
-            // Track current animation suffix for person sprite swapping
             this.playerAnimSuffix = '';
-            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') {
-                this.playerAnimSuffix = '_' + window.roomLightMode;
-            }
-
-            // Use correct person sprite for current light mode at night
-            const personKey = (window.timeOfDay === 'night' && window.roomLightMode !== 'default')
-                ? PERSON_TEXTURES[window.roomLightMode] : 'playerSprite';
-
+            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') { this.playerAnimSuffix = '_' + window.roomLightMode; }
+            const personKey = (window.timeOfDay === 'night' && window.roomLightMode !== 'default') ? PERSON_TEXTURES[window.roomLightMode] : 'playerSprite';
             const fromStudio = this.scene.settings.data?.fromStudio;
-            if (fromStudio) {
-                this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.72, personKey);
-            } else {
-                this.player = this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.75, personKey);
-            }
-
-            this.player.setScale(0.7);
-            this.player.setOrigin(0.5, 1);
-            this.player.setDepth(15); // above TV/interaction overlays (depth 10), below UI (depth 150+)
+            this.player = fromStudio
+                ? this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.72, personKey)
+                : this.physics.add.sprite(roomWidth * 0.55, roomHeight * 0.75, personKey);
+            this.player.setScale(0.7).setOrigin(0.5, 1).setDepth(15);
             this.player.setCollideWorldBounds(true);
-            this.player.body.setSize(20, 10);
-            this.player.body.setOffset(22, 54);
+            this.player.body.setSize(20, 10).setOffset(22, 54);
             this.player.anims.play('idle-down' + this.playerAnimSuffix);
             this.playerDirection = 'down';
-
             this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
             this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
             this.cameras.main.setZoom(1.6);
-            this.cameras.main.setFollowOffset(0, 300); // camera looks BELOW player → player appears at top ~20%
-
-            this.targetX = null;
-            this.targetY = null;
-            this.isTransitioning = false;
-
+            this.cameras.main.setFollowOffset(0, 300);
+            this.targetX = null; this.targetY = null; this.isTransitioning = false;
             this.cursors = this.input.keyboard.createCursorKeys();
-            this.wasd = this.input.keyboard.addKeys({
-                up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S,
-                left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
-            });
+            this.wasd = this.input.keyboard.addKeys({ up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S, left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D });
 
-            // --- MOBILE VIRTUAL JOYSTICK (bigger, more visible, analog) ---
+            // --- MOBILE VIRTUAL JOYSTICK ---
             this.virtualInput = { x: 0, y: 0 };
             const joyX = 350, joyY = screenHeight - 500, joyR = 100;
-            // Joystick base (outer ring) — more visible
             const joyBase = this.add.graphics().setScrollFactor(0).setDepth(190);
-            joyBase.fillStyle(0x000000, 0.45);
-            joyBase.fillCircle(joyX, joyY, joyR);
-            joyBase.lineStyle(3, 0xffffff, 0.3);
-            joyBase.strokeCircle(joyX, joyY, joyR);
-            // Joystick thumb (inner knob) — bigger and brighter
+            joyBase.fillStyle(0x000000, 0.45); joyBase.fillCircle(joyX, joyY, joyR);
+            joyBase.lineStyle(3, 0xffffff, 0.3); joyBase.strokeCircle(joyX, joyY, joyR);
             this.joyThumb = this.add.circle(joyX, joyY, 54, 0xffffff, 0.4).setScrollFactor(0).setDepth(191);
             this.joyThumbGlow = this.add.circle(joyX, joyY, 54, 0xffffff, 0).setScrollFactor(0).setDepth(191);
-            // Joystick hit area — covers generous touch zone
             const joyHit = this.add.circle(joyX, joyY, joyR + 40, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
-            this.joyActive = false;
-            this.joyPointerId = -1;
-            this.joyCenter = { x: joyX, y: joyY };
-            this.joyRadius = joyR;
+            this.joyActive = false; this.joyPointerId = -1;
+            this.joyCenter = { x: joyX, y: joyY }; this.joyRadius = joyR;
+            joyHit.on('pointerdown', (pointer) => { this.joyActive = true; this.joyPointerId = pointer.id; this.joyThumbGlow.setFillStyle(0xffffff, 0.2); this._updateJoystick(pointer); });
+            this.input.on('pointermove', (pointer) => { if (this.joyActive && pointer.id === this.joyPointerId) this._updateJoystick(pointer); });
+            this.input.on('pointerup', (pointer) => { if (this.joyActive && pointer.id === this.joyPointerId) { this.joyActive = false; this.joyPointerId = -1; this.joyThumb.setPosition(joyX, joyY); this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0); this.virtualInput = { x: 0, y: 0 }; } });
 
-            joyHit.on('pointerdown', (pointer) => {
-                this.joyActive = true;
-                this.joyPointerId = pointer.id;
-                this.joyThumbGlow.setFillStyle(0xffffff, 0.2);
-                this._updateJoystick(pointer);
-            });
-            this.input.on('pointermove', (pointer) => {
-                if (this.joyActive && pointer.id === this.joyPointerId) this._updateJoystick(pointer);
-            });
-            this.input.on('pointerup', (pointer) => {
-                if (this.joyActive && pointer.id === this.joyPointerId) {
-                    this.joyActive = false;
-                    this.joyPointerId = -1;
-                    this.joyThumb.setPosition(joyX, joyY);
-                    this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0);
-                    this.virtualInput = { x: 0, y: 0 };
-                }
-            });
-
-            // --- MOBILE ACTION BUTTON (E) — bigger, brighter, always visible ---
+            // --- MOBILE ACTION BUTTON (E) ---
             const actX = screenWidth - 300, actY = screenHeight - 450;
             const actBtnGfx = this.add.graphics().setScrollFactor(0).setDepth(190);
-            actBtnGfx.fillStyle(0xffffff, 0.2);
-            actBtnGfx.fillCircle(actX, actY, 68);
-            actBtnGfx.lineStyle(3, 0xffffff, 0.35);
-            actBtnGfx.strokeCircle(actX, actY, 68);
-            this.mobileActionLabel = this.add.text(actX, actY, 'E', {
-                fontSize: '56px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.8);
+            actBtnGfx.fillStyle(0xffffff, 0.2); actBtnGfx.fillCircle(actX, actY, 68);
+            actBtnGfx.lineStyle(3, 0xffffff, 0.35); actBtnGfx.strokeCircle(actX, actY, 68);
+            this.mobileActionLabel = this.add.text(actX, actY, 'E', { fontSize: '56px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.8);
             const actHit = this.add.circle(actX, actY, 80, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
-            actHit.on('pointerdown', () => {
-                this.handleInteraction();
-                this.tweens.add({ targets: this.mobileActionLabel, scale: 0.85, duration: 80, yoyo: true });
-            });
-
-            this.input.on('pointerdown', (pointer) => {
-                if (this.isTransitioning) return;
-                // Ignore taps on joystick or action button areas
-                const dJoy = Phaser.Math.Distance.Between(pointer.x, pointer.y, joyX, joyY);
-                const dAct = Phaser.Math.Distance.Between(pointer.x, pointer.y, actX, actY);
-                if (dJoy < joyR + 60 || dAct < 100) return;
-                if (pointer.y > screenHeight - 500) return;
-                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                this.targetX = worldPoint.x;
-                this.targetY = worldPoint.y;
-                this.physics.moveToObject(this.player, worldPoint, 250);
-            });
-
-            this.walkablePolygon = [
-                { x: 0.21, y: 0.60 }, { x: 0.38, y: 0.51 }, { x: 0.42, y: 0.50 }, { x: 0.475, y: 0.505 }, { x: 0.67, y: 0.60 },
-                { x: 0.74, y: 0.57 }, { x: 0.90, y: 0.65 }, { x: 0.50, y: 0.80 },
-                { x: 0.485, y: 0.70 }, { x: 0.46, y: 0.695 }, { x: 0.43, y: 0.71 },
-            ];
-            this.ottomanPolygon = [
-                { x: 0.34, y: 0.60 }, { x: 0.43, y: 0.54 },
-                { x: 0.52, y: 0.59 }, { x: 0.43, y: 0.65 },
-            ];
-
-            this.roomWidth = roomWidth;
-            this.roomHeight = roomHeight;
-            this.greenLineStart = { x: 0.50, y: 0.80 };
-            this.greenLineEnd = { x: 0.90, y: 0.65 };
-
-            this.lockedDoorPoly = [
-                { x: 0.74, y: 0.48 }, { x: 0.86, y: 0.52 },
-                { x: 0.86, y: 0.62 }, { x: 0.74, y: 0.58 },
-            ];
-            // --- STYLED LOCKED DOOR MESSAGE ---
-            this.lockedDoorContainer = this.add.container(roomWidth * 0.80, roomHeight * 0.42).setDepth(100).setAlpha(0);
-            const msgBg = this.add.graphics();
-            const msgW = 320, msgH = 60, msgR = 16;
-            msgBg.fillStyle(0x000000, 0.75);
-            msgBg.fillRoundedRect(-msgW/2, -msgH/2, msgW, msgH, msgR);
-            msgBg.lineStyle(1, 0xffffff, 0.15);
-            msgBg.strokeRoundedRect(-msgW/2, -msgH/2, msgW, msgH, msgR);
-            const msgText = this.add.text(0, 0, 'Еще не время...', {
-                fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff',
-                fontStyle: 'bold'
-            }).setOrigin(0.5);
-            this.lockedDoorContainer.add([msgBg, msgText]);
-            this.lockedDoorShowing = false;
-
-            // === INTERACTION SYSTEM ===
-            this.interactiveItems = [
-                { id: 'guitar', proximityCenter: { x: 0.25, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_guitar', actionOverlay: null, soundKey: 'sound_guitar' },
-                { id: 'ps_controller', proximityCenter: { x: 0.65, y: 0.60 }, proximityRadius: 100, lineOverlay: 'line_ps_controller', actionOverlay: null, soundKey: null, isTVSwitch: true },
-                { id: 'lights', proximityCenter: { x: 0.42, y: 0.68 }, proximityRadius: 80, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
-            ];
-
-            this.interactiveItems.forEach(item => {
-                if (item.isLightSwitch) {
-                    // Light switch has no overlay sprites — it changes the background
-                    item.lineSprite = null;
-                    item.actionSprite = null;
-                    item.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
-                    item._glowVisible = false;
-                    return;
-                }
-                if (item.isTVSwitch) {
-                    // TV switch: create all game overlay sprites, show the active one
-                    item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
-                    item.actionSprite = null; // not used directly
-                    item.tvSprites = {};
-                    Object.keys(TV_GAME_TEXTURES).forEach(mode => {
-                        item.tvSprites[mode] = this.add.image(0, 0, TV_GAME_TEXTURES[mode]).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
-                    });
-                    // Restore TV state
-                    if (window.tvGameMode !== 'off') {
-                        item.state = 'active';
-                        item._glowVisible = false;
-                        if (item.tvSprites[window.tvGameMode]) item.tvSprites[window.tvGameMode].setVisible(true);
-                    } else {
-                        item.state = 'idle';
-                        item._glowVisible = false;
-                    }
-                    return;
-                }
-                item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
-                if (item.actionOverlay) {
-                    item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
-                } else { item.actionSprite = null; }
-                // Restore active state if this item was globally active
-                if (window.activeItems[item.id]) {
-                    item.state = 'active';
-                    item._glowVisible = false;
-                    if (item.actionSprite) item.actionSprite.setVisible(true);
-                } else {
-                    item.state = 'idle';
-                }
-            });
-
-            this.interactionCooldown = 0;
-
-            this.ePrompt = this.add.text(0, 0, '[E]', {
-                fontSize: '36px', fontFamily: 'Courier New', color: '#ffffff',
-                backgroundColor: '#000000aa', padding: { x: 12, y: 6 }, fontStyle: 'bold'
-            }).setOrigin(0.5).setDepth(150).setVisible(false);
-
-            this.tweens.add({
-                targets: this.ePrompt, alpha: { from: 0.6, to: 1 },
-                scaleX: { from: 0.95, to: 1.05 }, scaleY: { from: 0.95, to: 1.05 },
-                duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-            });
-
-            this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-
-            // --- FLOATING TOAST POPUP SYSTEM ---
-            this.toastContainer = this.add.container(screenWidth / 2, 120).setScrollFactor(0).setDepth(300).setAlpha(0);
-            const toastW = 400, toastH = 56, toastR = 14;
-            const toastBgGfx = this.add.graphics();
-            toastBgGfx.fillStyle(0x0a0a0f, 0.8);
-            toastBgGfx.fillRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
-            toastBgGfx.lineStyle(1, 0xffffff, 0.12);
-            toastBgGfx.strokeRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
-            this.toastText = this.add.text(0, 0, '', {
-                fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5);
-            this.toastContainer.add([toastBgGfx, this.toastText]);
-            this.toastTimer = null;
-
-            this.player.setCollideWorldBounds(false);
-
-            // Fade in AFTER everything is set up — black cover prevents any flash
-            const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000)
-                .setScrollFactor(0).setDepth(9999);
-            this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
-
-            // --- DAY → NIGHT TRANSITION (10 seconds after game start) ---
-            if (window.timeOfDay === 'day' && !window.nightTriggered) {
-                this.time.delayedCall(10000, () => {
-                    if (window.nightTriggered) return; // another scene already triggered it
-                    window.timeOfDay = 'night';
-                    window.nightTriggered = true;
-                    if (!this.scene.isActive()) return; // scene no longer active
-                    // Smooth crossfade to night background
-                    const nightBg = this.add.image(0, 0, 'room1_night').setOrigin(0, 0).setScale(scale).setAlpha(0).setDepth(this.bg.depth);
-                    this.tweens.add({
-                        targets: nightBg, alpha: 1, duration: 2000,
-                        onComplete: () => {
-                            this.bg.setTexture('room1_night');
-                            nightBg.destroy();
-                        }
-                    });
-                });
-            }
-        }
-
-        // Swap player sprite and animations to match the current light mode
-        updatePlayerSprite() {
-            const suffix = (window.timeOfDay === 'night' && window.roomLightMode !== 'default')
-                ? '_' + window.roomLightMode : '';
-            if (this.playerAnimSuffix === suffix) return;
-            this.playerAnimSuffix = suffix;
-            const speed = this.player.body.velocity.length();
-            const animType = speed > 10 ? 'walk-' : 'idle-';
-            this.player.anims.play(animType + this.playerDirection + suffix, true);
-        }
-
-        handleInteraction() {
-            const rw = this.roomWidth;
-            const rh = this.roomHeight;
-
-            // Check what item the player is currently near (inside circle)
-            let nearestItem = null;
-            let nearestDist = Infinity;
-            this.interactiveItems.forEach(item => {
-                const cx = item.proximityCenter.x * rw;
-                const cy = item.proximityCenter.y * rh;
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
-                if (dist < item.proximityRadius && dist < nearestDist) { nearestDist = dist; nearestItem = item; }
-            });
-
-            // Can only interact when inside a circle
-            if (!nearestItem) return;
-
-            // === LIGHT SWITCH: cycles through modes (shows toast during day) ===
-            if (nearestItem.isLightSwitch) {
-                if (window.timeOfDay !== 'night') {
-                    this.showToast('Смысл включать свет днём?');
-                    this.interactionCooldown = 500;
-                    return;
-                }
-                const currentIdx = LIGHT_MODES.indexOf(window.roomLightMode);
-                const nextIdx = (currentIdx + 1) % LIGHT_MODES.length;
-                window.roomLightMode = LIGHT_MODES[nextIdx];
-
-                // Swap background texture: colored variant or night default
-                const newKey = window.roomLightMode === 'default' ? 'room1_night' : ('room1_' + window.roomLightMode);
-                this.bg.setTexture(newKey);
-
-                // Swap player sprite to match light color
-                this.updatePlayerSprite();
-
-                // Update item state
-                nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
-                this.interactionCooldown = 500;
-                return;
-            }
-
-            // === TV SWITCH: cycles through games ===
-            if (nearestItem.isTVSwitch) {
-                // Hide current game overlay
-                if (window.tvGameMode !== 'off' && nearestItem.tvSprites[window.tvGameMode]) {
-                    nearestItem.tvSprites[window.tvGameMode].setVisible(false);
-                }
-
-                const currentIdx = TV_GAMES.indexOf(window.tvGameMode);
-                const nextIdx = (currentIdx + 1) % TV_GAMES.length;
-                window.tvGameMode = TV_GAMES[nextIdx];
-
-                // Show new game overlay
-                if (window.tvGameMode !== 'off' && nearestItem.tvSprites[window.tvGameMode]) {
-                    nearestItem.tvSprites[window.tvGameMode].setVisible(true);
-                }
-
-                // Update item state
-                nearestItem.state = (window.tvGameMode !== 'off') ? 'active' : 'idle';
-                window.activeItems[nearestItem.id] = (window.tvGameMode !== 'off') ? true : undefined;
-                if (window.tvGameMode === 'off') delete window.activeItems[nearestItem.id];
-                this.interactionCooldown = 500;
-                return;
-            }
-
-            // If this item is already active — turn it OFF
-            if (nearestItem.state === 'active') {
-                if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(false);
-                nearestItem.lineSprite.setVisible(false);
-                nearestItem._glowVisible = false;
-                // Stop global audio if this item had sound
-                if (window.activeAudio && window.activeAudio.itemId === nearestItem.id && window.activeAudio.sound) {
-                    window.activeAudio.sound.stop();
-                    window.activeAudio.sound.destroy();
-                    window.activeAudio = null;
-                }
-                delete window.activeItems[nearestItem.id];
-                nearestItem.state = 'idle';
-                this.interactionCooldown = 500;
-                return;
-            }
-
-            // If near an item — turn it ON (line glow stays since we're in circle)
-            if (nearestItem.state === 'near') {
-                if (nearestItem.actionSprite) { nearestItem.actionSprite.setVisible(true); }
-                // Start global audio if item has sound
-                if (nearestItem.soundKey) {
-                    if (window.activeAudio && window.activeAudio.sound) {
-                        window.activeAudio.sound.stop();
-                        window.activeAudio.sound.destroy();
-                    }
-                    const snd = this.sound.add(nearestItem.soundKey, { loop: true, volume: 0.5 });
-                    snd.play();
-                    window.activeAudio = { itemId: nearestItem.id, soundKey: nearestItem.soundKey, sound: snd };
-                }
-                window.activeItems[nearestItem.id] = true;
-                nearestItem.state = 'active';
-                nearestItem._glowVisible = true;
-            }
-        }
-
-        showToast(message) {
-            this.toastText.setText(message);
-            this.tweens.killTweensOf(this.toastContainer);
-            if (this.toastTimer) { this.toastTimer.remove(); this.toastTimer = null; }
-            this.toastContainer.setY(80).setAlpha(0).setScale(0.9);
-            this.tweens.add({ targets: this.toastContainer, alpha: 1, y: 120, scale: 1, duration: 350, ease: 'Back.easeOut' });
-            this.toastTimer = this.time.delayedCall(2500, () => {
-                this.tweens.add({ targets: this.toastContainer, alpha: 0, y: 80, scale: 0.9, duration: 250, ease: 'Sine.easeIn' });
-            });
-        }
-
-        _updateJoystick(pointer) {
-            const dx = pointer.x - this.joyCenter.x;
-            const dy = pointer.y - this.joyCenter.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const maxDist = this.joyRadius - 20;
-            const clampDist = Math.min(dist, maxDist);
-            const angle = Math.atan2(dy, dx);
-            const tx = this.joyCenter.x + Math.cos(angle) * clampDist;
-            const ty = this.joyCenter.y + Math.sin(angle) * clampDist;
-            this.joyThumb.setPosition(tx, ty);
-            this.joyThumbGlow.setPosition(tx, ty);
-            // Analog: normalize to -1..1 range with deadzone
-            const deadzone = 20;
-            const norm = Math.max(0, dist - deadzone) / (maxDist - deadzone);
-            const clamped = Math.min(norm, 1);
-            this.virtualInput.x = clamped > 0 ? Math.cos(angle) * clamped : 0;
-            this.virtualInput.y = clamped > 0 ? Math.sin(angle) * clamped : 0;
-        }
-
-        pointInPolygon(px, py, polygon, rw, rh) {
-            let inside = false;
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const xi = polygon[i].x * rw, yi = polygon[i].y * rh;
-                const xj = polygon[j].x * rw, yj = polygon[j].y * rh;
-                const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
-        }
-
-        pointToLineDistance(px, py, x1, y1, x2, y2) {
-            const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
-            const dot = A * C + B * D, lenSq = C * C + D * D;
-            let t = lenSq !== 0 ? dot / lenSq : -1;
-            t = Math.max(0, Math.min(1, t));
-            const xx = x1 + t * C, yy = y1 + t * D;
-            return Math.sqrt((px - xx) * (px - xx) + (py - yy) * (py - yy));
-        }
-
-        update() {
-            const moveSpeed = 250;
-            const rw = this.roomWidth;
-            const rh = this.roomHeight;
-
-            if (Phaser.Input.Keyboard.JustDown(this.eKey)) { this.handleInteraction(); }
-            if (this.interactionCooldown > 0) { this.interactionCooldown -= this.game.loop.delta; }
-
-            let vx = 0, vy = 0;
-            // Keyboard input
-            const kbLeft = this.wasd.left.isDown || this.cursors.left.isDown;
-            const kbRight = this.wasd.right.isDown || this.cursors.right.isDown;
-            const kbUp = this.wasd.up.isDown || this.cursors.up.isDown;
-            const kbDown = this.wasd.down.isDown || this.cursors.down.isDown;
-            if (kbLeft) vx = -moveSpeed; else if (kbRight) vx = moveSpeed;
-            if (kbUp) vy = -moveSpeed; else if (kbDown) vy = moveSpeed;
-            // Analog joystick input (overrides keyboard if active)
-            if (this.joyActive && (Math.abs(this.virtualInput.x) > 0.01 || Math.abs(this.virtualInput.y) > 0.01)) {
-                vx = this.virtualInput.x * moveSpeed;
-                vy = this.virtualInput.y * moveSpeed;
-            }
-            const usingInput = kbLeft || kbRight || kbUp || kbDown || this.joyActive;
-            if (usingInput) { this.targetX = null; this.targetY = null; }
-
-            if (this.targetX !== null && this.targetY !== null) {
-                const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
-                if (distance < 10) { this.targetX = null; this.targetY = null; }
-                else { const angle = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x); vx = Math.cos(angle) * moveSpeed; vy = Math.sin(angle) * moveSpeed; }
-            }
-
-            const dt = this.game.loop.delta / 1000;
-            const nextX = this.player.x + vx * dt;
-            const nextY = this.player.y + vy * dt;
-            const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh);
-            const inOttoman = this.pointInPolygon(nextX, nextY, this.ottomanPolygon, rw, rh);
-
-            if (inOuter && !inOttoman) { this.player.body.setVelocity(vx, vy); }
-            else {
-                const xOk = this.pointInPolygon(this.player.x + vx * dt, this.player.y, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x + vx * dt, this.player.y, this.ottomanPolygon, rw, rh);
-                const yOk = this.pointInPolygon(this.player.x, this.player.y + vy * dt, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x, this.player.y + vy * dt, this.ottomanPolygon, rw, rh);
-                if (xOk && !yOk) this.player.body.setVelocity(vx, 0);
-                else if (yOk && !xOk) this.player.body.setVelocity(0, vy);
-                else this.player.body.setVelocity(0, 0);
-            }
-
-            if (!usingInput && this.targetX === null) { this.player.body.setVelocity(0, 0); }
-
-            if (!this.isTransitioning) {
-                const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x * rw, this.greenLineStart.y * rh, this.greenLineEnd.x * rw, this.greenLineEnd.y * rh);
-                if (dist < 30) {
-                    this.isTransitioning = true;
-                    this.player.body.setVelocity(0, 0);
-                    // Clean up visuals before transitioning (audio + activeItems persist globally)
-                    this.interactiveItems.forEach(item => {
-                        if (item.state === 'active') {
-                            if (item.actionSprite) item.actionSprite.setVisible(false);
-                            if (item.lineSprite) item.lineSprite.setVisible(false);
-                            // Hide TV game sprites
-                            if (item.tvSprites) Object.values(item.tvSprites).forEach(s => s.setVisible(false));
-                            item._glowVisible = false;
-                        }
-                    });
-                    this.scene.transition({
-                        target: 'StudioScene',
-                        data: { fromLiving: true },
-                        duration: 800,
-                        moveBelow: true,
-                        onUpdate: (progress) => { this.cameras.main.setAlpha(1 - progress); }
-                    });
-                }
-            }
-
-            // --- LOCKED DOOR: proximity-based show/hide ---
-            const inDoorZone = this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh);
-            if (inDoorZone && !this.lockedDoorShowing) {
-                this.lockedDoorShowing = true;
-                this.tweens.killTweensOf(this.lockedDoorContainer);
-                this.lockedDoorContainer.setScale(0.8);
-                this.tweens.add({ targets: this.lockedDoorContainer, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' });
-            } else if (!inDoorZone && this.lockedDoorShowing) {
-                this.lockedDoorShowing = false;
-                this.tweens.killTweensOf(this.lockedDoorContainer);
-                this.tweens.add({ targets: this.lockedDoorContainer, alpha: 0, scale: 0.8, duration: 200, ease: 'Sine.easeIn' });
-            }
-
-            const s = this.playerAnimSuffix;
-            const speed = this.player.body.velocity.length();
-            if (speed > 10) {
-                const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
-                const deg = Phaser.Math.RadToDeg(angle);
-                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right' + s, true); this.playerDirection = 'right'; }
-                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down' + s, true); this.playerDirection = 'down'; }
-                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left' + s, true); this.playerDirection = 'left'; }
-                else { this.player.anims.play('walk-up' + s, true); this.playerDirection = 'up'; }
-            } else { this.player.anims.play('idle-' + this.playerDirection + s, true); }
-
-            // --- INTERACTION PROXIMITY CHECK (skipped during cooldown) ---
-            let playerInCircle = false;
-            if (this.interactionCooldown <= 0) {
-                this.interactiveItems.forEach(item => {
-                    const cx = item.proximityCenter.x * rw, cy = item.proximityCenter.y * rh;
-                    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
-                    const inRange = dist < item.proximityRadius;
-
-                    // Light switch: track proximity for [E] prompt (works day and night now)
-                    if (item.isLightSwitch) {
-                        if (inRange) {
-                            if (item.state === 'idle') item.state = 'near';
-                            playerInCircle = true;
-                        } else {
-                            if (item.state === 'near') item.state = 'idle';
-                        }
-                        return;
-                    }
-
-                    if (item.state === 'active') {
-                        if (inRange) {
-                            if (!item._glowVisible) {
-                                item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
-                                this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
-                                item._glowVisible = true;
-                            }
-                            playerInCircle = true;
-                        } else {
-                            if (item._glowVisible) {
-                                this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } });
-                                item._glowVisible = false;
-                            }
-                        }
-                        return;
-                    }
-
-                    if (inRange) {
-                        if (item.state !== 'near') {
-                            item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
-                            this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
-                            item.state = 'near';
-                        }
-                        playerInCircle = true;
-                    } else if (item.state === 'near') {
-                        this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } });
-                        item.state = 'idle';
-                    }
-                });
-            }
-
-            // [E] prompt — show context label when near special switches
-            if (playerInCircle) {
-                this.ePrompt.setPosition(this.player.x, this.player.y - 140);
-                const nearLight = this.interactiveItems.find(i => i.isLightSwitch &&
-                    Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
-                const nearTV = this.interactiveItems.find(i => i.isTVSwitch &&
-                    Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
-                if (nearLight) {
-                    if (window.timeOfDay === 'night') {
-                        const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
-                        this.ePrompt.setText('[E] Lights: ' + modeLabel);
-                    } else {
-                        this.ePrompt.setText('[E] Lights');
-                    }
-                } else if (nearTV) {
-                    const gameLabel = window.tvGameMode === 'off' ? 'OFF' : window.tvGameMode.replace('_', ' ').toUpperCase();
-                    this.ePrompt.setText('[E] TV: ' + gameLabel);
-                } else {
-                    this.ePrompt.setText('[E]');
-                }
-                this.ePrompt.setVisible(true);
-            } else {
-                this.ePrompt.setText('[E]');
-                this.ePrompt.setVisible(false);
-            }
-        }
-    }
-
-    // --- СТУДИЯ ---
-    class StudioScene extends Phaser.Scene {
-        constructor() { super('StudioScene'); }
-
-        preload() {
-            const folder = getStyleFolder();
-
-            // --- DAY / NIGHT room backgrounds ---
-            this.load.image('room2_day', folder + 'room2_day.png');
-            this.load.image('room2_night', folder + 'room2_night.png');
-
-            // --- INTERACTION OVERLAYS for Room 2 (Studio) ---
-            this.load.image('line_audio_interface', '/assets/interaction/action_audio_interface.png');
-            this.load.image('line_rick_owens', '/assets/interaction/action_rick_owens.png');
-
-            // --- LIGHT VARIANTS for Room 2 ---
-            this.load.image('room2_blue', folder + 'room2_blue.png');
-            this.load.image('room2_pink', folder + 'room2_pink.png');
-            this.load.image('room2_green', folder + 'room2_green.png');
-
-            // --- AUDIO for interactions (load all so they persist across scenes) ---
-            this.load.audio('sound_guitar', '/assets/sound/sound_guitar.mp3');
-            this.load.audio('sound_audio_interface', '/assets/sound/sound_audio_interface.mp3');
-        }
-
-        create() {
-            const screenWidth = this.scale.width;
-            const screenHeight = this.scale.height;
-
-            // Determine which room2 texture to use based on time of day & light mode
-            let room2Key;
-            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') {
-                room2Key = 'room2_' + window.roomLightMode;
-            } else {
-                room2Key = window.timeOfDay === 'night' ? 'room2_night' : 'room2_day';
-            }
-            const bg = this.add.image(0, 0, room2Key).setOrigin(0, 0);
-            this.bg = bg; // store reference for texture swapping
-            const scaleX = screenWidth / bg.width;
-            const scaleY = screenHeight / bg.height;
-            const scale = Math.max(scaleX, scaleY);
-            bg.setScale(scale);
-
-            const roomWidth = bg.width * scale;
-            const roomHeight = bg.height * scale;
-
-            this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
-
-            // Track current animation suffix for person sprite swapping
-            this.playerAnimSuffix = '';
-            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') {
-                this.playerAnimSuffix = '_' + window.roomLightMode;
-            }
-
-            const personKey = (window.timeOfDay === 'night' && window.roomLightMode !== 'default')
-                ? PERSON_TEXTURES[window.roomLightMode] : 'playerSprite';
-
-            const fromLiving = this.scene.settings.data?.fromLiving;
-            if (fromLiving) { this.player = this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.70, personKey); }
-            else { this.player = this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, personKey); }
-
-            this.player.setScale(0.7);
-            this.player.setOrigin(0.5, 1);
-            this.player.setDepth(15); // above TV/interaction overlays (depth 10), below UI (depth 150+)
-            this.player.setCollideWorldBounds(true);
-            this.player.body.setSize(20, 10);
-            this.player.body.setOffset(22, 54);
-            this.player.anims.play('idle-down' + this.playerAnimSuffix);
-            this.playerDirection = 'down';
-
-            this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
-            this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
-            this.cameras.main.setZoom(1.6);
-            this.cameras.main.setFollowOffset(0, 300); // camera looks BELOW player → player appears at top ~20%
-
-            this.targetX = null;
-            this.targetY = null;
-            this.isTransitioning = false;
-
-            this.cursors = this.input.keyboard.createCursorKeys();
-            this.wasd = this.input.keyboard.addKeys({
-                up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S,
-                left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D
-            });
-
-            // --- MOBILE VIRTUAL JOYSTICK (bigger, more visible, analog) ---
-            this.virtualInput = { x: 0, y: 0 };
-            const joyX = 350, joyY = screenHeight - 500, joyR = 100;
-            const joyBase2 = this.add.graphics().setScrollFactor(0).setDepth(190);
-            joyBase2.fillStyle(0x000000, 0.45);
-            joyBase2.fillCircle(joyX, joyY, joyR);
-            joyBase2.lineStyle(3, 0xffffff, 0.3);
-            joyBase2.strokeCircle(joyX, joyY, joyR);
-            this.joyThumb = this.add.circle(joyX, joyY, 54, 0xffffff, 0.4).setScrollFactor(0).setDepth(191);
-            this.joyThumbGlow = this.add.circle(joyX, joyY, 54, 0xffffff, 0).setScrollFactor(0).setDepth(191);
-            const joyHit2 = this.add.circle(joyX, joyY, joyR + 40, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
-            this.joyActive = false;
-            this.joyPointerId = -1;
-            this.joyCenter = { x: joyX, y: joyY };
-            this.joyRadius = joyR;
-
-            joyHit2.on('pointerdown', (pointer) => {
-                this.joyActive = true;
-                this.joyPointerId = pointer.id;
-                this.joyThumbGlow.setFillStyle(0xffffff, 0.2);
-                this._updateJoystick(pointer);
-            });
-            this.input.on('pointermove', (pointer) => {
-                if (this.joyActive && pointer.id === this.joyPointerId) this._updateJoystick(pointer);
-            });
-            this.input.on('pointerup', (pointer) => {
-                if (this.joyActive && pointer.id === this.joyPointerId) {
-                    this.joyActive = false;
-                    this.joyPointerId = -1;
-                    this.joyThumb.setPosition(joyX, joyY);
-                    this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0);
-                    this.virtualInput = { x: 0, y: 0 };
-                }
-            });
-
-            // --- MOBILE ACTION BUTTON (E) — bigger, brighter, always visible ---
-            const actX = screenWidth - 300, actY = screenHeight - 450;
-            const actBtnGfx2 = this.add.graphics().setScrollFactor(0).setDepth(190);
-            actBtnGfx2.fillStyle(0xffffff, 0.2);
-            actBtnGfx2.fillCircle(actX, actY, 68);
-            actBtnGfx2.lineStyle(3, 0xffffff, 0.35);
-            actBtnGfx2.strokeCircle(actX, actY, 68);
-            this.mobileActionLabel = this.add.text(actX, actY, 'E', {
-                fontSize: '56px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.8);
-            const actHit2 = this.add.circle(actX, actY, 80, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
-            actHit2.on('pointerdown', () => {
-                this.handleInteraction();
-                this.tweens.add({ targets: this.mobileActionLabel, scale: 0.85, duration: 80, yoyo: true });
-            });
-
+            actHit.on('pointerdown', () => { this.handleInteraction(); this.tweens.add({ targets: this.mobileActionLabel, scale: 0.85, duration: 80, yoyo: true }); });
             this.input.on('pointerdown', (pointer) => {
                 if (this.isTransitioning) return;
                 const dJoy = Phaser.Math.Distance.Between(pointer.x, pointer.y, joyX, joyY);
@@ -1095,40 +227,316 @@
             });
 
             this.walkablePolygon = [
-                { x: 0.08, y: 0.72 }, { x: 0.26, y: 0.625 }, { x: 0.35, y: 0.68 },
-                { x: 0.36, y: 0.675 }, { x: 0.32, y: 0.63 }, { x: 0.38, y: 0.60 },
-                { x: 0.40, y: 0.66 }, { x: 0.47, y: 0.70 }, { x: 0.53, y: 0.66 },
-                { x: 0.56, y: 0.65 }, { x: 0.51, y: 0.61 }, { x: 0.53, y: 0.60 },
-                { x: 0.54, y: 0.54 }, { x: 0.59, y: 0.51 }, { x: 0.645, y: 0.55 },
-                { x: 0.645, y: 0.60 }, { x: 0.73, y: 0.66 }, { x: 0.27, y: 0.84 },
+                { x: 0.21, y: 0.60 }, { x: 0.38, y: 0.51 }, { x: 0.42, y: 0.50 }, { x: 0.475, y: 0.505 }, { x: 0.67, y: 0.60 },
+                { x: 0.74, y: 0.57 }, { x: 0.90, y: 0.65 }, { x: 0.50, y: 0.80 },
+                { x: 0.485, y: 0.70 }, { x: 0.46, y: 0.695 }, { x: 0.43, y: 0.71 },
             ];
-            this.chairPolygon = [
-                { x: 0.40, y: 0.66 }, { x: 0.47, y: 0.60 },
-                { x: 0.54, y: 0.66 }, { x: 0.47, y: 0.70 },
-            ];
+            this.ottomanPolygon = [{ x: 0.34, y: 0.60 }, { x: 0.43, y: 0.54 }, { x: 0.52, y: 0.59 }, { x: 0.43, y: 0.65 }];
+            this.roomWidth = roomWidth; this.roomHeight = roomHeight;
+            this.greenLineStart = { x: 0.50, y: 0.80 }; this.greenLineEnd = { x: 0.90, y: 0.65 };
+            this.lockedDoorPoly = [{ x: 0.74, y: 0.48 }, { x: 0.86, y: 0.52 }, { x: 0.86, y: 0.62 }, { x: 0.74, y: 0.58 }];
 
-            this.roomWidth = roomWidth;
-            this.roomHeight = roomHeight;
-            this.greenLineStart = { x: 0.26, y: 0.85 };
-            this.greenLineEnd = { x: 0.72, y: 0.67 };
-
-            this.lockedDoorPoly = [
-                { x: 0.04, y: 0.58 }, { x: 0.14, y: 0.52 },
-                { x: 0.14, y: 0.62 }, { x: 0.04, y: 0.68 },
-            ];
             // --- STYLED LOCKED DOOR MESSAGE ---
+            this.lockedDoorContainer = this.add.container(roomWidth * 0.80, roomHeight * 0.42).setDepth(100).setAlpha(0);
+            const msgBg = this.add.graphics();
+            const msgW = 320, msgH = 60, msgR = 16;
+            msgBg.fillStyle(0x000000, 0.75); msgBg.fillRoundedRect(-msgW/2, -msgH/2, msgW, msgH, msgR);
+            msgBg.lineStyle(1, 0xffffff, 0.15); msgBg.strokeRoundedRect(-msgW/2, -msgH/2, msgW, msgH, msgR);
+            const msgText = this.add.text(0, 0, 'Еще не время...', { fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+            this.lockedDoorContainer.add([msgBg, msgText]);
+            this.lockedDoorShowing = false;
+
+            // === INTERACTION SYSTEM ===
+            this.interactiveItems = [
+                { id: 'guitar', proximityCenter: { x: 0.25, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_guitar', actionOverlay: null, soundKey: 'sound_guitar' },
+                { id: 'ps_controller', proximityCenter: { x: 0.65, y: 0.60 }, proximityRadius: 100, lineOverlay: 'line_ps_controller', actionOverlay: null, soundKey: null, isTVSwitch: true },
+                { id: 'lights', proximityCenter: { x: 0.42, y: 0.68 }, proximityRadius: 80, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
+            ];
+            this.interactiveItems.forEach(item => {
+                if (item.isLightSwitch) { item.lineSprite = null; item.actionSprite = null; item.state = (window.roomLightMode !== 'default') ? 'active' : 'idle'; item._glowVisible = false; return; }
+                if (item.isTVSwitch) {
+                    item.lineSprite = this.textures.exists(item.lineOverlay) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
+                    item.actionSprite = null;
+                    item.tvSprites = {};
+                    Object.keys(TV_GAME_TEXTURES).forEach(mode => { if (this.textures.exists(TV_GAME_TEXTURES[mode])) { item.tvSprites[mode] = this.add.image(0, 0, TV_GAME_TEXTURES[mode]).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5); } });
+                    if (window.tvGameMode !== 'off') { item.state = 'active'; item._glowVisible = false; if (item.tvSprites[window.tvGameMode]) item.tvSprites[window.tvGameMode].setVisible(true); }
+                    else { item.state = 'idle'; item._glowVisible = false; }
+                    return;
+                }
+                item.lineSprite = (item.lineOverlay && this.textures.exists(item.lineOverlay)) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
+                item.actionSprite = (item.actionOverlay && this.textures.exists(item.actionOverlay)) ? this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
+                if (window.activeItems[item.id]) { item.state = 'active'; item._glowVisible = false; if (item.actionSprite) item.actionSprite.setVisible(true); }
+                else { item.state = 'idle'; }
+            });
+            this.interactionCooldown = 0;
+            this.ePrompt = this.add.text(0, 0, '[E]', { fontSize: '36px', fontFamily: 'Courier New', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 12, y: 6 }, fontStyle: 'bold' }).setOrigin(0.5).setDepth(150).setVisible(false);
+            this.tweens.add({ targets: this.ePrompt, alpha: { from: 0.6, to: 1 }, scaleX: { from: 0.95, to: 1.05 }, scaleY: { from: 0.95, to: 1.05 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+
+            // --- TOAST ---
+            this.toastContainer = this.add.container(screenWidth / 2, 120).setScrollFactor(0).setDepth(300).setAlpha(0);
+            const toastW = 400, toastH = 56, toastR = 14;
+            const toastBgGfx = this.add.graphics();
+            toastBgGfx.fillStyle(0x0a0a0f, 0.8); toastBgGfx.fillRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
+            toastBgGfx.lineStyle(1, 0xffffff, 0.12); toastBgGfx.strokeRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
+            this.toastText = this.add.text(0, 0, '', { fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+            this.toastContainer.add([toastBgGfx, this.toastText]);
+            this.toastTimer = null;
+            this.player.setCollideWorldBounds(false);
+
+            const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000).setScrollFactor(0).setDepth(9999);
+            this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
+
+            if (window.timeOfDay === 'day' && !window.nightTriggered) {
+                this.time.delayedCall(10000, () => {
+                    if (window.nightTriggered) return;
+                    window.timeOfDay = 'night'; window.nightTriggered = true;
+                    if (!this.scene.isActive()) return;
+                    const nightBg = this.add.image(0, 0, 'room1_night').setOrigin(0, 0).setScale(scale).setAlpha(0).setDepth(this.bg.depth);
+                    this.tweens.add({ targets: nightBg, alpha: 1, duration: 2000, onComplete: () => { this.bg.setTexture('room1_night'); nightBg.destroy(); } });
+                });
+            }
+        }
+        updatePlayerSprite() {
+            const suffix = (window.timeOfDay === 'night' && window.roomLightMode !== 'default') ? '_' + window.roomLightMode : '';
+            if (this.playerAnimSuffix === suffix) return;
+            this.playerAnimSuffix = suffix;
+            const animType = this.player.body.velocity.length() > 10 ? 'walk-' : 'idle-';
+            this.player.anims.play(animType + this.playerDirection + suffix, true);
+        }
+        handleInteraction() {
+            const rw = this.roomWidth, rh = this.roomHeight;
+            let nearestItem = null, nearestDist = Infinity;
+            this.interactiveItems.forEach(item => {
+                const cx = item.proximityCenter.x * rw, cy = item.proximityCenter.y * rh;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+                if (dist < item.proximityRadius && dist < nearestDist) { nearestDist = dist; nearestItem = item; }
+            });
+            if (!nearestItem) return;
+            if (nearestItem.isLightSwitch) {
+                if (window.timeOfDay !== 'night') { this.showToast('Смысл включать свет днём?'); this.interactionCooldown = 500; return; }
+                const nextIdx = (LIGHT_MODES.indexOf(window.roomLightMode) + 1) % LIGHT_MODES.length;
+                window.roomLightMode = LIGHT_MODES[nextIdx];
+                this.bg.setTexture(window.roomLightMode === 'default' ? 'room1_night' : ('room1_' + window.roomLightMode));
+                this.updatePlayerSprite();
+                nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
+                this.interactionCooldown = 500; return;
+            }
+            if (nearestItem.isTVSwitch) {
+                if (window.tvGameMode !== 'off' && nearestItem.tvSprites[window.tvGameMode]) nearestItem.tvSprites[window.tvGameMode].setVisible(false);
+                const nextIdx = (TV_GAMES.indexOf(window.tvGameMode) + 1) % TV_GAMES.length;
+                window.tvGameMode = TV_GAMES[nextIdx];
+                if (window.tvGameMode !== 'off' && nearestItem.tvSprites[window.tvGameMode]) nearestItem.tvSprites[window.tvGameMode].setVisible(true);
+                nearestItem.state = (window.tvGameMode !== 'off') ? 'active' : 'idle';
+                if (window.tvGameMode !== 'off') window.activeItems[nearestItem.id] = true; else delete window.activeItems[nearestItem.id];
+                this.interactionCooldown = 500; return;
+            }
+            if (nearestItem.state === 'active') {
+                if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(false);
+                if (nearestItem.lineSprite) nearestItem.lineSprite.setVisible(false);
+                nearestItem._glowVisible = false;
+                try { if (window.activeAudio && window.activeAudio.itemId === nearestItem.id && window.activeAudio.sound) { window.activeAudio.sound.stop(); window.activeAudio.sound.destroy(); window.activeAudio = null; } } catch(e) { window.activeAudio = null; }
+                delete window.activeItems[nearestItem.id]; nearestItem.state = 'idle'; this.interactionCooldown = 500; return;
+            }
+            if (nearestItem.state === 'near') {
+                if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(true);
+                if (nearestItem.soundKey) {
+                    try {
+                        if (window.activeAudio && window.activeAudio.sound) { window.activeAudio.sound.stop(); window.activeAudio.sound.destroy(); }
+                        if (this.cache.audio.exists(nearestItem.soundKey)) {
+                            const snd = this.sound.add(nearestItem.soundKey, { loop: true, volume: 0.5 }); snd.play();
+                            window.activeAudio = { itemId: nearestItem.id, soundKey: nearestItem.soundKey, sound: snd };
+                        } else { console.warn('Audio not loaded:', nearestItem.soundKey); }
+                    } catch(e) { console.warn('Sound error:', e); }
+                }
+                window.activeItems[nearestItem.id] = true; nearestItem.state = 'active'; nearestItem._glowVisible = true;
+            }
+        }
+        showToast(message) {
+            this.toastText.setText(message);
+            this.tweens.killTweensOf(this.toastContainer);
+            if (this.toastTimer) { this.toastTimer.remove(); this.toastTimer = null; }
+            this.toastContainer.setY(80).setAlpha(0).setScale(0.9);
+            this.tweens.add({ targets: this.toastContainer, alpha: 1, y: 120, scale: 1, duration: 350, ease: 'Back.easeOut' });
+            this.toastTimer = this.time.delayedCall(2500, () => { this.tweens.add({ targets: this.toastContainer, alpha: 0, y: 80, scale: 0.9, duration: 250, ease: 'Sine.easeIn' }); });
+        }
+        _updateJoystick(pointer) {
+            const dx = pointer.x - this.joyCenter.x, dy = pointer.y - this.joyCenter.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxDist = this.joyRadius - 20, clampDist = Math.min(dist, maxDist);
+            const angle = Math.atan2(dy, dx);
+            this.joyThumb.setPosition(this.joyCenter.x + Math.cos(angle) * clampDist, this.joyCenter.y + Math.sin(angle) * clampDist);
+            this.joyThumbGlow.setPosition(this.joyThumb.x, this.joyThumb.y);
+            const deadzone = 20, norm = Math.max(0, dist - deadzone) / (maxDist - deadzone), clamped = Math.min(norm, 1);
+            this.virtualInput.x = clamped > 0 ? Math.cos(angle) * clamped : 0;
+            this.virtualInput.y = clamped > 0 ? Math.sin(angle) * clamped : 0;
+        }
+        pointInPolygon(px, py, polygon, rw, rh) {
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i].x * rw, yi = polygon[i].y * rh, xj = polygon[j].x * rw, yj = polygon[j].y * rh;
+                if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside;
+            }
+            return inside;
+        }
+        pointToLineDistance(px, py, x1, y1, x2, y2) {
+            const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+            let t = Math.max(0, Math.min(1, (C*C+D*D) !== 0 ? (A*C+B*D)/(C*C+D*D) : -1));
+            const xx = x1 + t * C, yy = y1 + t * D;
+            return Math.sqrt((px-xx)*(px-xx) + (py-yy)*(py-yy));
+        }
+        update() {
+            const moveSpeed = 250, rw = this.roomWidth, rh = this.roomHeight;
+            if (Phaser.Input.Keyboard.JustDown(this.eKey)) this.handleInteraction();
+            if (this.interactionCooldown > 0) this.interactionCooldown -= this.game.loop.delta;
+            let vx = 0, vy = 0;
+            const kbL = this.wasd.left.isDown || this.cursors.left.isDown, kbR = this.wasd.right.isDown || this.cursors.right.isDown;
+            const kbU = this.wasd.up.isDown || this.cursors.up.isDown, kbD = this.wasd.down.isDown || this.cursors.down.isDown;
+            if (kbL) vx = -moveSpeed; else if (kbR) vx = moveSpeed;
+            if (kbU) vy = -moveSpeed; else if (kbD) vy = moveSpeed;
+            if (this.joyActive && (Math.abs(this.virtualInput.x) > 0.01 || Math.abs(this.virtualInput.y) > 0.01)) { vx = this.virtualInput.x * moveSpeed; vy = this.virtualInput.y * moveSpeed; }
+            const usingInput = kbL || kbR || kbU || kbD || this.joyActive;
+            if (usingInput) { this.targetX = null; this.targetY = null; }
+            if (this.targetX !== null && this.targetY !== null) {
+                const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
+                if (distance < 10) { this.targetX = null; this.targetY = null; }
+                else { const a = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x); vx = Math.cos(a) * moveSpeed; vy = Math.sin(a) * moveSpeed; }
+            }
+            const dt = this.game.loop.delta / 1000, nextX = this.player.x + vx * dt, nextY = this.player.y + vy * dt;
+            const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh), inOttoman = this.pointInPolygon(nextX, nextY, this.ottomanPolygon, rw, rh);
+            if (inOuter && !inOttoman) this.player.body.setVelocity(vx, vy);
+            else {
+                const xOk = this.pointInPolygon(this.player.x + vx*dt, this.player.y, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x + vx*dt, this.player.y, this.ottomanPolygon, rw, rh);
+                const yOk = this.pointInPolygon(this.player.x, this.player.y + vy*dt, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x, this.player.y + vy*dt, this.ottomanPolygon, rw, rh);
+                if (xOk && !yOk) this.player.body.setVelocity(vx, 0); else if (yOk && !xOk) this.player.body.setVelocity(0, vy); else this.player.body.setVelocity(0, 0);
+            }
+            if (!usingInput && this.targetX === null) this.player.body.setVelocity(0, 0);
+            if (!this.isTransitioning) {
+                const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x*rw, this.greenLineStart.y*rh, this.greenLineEnd.x*rw, this.greenLineEnd.y*rh);
+                if (dist < 30) {
+                    this.isTransitioning = true; this.player.body.setVelocity(0, 0);
+                    this.interactiveItems.forEach(item => { if (item.state === 'active') { if (item.actionSprite) item.actionSprite.setVisible(false); if (item.lineSprite) item.lineSprite.setVisible(false); if (item.tvSprites) Object.values(item.tvSprites).forEach(s => s.setVisible(false)); item._glowVisible = false; } });
+                    this.scene.transition({ target: 'StudioScene', data: { fromLiving: true }, duration: 800, moveBelow: true, onUpdate: (p) => { this.cameras.main.setAlpha(1-p); } });
+                }
+            }
+            const inDoorZone = this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh);
+            if (inDoorZone && !this.lockedDoorShowing) { this.lockedDoorShowing = true; this.tweens.killTweensOf(this.lockedDoorContainer); this.lockedDoorContainer.setScale(0.8); this.tweens.add({ targets: this.lockedDoorContainer, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' }); }
+            else if (!inDoorZone && this.lockedDoorShowing) { this.lockedDoorShowing = false; this.tweens.killTweensOf(this.lockedDoorContainer); this.tweens.add({ targets: this.lockedDoorContainer, alpha: 0, scale: 0.8, duration: 200, ease: 'Sine.easeIn' }); }
+            const s = this.playerAnimSuffix, speed = this.player.body.velocity.length();
+            if (speed > 10) { const deg = Phaser.Math.RadToDeg(Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x)); if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right'+s, true); this.playerDirection='right'; } else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down'+s, true); this.playerDirection='down'; } else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left'+s, true); this.playerDirection='left'; } else { this.player.anims.play('walk-up'+s, true); this.playerDirection='up'; } }
+            else { this.player.anims.play('idle-'+this.playerDirection+s, true); }
+            // --- INTERACTION PROXIMITY ---
+            let playerInCircle = false;
+            if (this.interactionCooldown <= 0) {
+                this.interactiveItems.forEach(item => {
+                    const cx = item.proximityCenter.x*rw, cy = item.proximityCenter.y*rh;
+                    const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+                    const inRange = dist < item.proximityRadius;
+                    if (item.isLightSwitch) { if (inRange) { if (item.state==='idle') item.state='near'; playerInCircle=true; } else { if (item.state==='near') item.state='idle'; } return; }
+                    if (item.state === 'active') { if (inRange) { if (!item._glowVisible && item.lineSprite) { item.lineSprite.setVisible(true).setAlpha(0); this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 }); item._glowVisible=true; } playerInCircle=true; } else { if (item._glowVisible && item.lineSprite) { this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } }); item._glowVisible=false; } } return; }
+                    if (inRange) { if (item.state !== 'near') { if (item.lineSprite) { item.lineSprite.setVisible(true).setAlpha(0); this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 }); } item.state='near'; } playerInCircle=true; }
+                    else if (item.state === 'near') { if (item.lineSprite) { this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } }); } item.state='idle'; }
+                });
+            }
+            if (playerInCircle) {
+                this.ePrompt.setPosition(this.player.x, this.player.y - 140);
+                const nearLight = this.interactiveItems.find(i => i.isLightSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
+                const nearTV = this.interactiveItems.find(i => i.isTVSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
+                if (nearLight) { this.ePrompt.setText(window.timeOfDay==='night' ? '[E] Lights: '+(window.roomLightMode==='default'?'OFF':window.roomLightMode.toUpperCase()) : '[E] Lights'); }
+                else if (nearTV) { this.ePrompt.setText('[E] TV: '+(window.tvGameMode==='off'?'OFF':window.tvGameMode.replace('_',' ').toUpperCase())); }
+                else { this.ePrompt.setText('[E]'); }
+                this.ePrompt.setVisible(true);
+            } else { this.ePrompt.setText('[E]'); this.ePrompt.setVisible(false); }
+        }
+    }
+
+    // --- СТУДИЯ ---
+    class StudioScene extends Phaser.Scene {
+        constructor() { super('StudioScene'); }
+        preload() {
+            const folder = getStyleFolder();
+            this.load.image('room2_day', folder + 'room2_day.png'); this.load.image('room2_night', folder + 'room2_night.png');
+            this.load.image('line_audio_interface', 'assets/interaction/action_audio_interface.png');
+            this.load.image('line_rick_owens', 'assets/interaction/action_rick_owens.png');
+            this.load.image('room2_blue', folder + 'room2_blue.png'); this.load.image('room2_pink', folder + 'room2_pink.png'); this.load.image('room2_green', folder + 'room2_green.png');
+            this.load.audio('sound_guitar', 'assets/sound/sound_guitar.mp3'); this.load.audio('sound_audio_interface', 'assets/sound/sound_audio_interface.mp3');
+            this.load.on('loaderror', (file) => { console.error('ОШИБКА загрузки (Studio): ' + file.key, file.url); });
+        }
+        create() {
+            const screenWidth = this.scale.width, screenHeight = this.scale.height;
+            let room2Key;
+            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') room2Key = 'room2_' + window.roomLightMode;
+            else room2Key = window.timeOfDay === 'night' ? 'room2_night' : 'room2_day';
+            const bg = this.add.image(0, 0, room2Key).setOrigin(0, 0);
+            this.bg = bg;
+            const scaleX = screenWidth / bg.width, scaleY = screenHeight / bg.height, scale = Math.max(scaleX, scaleY);
+            bg.setScale(scale);
+            const roomWidth = bg.width * scale, roomHeight = bg.height * scale;
+            this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
+            this.bgScale = scale;
+            this.playerAnimSuffix = '';
+            if (window.timeOfDay === 'night' && window.roomLightMode !== 'default') this.playerAnimSuffix = '_' + window.roomLightMode;
+            const personKey = (window.timeOfDay === 'night' && window.roomLightMode !== 'default') ? PERSON_TEXTURES[window.roomLightMode] : 'playerSprite';
+            const fromLiving = this.scene.settings.data?.fromLiving;
+            this.player = fromLiving ? this.physics.add.sprite(roomWidth * 0.50, roomHeight * 0.70, personKey) : this.physics.add.sprite(roomWidth * 0.40, roomHeight * 0.80, personKey);
+            this.player.setScale(0.7).setOrigin(0.5, 1).setDepth(15);
+            this.player.setCollideWorldBounds(true);
+            this.player.body.setSize(20, 10).setOffset(22, 54);
+            this.player.anims.play('idle-down' + this.playerAnimSuffix);
+            this.playerDirection = 'down';
+            this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+            this.cameras.main.setBounds(0, 0, roomWidth, roomHeight);
+            this.cameras.main.setZoom(1.6);
+            this.cameras.main.setFollowOffset(0, 300);
+            this.targetX = null; this.targetY = null; this.isTransitioning = false;
+            this.cursors = this.input.keyboard.createCursorKeys();
+            this.wasd = this.input.keyboard.addKeys({ up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S, left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D });
+
+            // --- MOBILE VIRTUAL JOYSTICK ---
+            this.virtualInput = { x: 0, y: 0 };
+            const joyX = 350, joyY = screenHeight - 500, joyR = 100;
+            const joyBase2 = this.add.graphics().setScrollFactor(0).setDepth(190);
+            joyBase2.fillStyle(0x000000, 0.45); joyBase2.fillCircle(joyX, joyY, joyR);
+            joyBase2.lineStyle(3, 0xffffff, 0.3); joyBase2.strokeCircle(joyX, joyY, joyR);
+            this.joyThumb = this.add.circle(joyX, joyY, 54, 0xffffff, 0.4).setScrollFactor(0).setDepth(191);
+            this.joyThumbGlow = this.add.circle(joyX, joyY, 54, 0xffffff, 0).setScrollFactor(0).setDepth(191);
+            const joyHit2 = this.add.circle(joyX, joyY, joyR + 40, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+            this.joyActive = false; this.joyPointerId = -1;
+            this.joyCenter = { x: joyX, y: joyY }; this.joyRadius = joyR;
+            joyHit2.on('pointerdown', (pointer) => { this.joyActive = true; this.joyPointerId = pointer.id; this.joyThumbGlow.setFillStyle(0xffffff, 0.2); this._updateJoystick(pointer); });
+            this.input.on('pointermove', (pointer) => { if (this.joyActive && pointer.id === this.joyPointerId) this._updateJoystick(pointer); });
+            this.input.on('pointerup', (pointer) => { if (this.joyActive && pointer.id === this.joyPointerId) { this.joyActive = false; this.joyPointerId = -1; this.joyThumb.setPosition(joyX, joyY); this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0); this.virtualInput = { x: 0, y: 0 }; } });
+
+            const actX = screenWidth - 300, actY = screenHeight - 450;
+            const actBtnGfx2 = this.add.graphics().setScrollFactor(0).setDepth(190);
+            actBtnGfx2.fillStyle(0xffffff, 0.2); actBtnGfx2.fillCircle(actX, actY, 68);
+            actBtnGfx2.lineStyle(3, 0xffffff, 0.35); actBtnGfx2.strokeCircle(actX, actY, 68);
+            this.mobileActionLabel = this.add.text(actX, actY, 'E', { fontSize: '56px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setScrollFactor(0).setDepth(191).setAlpha(0.8);
+            const actHit2 = this.add.circle(actX, actY, 80, 0x000000, 0.001).setScrollFactor(0).setDepth(192).setInteractive();
+            actHit2.on('pointerdown', () => { this.handleInteraction(); this.tweens.add({ targets: this.mobileActionLabel, scale: 0.85, duration: 80, yoyo: true }); });
+            this.input.on('pointerdown', (pointer) => {
+                if (this.isTransitioning) return;
+                const dJoy = Phaser.Math.Distance.Between(pointer.x, pointer.y, joyX, joyY), dAct = Phaser.Math.Distance.Between(pointer.x, pointer.y, actX, actY);
+                if (dJoy < joyR + 60 || dAct < 100) return;
+                if (pointer.y > screenHeight - 500) return;
+                const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                this.targetX = worldPoint.x; this.targetY = worldPoint.y;
+                this.physics.moveToObject(this.player, worldPoint, 250);
+            });
+            this.walkablePolygon = [
+                { x: 0.08, y: 0.72 }, { x: 0.26, y: 0.625 }, { x: 0.35, y: 0.68 }, { x: 0.36, y: 0.675 }, { x: 0.32, y: 0.63 }, { x: 0.38, y: 0.60 },
+                { x: 0.40, y: 0.66 }, { x: 0.47, y: 0.70 }, { x: 0.53, y: 0.66 }, { x: 0.56, y: 0.65 }, { x: 0.51, y: 0.61 }, { x: 0.53, y: 0.60 },
+                { x: 0.54, y: 0.54 }, { x: 0.59, y: 0.51 }, { x: 0.645, y: 0.55 }, { x: 0.645, y: 0.60 }, { x: 0.73, y: 0.66 }, { x: 0.27, y: 0.84 },
+            ];
+            this.chairPolygon = [{ x: 0.40, y: 0.66 }, { x: 0.47, y: 0.60 }, { x: 0.54, y: 0.66 }, { x: 0.47, y: 0.70 }];
+            this.roomWidth = roomWidth; this.roomHeight = roomHeight;
+            this.greenLineStart = { x: 0.26, y: 0.85 }; this.greenLineEnd = { x: 0.72, y: 0.67 };
+            this.lockedDoorPoly = [{ x: 0.04, y: 0.58 }, { x: 0.14, y: 0.52 }, { x: 0.14, y: 0.62 }, { x: 0.04, y: 0.68 }];
             this.lockedDoorContainer = this.add.container(roomWidth * 0.12, roomHeight * 0.48).setDepth(100).setAlpha(0);
             const msgBg2 = this.add.graphics();
-            const msg2W = 320, msg2H = 60, msg2R = 16;
-            msgBg2.fillStyle(0x000000, 0.75);
-            msgBg2.fillRoundedRect(-msg2W/2, -msg2H/2, msg2W, msg2H, msg2R);
-            msgBg2.lineStyle(1, 0xffffff, 0.15);
-            msgBg2.strokeRoundedRect(-msg2W/2, -msg2H/2, msg2W, msg2H, msg2R);
-            const msgText2 = this.add.text(0, 0, 'Еще не время...', {
-                fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff',
-                fontStyle: 'bold'
-            }).setOrigin(0.5);
-            this.lockedDoorContainer.add([msgBg2, msgText2]);
+            msgBg2.fillStyle(0x000000, 0.75); msgBg2.fillRoundedRect(-160, -30, 320, 60, 16);
+            msgBg2.lineStyle(1, 0xffffff, 0.15); msgBg2.strokeRoundedRect(-160, -30, 320, 60, 16);
+            this.lockedDoorContainer.add([msgBg2, this.add.text(0, 0, 'Еще не время...', { fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5)]);
             this.lockedDoorShowing = false;
 
             // === INTERACTION SYSTEM ===
@@ -1137,428 +545,194 @@
                 { id: 'rick_owens', proximityCenter: { x: 0.60, y: 0.53 }, proximityRadius: 90, lineOverlay: 'line_rick_owens', actionOverlay: null, soundKey: null },
                 { id: 'lights', proximityCenter: { x: 0.67, y: 0.63 }, proximityRadius: 90, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
             ];
-
             this.interactiveItems.forEach(item => {
-                if (item.isLightSwitch) {
-                    item.lineSprite = null;
-                    item.actionSprite = null;
-                    item.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
-                    item._glowVisible = false;
-                    return;
-                }
+                if (item.isLightSwitch) { item.lineSprite = null; item.actionSprite = null; item.state = (window.roomLightMode !== 'default') ? 'active' : 'idle'; item._glowVisible = false; return; }
                 if (item.isTrackSwitch) {
-                    // Track switch: has overlay, cycles audio tracks
-                    item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
+                    item.lineSprite = (item.lineOverlay && this.textures.exists(item.lineOverlay)) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
                     item.actionSprite = null;
-                    // Restore state from global
-                    if (window.currentTrack !== 'off') {
-                        item.state = 'active';
-                        item._glowVisible = false;
-                    } else {
-                        item.state = 'idle';
-                        item._glowVisible = false;
-                    }
-                    return;
+                    item.state = (window.currentTrack !== 'off') ? 'active' : 'idle'; item._glowVisible = false; return;
                 }
-                item.lineSprite = this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10);
-                if (item.actionOverlay) { item.actionSprite = this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(10); }
-                else { item.actionSprite = null; }
-                if (window.activeItems[item.id]) {
-                    item.state = 'active';
-                    item._glowVisible = false;
-                    if (item.actionSprite) item.actionSprite.setVisible(true);
-                } else {
-                    item.state = 'idle';
-                }
+                item.lineSprite = (item.lineOverlay && this.textures.exists(item.lineOverlay)) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
+                item.actionSprite = (item.actionOverlay && this.textures.exists(item.actionOverlay)) ? this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
+                if (window.activeItems[item.id]) { item.state = 'active'; item._glowVisible = false; if (item.actionSprite) item.actionSprite.setVisible(true); }
+                else { item.state = 'idle'; }
             });
-
             this.interactionCooldown = 0;
-
-            this.ePrompt = this.add.text(0, 0, '[E]', {
-                fontSize: '36px', fontFamily: 'Courier New', color: '#ffffff',
-                backgroundColor: '#000000aa', padding: { x: 12, y: 6 }, fontStyle: 'bold'
-            }).setOrigin(0.5).setDepth(150).setVisible(false);
-
-            this.tweens.add({
-                targets: this.ePrompt, alpha: { from: 0.6, to: 1 },
-                scaleX: { from: 0.95, to: 1.05 }, scaleY: { from: 0.95, to: 1.05 },
-                duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut'
-            });
-
+            this.ePrompt = this.add.text(0, 0, '[E]', { fontSize: '36px', fontFamily: 'Courier New', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 12, y: 6 }, fontStyle: 'bold' }).setOrigin(0.5).setDepth(150).setVisible(false);
+            this.tweens.add({ targets: this.ePrompt, alpha: { from: 0.6, to: 1 }, scaleX: { from: 0.95, to: 1.05 }, scaleY: { from: 0.95, to: 1.05 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
             this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
-            // --- FLOATING TOAST POPUP SYSTEM ---
             this.toastContainer = this.add.container(screenWidth / 2, 120).setScrollFactor(0).setDepth(300).setAlpha(0);
-            const toastW = 400, toastH = 56, toastR = 14;
             const toastBgGfx = this.add.graphics();
-            toastBgGfx.fillStyle(0x0a0a0f, 0.8);
-            toastBgGfx.fillRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
-            toastBgGfx.lineStyle(1, 0xffffff, 0.12);
-            toastBgGfx.strokeRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
-            this.toastText = this.add.text(0, 0, '', {
-                fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
-            }).setOrigin(0.5);
+            toastBgGfx.fillStyle(0x0a0a0f, 0.8); toastBgGfx.fillRoundedRect(-200, -28, 400, 56, 14);
+            toastBgGfx.lineStyle(1, 0xffffff, 0.12); toastBgGfx.strokeRoundedRect(-200, -28, 400, 56, 14);
+            this.toastText = this.add.text(0, 0, '', { fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
             this.toastContainer.add([toastBgGfx, this.toastText]);
             this.toastTimer = null;
-
             this.player.setCollideWorldBounds(false);
 
-            // Fade in AFTER everything is set up — black cover prevents any flash
-            const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000)
-                .setScrollFactor(0).setDepth(9999);
+            const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000).setScrollFactor(0).setDepth(9999);
             this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
-
-            // --- DAY → NIGHT TRANSITION (if still day, wait remaining time) ---
             if (window.timeOfDay === 'day' && !window.nightTriggered) {
                 this.time.delayedCall(10000, () => {
-                    if (window.nightTriggered) return;
-                    window.timeOfDay = 'night';
-                    window.nightTriggered = true;
+                    if (window.nightTriggered) return; window.timeOfDay = 'night'; window.nightTriggered = true;
                     if (!this.scene.isActive()) return;
-                    // Smooth crossfade to night background
                     const nightBg = this.add.image(0, 0, 'room2_night').setOrigin(0, 0).setScale(scale).setAlpha(0).setDepth(this.bg.depth);
-                    this.tweens.add({
-                        targets: nightBg, alpha: 1, duration: 2000,
-                        onComplete: () => {
-                            this.bg.setTexture('room2_night');
-                            nightBg.destroy();
-                        }
-                    });
+                    this.tweens.add({ targets: nightBg, alpha: 1, duration: 2000, onComplete: () => { this.bg.setTexture('room2_night'); nightBg.destroy(); } });
                 });
             }
         }
-
         handleInteraction() {
             const rw = this.roomWidth, rh = this.roomHeight;
-
-            // Check what item the player is currently near (inside circle)
             let nearestItem = null, nearestDist = Infinity;
-            this.interactiveItems.forEach(item => {
-                const cx = item.proximityCenter.x * rw, cy = item.proximityCenter.y * rh;
-                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
-                if (dist < item.proximityRadius && dist < nearestDist) { nearestDist = dist; nearestItem = item; }
-            });
-
-            // Can only interact when inside a circle
+            this.interactiveItems.forEach(item => { const cx = item.proximityCenter.x*rw, cy = item.proximityCenter.y*rh; const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy); if (dist < item.proximityRadius && dist < nearestDist) { nearestDist = dist; nearestItem = item; } });
             if (!nearestItem) return;
-
-            // === LIGHT SWITCH: cycles through modes (shows toast during day) ===
             if (nearestItem.isLightSwitch) {
-                if (window.timeOfDay !== 'night') {
-                    this.showToast('Смысл включать свет днём?');
-                    this.interactionCooldown = 500;
-                    return;
-                }
-                const currentIdx = LIGHT_MODES.indexOf(window.roomLightMode);
-                const nextIdx = (currentIdx + 1) % LIGHT_MODES.length;
+                if (window.timeOfDay !== 'night') { this.showToast('Смысл включать свет днём?'); this.interactionCooldown = 500; return; }
+                const nextIdx = (LIGHT_MODES.indexOf(window.roomLightMode) + 1) % LIGHT_MODES.length;
                 window.roomLightMode = LIGHT_MODES[nextIdx];
-                const newKey = window.roomLightMode === 'default' ? 'room2_night' : ('room2_' + window.roomLightMode);
-                this.bg.setTexture(newKey);
-                this.updatePlayerSprite();
-                nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle';
-                this.interactionCooldown = 500;
-                return;
+                this.bg.setTexture(window.roomLightMode === 'default' ? 'room2_night' : ('room2_' + window.roomLightMode));
+                this.updatePlayerSprite(); nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle'; this.interactionCooldown = 500; return;
             }
-
-            // === TRACK SWITCH (Apollo): cycles through tracks ===
             if (nearestItem.isTrackSwitch) {
-                // Stop current track audio
-                if (window.activeAudio && window.activeAudio.sound) {
-                    window.activeAudio.sound.stop();
-                    window.activeAudio.sound.destroy();
-                    window.activeAudio = null;
-                }
-                // Cycle to next track
-                const currentIdx = APOLLO_TRACKS.indexOf(window.currentTrack);
-                const nextIdx = (currentIdx + 1) % APOLLO_TRACKS.length;
+                try {
+                    if (window.activeAudio && window.activeAudio.sound) { window.activeAudio.sound.stop(); window.activeAudio.sound.destroy(); window.activeAudio = null; }
+                } catch(e) { window.activeAudio = null; }
+                const nextIdx = (APOLLO_TRACKS.indexOf(window.currentTrack) + 1) % APOLLO_TRACKS.length;
                 window.currentTrack = APOLLO_TRACKS[nextIdx];
-                // Play new track if not off
                 if (window.currentTrack !== 'off') {
-                    const soundKey = APOLLO_TRACK_KEYS[window.currentTrack];
-                    const snd = this.sound.add(soundKey, { loop: true, volume: 0.5 });
-                    snd.play();
-                    window.activeAudio = { itemId: nearestItem.id, soundKey: soundKey, sound: snd };
+                    try {
+                        const sk = APOLLO_TRACK_KEYS[window.currentTrack];
+                        if (this.cache.audio.exists(sk)) {
+                            const snd = this.sound.add(sk, { loop: true, volume: 0.5 }); snd.play();
+                            window.activeAudio = { itemId: nearestItem.id, soundKey: sk, sound: snd };
+                        } else { console.warn('Audio not loaded:', sk); }
+                    } catch(e) { console.warn('Sound error:', e); }
                 }
                 nearestItem.state = (window.currentTrack !== 'off') ? 'active' : 'idle';
-                window.activeItems[nearestItem.id] = (window.currentTrack !== 'off') ? true : undefined;
-                if (window.currentTrack === 'off') delete window.activeItems[nearestItem.id];
-                this.interactionCooldown = 500;
-                return;
+                if (window.currentTrack !== 'off') window.activeItems[nearestItem.id] = true; else delete window.activeItems[nearestItem.id];
+                this.interactionCooldown = 500; return;
             }
-
-            // If this item is already active — turn it OFF
             if (nearestItem.state === 'active') {
                 if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(false);
-                nearestItem.lineSprite.setVisible(false);
+                if (nearestItem.lineSprite) nearestItem.lineSprite.setVisible(false);
                 nearestItem._glowVisible = false;
-                // Stop global audio if this item had sound
-                if (window.activeAudio && window.activeAudio.itemId === nearestItem.id && window.activeAudio.sound) {
-                    window.activeAudio.sound.stop();
-                    window.activeAudio.sound.destroy();
-                    window.activeAudio = null;
-                }
-                delete window.activeItems[nearestItem.id];
-                nearestItem.state = 'idle';
-                this.interactionCooldown = 500;
-                return;
+                try { if (window.activeAudio && window.activeAudio.itemId === nearestItem.id && window.activeAudio.sound) { window.activeAudio.sound.stop(); window.activeAudio.sound.destroy(); window.activeAudio = null; } } catch(e) { window.activeAudio = null; }
+                delete window.activeItems[nearestItem.id]; nearestItem.state = 'idle'; this.interactionCooldown = 500; return;
             }
-
-            // If near an item — turn it ON (line glow stays since we're in circle)
             if (nearestItem.state === 'near') {
-                if (nearestItem.actionSprite) { nearestItem.actionSprite.setVisible(true); }
-                // Start global audio if item has sound
+                if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(true);
                 if (nearestItem.soundKey) {
-                    if (window.activeAudio && window.activeAudio.sound) {
-                        window.activeAudio.sound.stop();
-                        window.activeAudio.sound.destroy();
-                    }
-                    const snd = this.sound.add(nearestItem.soundKey, { loop: true, volume: 0.5 });
-                    snd.play();
-                    window.activeAudio = { itemId: nearestItem.id, soundKey: nearestItem.soundKey, sound: snd };
+                    try {
+                        if (window.activeAudio && window.activeAudio.sound) { window.activeAudio.sound.stop(); window.activeAudio.sound.destroy(); }
+                        if (this.cache.audio.exists(nearestItem.soundKey)) {
+                            const snd = this.sound.add(nearestItem.soundKey, { loop: true, volume: 0.5 }); snd.play();
+                            window.activeAudio = { itemId: nearestItem.id, soundKey: nearestItem.soundKey, sound: snd };
+                        } else { console.warn('Audio not loaded:', nearestItem.soundKey); }
+                    } catch(e) { console.warn('Sound error:', e); }
                 }
-                // Show toast for rick_owens
-                if (nearestItem.id === 'rick_owens') {
-                    this.showToast('Сладкие и зелёные');
-                }
-                window.activeItems[nearestItem.id] = true;
-                nearestItem.state = 'active';
-                nearestItem._glowVisible = true;
+                if (nearestItem.id === 'rick_owens') this.showToast('Сладкие и зелёные');
+                window.activeItems[nearestItem.id] = true; nearestItem.state = 'active'; nearestItem._glowVisible = true;
             }
         }
-
         showToast(message) {
-            this.toastText.setText(message);
-            this.tweens.killTweensOf(this.toastContainer);
+            this.toastText.setText(message); this.tweens.killTweensOf(this.toastContainer);
             if (this.toastTimer) { this.toastTimer.remove(); this.toastTimer = null; }
             this.toastContainer.setY(80).setAlpha(0).setScale(0.9);
             this.tweens.add({ targets: this.toastContainer, alpha: 1, y: 120, scale: 1, duration: 350, ease: 'Back.easeOut' });
-            this.toastTimer = this.time.delayedCall(2500, () => {
-                this.tweens.add({ targets: this.toastContainer, alpha: 0, y: 80, scale: 0.9, duration: 250, ease: 'Sine.easeIn' });
-            });
+            this.toastTimer = this.time.delayedCall(2500, () => { this.tweens.add({ targets: this.toastContainer, alpha: 0, y: 80, scale: 0.9, duration: 250, ease: 'Sine.easeIn' }); });
         }
-
         _updateJoystick(pointer) {
-            const dx = pointer.x - this.joyCenter.x;
-            const dy = pointer.y - this.joyCenter.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const maxDist = this.joyRadius - 20;
-            const clampDist = Math.min(dist, maxDist);
+            const dx = pointer.x - this.joyCenter.x, dy = pointer.y - this.joyCenter.y;
+            const dist = Math.sqrt(dx*dx + dy*dy), maxDist = this.joyRadius - 20, clampDist = Math.min(dist, maxDist);
             const angle = Math.atan2(dy, dx);
-            const tx = this.joyCenter.x + Math.cos(angle) * clampDist;
-            const ty = this.joyCenter.y + Math.sin(angle) * clampDist;
-            this.joyThumb.setPosition(tx, ty);
-            this.joyThumbGlow.setPosition(tx, ty);
-            // Analog: normalize to -1..1 range with deadzone
-            const deadzone = 20;
-            const norm = Math.max(0, dist - deadzone) / (maxDist - deadzone);
-            const clamped = Math.min(norm, 1);
-            this.virtualInput.x = clamped > 0 ? Math.cos(angle) * clamped : 0;
-            this.virtualInput.y = clamped > 0 ? Math.sin(angle) * clamped : 0;
+            this.joyThumb.setPosition(this.joyCenter.x + Math.cos(angle)*clampDist, this.joyCenter.y + Math.sin(angle)*clampDist);
+            this.joyThumbGlow.setPosition(this.joyThumb.x, this.joyThumb.y);
+            const deadzone = 20, norm = Math.max(0, dist - deadzone) / (maxDist - deadzone), clamped = Math.min(norm, 1);
+            this.virtualInput.x = clamped > 0 ? Math.cos(angle)*clamped : 0;
+            this.virtualInput.y = clamped > 0 ? Math.sin(angle)*clamped : 0;
         }
-
-        // Swap player sprite and animations to match the current light mode
         updatePlayerSprite() {
-            const suffix = (window.timeOfDay === 'night' && window.roomLightMode !== 'default')
-                ? '_' + window.roomLightMode : '';
-            if (this.playerAnimSuffix === suffix) return;
-            this.playerAnimSuffix = suffix;
-            const speed = this.player.body.velocity.length();
-            const animType = speed > 10 ? 'walk-' : 'idle-';
-            this.player.anims.play(animType + this.playerDirection + suffix, true);
+            const suffix = (window.timeOfDay === 'night' && window.roomLightMode !== 'default') ? '_' + window.roomLightMode : '';
+            if (this.playerAnimSuffix === suffix) return; this.playerAnimSuffix = suffix;
+            this.player.anims.play((this.player.body.velocity.length() > 10 ? 'walk-' : 'idle-') + this.playerDirection + suffix, true);
         }
-
         pointInPolygon(px, py, polygon, rw, rh) {
             let inside = false;
             for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const xi = polygon[i].x * rw, yi = polygon[i].y * rh;
-                const xj = polygon[j].x * rw, yj = polygon[j].y * rh;
-                const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
-                if (intersect) inside = !inside;
+                const xi = polygon[i].x*rw, yi = polygon[i].y*rh, xj = polygon[j].x*rw, yj = polygon[j].y*rh;
+                if (((yi > py) !== (yj > py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside = !inside;
             }
             return inside;
         }
-
         pointToLineDistance(px, py, x1, y1, x2, y2) {
-            const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
-            const dot = A * C + B * D, lenSq = C * C + D * D;
-            let t = lenSq !== 0 ? dot / lenSq : -1;
-            t = Math.max(0, Math.min(1, t));
-            const xx = x1 + t * C, yy = y1 + t * D;
-            return Math.sqrt((px - xx) * (px - xx) + (py - yy) * (py - yy));
+            const A=px-x1,B=py-y1,C=x2-x1,D=y2-y1; let t=Math.max(0,Math.min(1,(C*C+D*D)!==0?(A*C+B*D)/(C*C+D*D):-1));
+            const xx=x1+t*C,yy=y1+t*D; return Math.sqrt((px-xx)*(px-xx)+(py-yy)*(py-yy));
         }
-
         update() {
-            const moveSpeed = 250;
-            const rw = this.roomWidth, rh = this.roomHeight;
-
-            if (Phaser.Input.Keyboard.JustDown(this.eKey)) { this.handleInteraction(); }
-            if (this.interactionCooldown > 0) { this.interactionCooldown -= this.game.loop.delta; }
-
+            const moveSpeed = 250, rw = this.roomWidth, rh = this.roomHeight;
+            if (Phaser.Input.Keyboard.JustDown(this.eKey)) this.handleInteraction();
+            if (this.interactionCooldown > 0) this.interactionCooldown -= this.game.loop.delta;
             let vx = 0, vy = 0;
-            // Keyboard input
-            const kbLeft = this.wasd.left.isDown || this.cursors.left.isDown;
-            const kbRight = this.wasd.right.isDown || this.cursors.right.isDown;
-            const kbUp = this.wasd.up.isDown || this.cursors.up.isDown;
-            const kbDown = this.wasd.down.isDown || this.cursors.down.isDown;
-            if (kbLeft) vx = -moveSpeed; else if (kbRight) vx = moveSpeed;
-            if (kbUp) vy = -moveSpeed; else if (kbDown) vy = moveSpeed;
-            // Analog joystick input (overrides keyboard if active)
-            if (this.joyActive && (Math.abs(this.virtualInput.x) > 0.01 || Math.abs(this.virtualInput.y) > 0.01)) {
-                vx = this.virtualInput.x * moveSpeed;
-                vy = this.virtualInput.y * moveSpeed;
-            }
-            const usingInput = kbLeft || kbRight || kbUp || kbDown || this.joyActive;
+            const kbL = this.wasd.left.isDown || this.cursors.left.isDown, kbR = this.wasd.right.isDown || this.cursors.right.isDown;
+            const kbU = this.wasd.up.isDown || this.cursors.up.isDown, kbD = this.wasd.down.isDown || this.cursors.down.isDown;
+            if (kbL) vx = -moveSpeed; else if (kbR) vx = moveSpeed;
+            if (kbU) vy = -moveSpeed; else if (kbD) vy = moveSpeed;
+            if (this.joyActive && (Math.abs(this.virtualInput.x) > 0.01 || Math.abs(this.virtualInput.y) > 0.01)) { vx = this.virtualInput.x * moveSpeed; vy = this.virtualInput.y * moveSpeed; }
+            const usingInput = kbL || kbR || kbU || kbD || this.joyActive;
             if (usingInput) { this.targetX = null; this.targetY = null; }
-
             if (this.targetX !== null && this.targetY !== null) {
                 const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.targetX, this.targetY);
                 if (distance < 10) { this.targetX = null; this.targetY = null; }
-                else { const angle = Math.atan2(this.targetY - this.player.y, this.targetX - this.player.x); vx = Math.cos(angle) * moveSpeed; vy = Math.sin(angle) * moveSpeed; }
+                else { const a = Math.atan2(this.targetY-this.player.y, this.targetX-this.player.x); vx = Math.cos(a)*moveSpeed; vy = Math.sin(a)*moveSpeed; }
             }
-
-            const dt = this.game.loop.delta / 1000;
-            const nextX = this.player.x + vx * dt, nextY = this.player.y + vy * dt;
-            const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh);
-            const inChair = this.pointInPolygon(nextX, nextY, this.chairPolygon, rw, rh);
-
-            if (inOuter && !inChair) { this.player.body.setVelocity(vx, vy); }
+            const dt = this.game.loop.delta / 1000, nextX = this.player.x + vx*dt, nextY = this.player.y + vy*dt;
+            const inOuter = this.pointInPolygon(nextX, nextY, this.walkablePolygon, rw, rh), inChair = this.pointInPolygon(nextX, nextY, this.chairPolygon, rw, rh);
+            if (inOuter && !inChair) this.player.body.setVelocity(vx, vy);
             else {
-                const xOk = this.pointInPolygon(this.player.x + vx * dt, this.player.y, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x + vx * dt, this.player.y, this.chairPolygon, rw, rh);
-                const yOk = this.pointInPolygon(this.player.x, this.player.y + vy * dt, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x, this.player.y + vy * dt, this.chairPolygon, rw, rh);
-                if (xOk && !yOk) this.player.body.setVelocity(vx, 0);
-                else if (yOk && !xOk) this.player.body.setVelocity(0, vy);
-                else this.player.body.setVelocity(0, 0);
+                const xOk = this.pointInPolygon(this.player.x+vx*dt, this.player.y, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x+vx*dt, this.player.y, this.chairPolygon, rw, rh);
+                const yOk = this.pointInPolygon(this.player.x, this.player.y+vy*dt, this.walkablePolygon, rw, rh) && !this.pointInPolygon(this.player.x, this.player.y+vy*dt, this.chairPolygon, rw, rh);
+                if (xOk && !yOk) this.player.body.setVelocity(vx, 0); else if (yOk && !xOk) this.player.body.setVelocity(0, vy); else this.player.body.setVelocity(0, 0);
             }
-
-            if (!usingInput && this.targetX === null) { this.player.body.setVelocity(0, 0); }
-
+            if (!usingInput && this.targetX === null) this.player.body.setVelocity(0, 0);
             if (!this.isTransitioning) {
-                const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x * rw, this.greenLineStart.y * rh, this.greenLineEnd.x * rw, this.greenLineEnd.y * rh);
+                const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x*rw, this.greenLineStart.y*rh, this.greenLineEnd.x*rw, this.greenLineEnd.y*rh);
                 if (dist < 30) {
-                    this.isTransitioning = true;
-                    this.player.body.setVelocity(0, 0);
-                    // Clean up visuals before transitioning (audio + activeItems persist globally)
-                    this.interactiveItems.forEach(item => {
-                        if (item.state === 'active') {
-                            if (item.actionSprite) item.actionSprite.setVisible(false);
-                            if (item.lineSprite) item.lineSprite.setVisible(false);
-                            // Hide TV game sprites
-                            if (item.tvSprites) Object.values(item.tvSprites).forEach(s => s.setVisible(false));
-                            item._glowVisible = false;
-                        }
-                    });
-                    this.scene.transition({
-                        target: 'MainScene',
-                        data: { fromStudio: true },
-                        duration: 800,
-                        moveBelow: true,
-                        onUpdate: (progress) => { this.cameras.main.setAlpha(1 - progress); }
-                    });
+                    this.isTransitioning = true; this.player.body.setVelocity(0, 0);
+                    this.interactiveItems.forEach(item => { if (item.state === 'active') { if (item.actionSprite) item.actionSprite.setVisible(false); if (item.lineSprite) item.lineSprite.setVisible(false); if (item.tvSprites) Object.values(item.tvSprites).forEach(s => s.setVisible(false)); item._glowVisible = false; } });
+                    this.scene.transition({ target: 'MainScene', data: { fromStudio: true }, duration: 800, moveBelow: true, onUpdate: (p) => { this.cameras.main.setAlpha(1-p); } });
                 }
             }
-
-            // --- LOCKED DOOR: proximity-based show/hide ---
             const inDoorZone = this.pointInPolygon(this.player.x, this.player.y, this.lockedDoorPoly, rw, rh);
-            if (inDoorZone && !this.lockedDoorShowing) {
-                this.lockedDoorShowing = true;
-                this.tweens.killTweensOf(this.lockedDoorContainer);
-                this.lockedDoorContainer.setScale(0.8);
-                this.tweens.add({ targets: this.lockedDoorContainer, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' });
-            } else if (!inDoorZone && this.lockedDoorShowing) {
-                this.lockedDoorShowing = false;
-                this.tweens.killTweensOf(this.lockedDoorContainer);
-                this.tweens.add({ targets: this.lockedDoorContainer, alpha: 0, scale: 0.8, duration: 200, ease: 'Sine.easeIn' });
-            }
-
-            const s = this.playerAnimSuffix;
-            const speed = this.player.body.velocity.length();
-            if (speed > 10) {
-                const angle = Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x);
-                const deg = Phaser.Math.RadToDeg(angle);
-                if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right' + s, true); this.playerDirection = 'right'; }
-                else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down' + s, true); this.playerDirection = 'down'; }
-                else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left' + s, true); this.playerDirection = 'left'; }
-                else { this.player.anims.play('walk-up' + s, true); this.playerDirection = 'up'; }
-            } else { this.player.anims.play('idle-' + this.playerDirection + s, true); }
-
-            // --- INTERACTION PROXIMITY CHECK (skipped during cooldown) ---
+            if (inDoorZone && !this.lockedDoorShowing) { this.lockedDoorShowing = true; this.tweens.killTweensOf(this.lockedDoorContainer); this.lockedDoorContainer.setScale(0.8); this.tweens.add({ targets: this.lockedDoorContainer, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' }); }
+            else if (!inDoorZone && this.lockedDoorShowing) { this.lockedDoorShowing = false; this.tweens.killTweensOf(this.lockedDoorContainer); this.tweens.add({ targets: this.lockedDoorContainer, alpha: 0, scale: 0.8, duration: 200, ease: 'Sine.easeIn' }); }
+            const s = this.playerAnimSuffix, speed = this.player.body.velocity.length();
+            if (speed > 10) { const deg = Phaser.Math.RadToDeg(Math.atan2(this.player.body.velocity.y, this.player.body.velocity.x)); if (deg > -45 && deg <= 45) { this.player.anims.play('walk-right'+s, true); this.playerDirection='right'; } else if (deg > 45 && deg <= 135) { this.player.anims.play('walk-down'+s, true); this.playerDirection='down'; } else if (deg > 135 || deg <= -135) { this.player.anims.play('walk-left'+s, true); this.playerDirection='left'; } else { this.player.anims.play('walk-up'+s, true); this.playerDirection='up'; } }
+            else { this.player.anims.play('idle-'+this.playerDirection+s, true); }
             let playerInCircle = false;
             if (this.interactionCooldown <= 0) {
                 this.interactiveItems.forEach(item => {
-                    const cx = item.proximityCenter.x * rw, cy = item.proximityCenter.y * rh;
+                    const cx = item.proximityCenter.x*rw, cy = item.proximityCenter.y*rh;
                     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
                     const inRange = dist < item.proximityRadius;
-
-                    // Light switch: track proximity for [E] prompt (works day and night now)
-                    if (item.isLightSwitch) {
-                        if (inRange) {
-                            if (item.state === 'idle') item.state = 'near';
-                            playerInCircle = true;
-                        } else {
-                            if (item.state === 'near') item.state = 'idle';
-                        }
-                        return;
-                    }
-
-                    if (item.state === 'active') {
-                        if (inRange) {
-                            if (!item._glowVisible) {
-                                item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
-                                this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
-                                item._glowVisible = true;
-                            }
-                            playerInCircle = true;
-                        } else {
-                            if (item._glowVisible) {
-                                this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } });
-                                item._glowVisible = false;
-                            }
-                        }
-                        return;
-                    }
-
-                    if (inRange) {
-                        if (item.state !== 'near') {
-                            item.lineSprite.setVisible(true); item.lineSprite.setAlpha(0);
-                            this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 });
-                            item.state = 'near';
-                        }
-                        playerInCircle = true;
-                    } else if (item.state === 'near') {
-                        this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } });
-                        item.state = 'idle';
-                    }
+                    if (item.isLightSwitch) { if (inRange) { if (item.state==='idle') item.state='near'; playerInCircle=true; } else { if (item.state==='near') item.state='idle'; } return; }
+                    if (item.state === 'active') { if (inRange) { if (!item._glowVisible && item.lineSprite) { item.lineSprite.setVisible(true).setAlpha(0); this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 }); item._glowVisible=true; } playerInCircle=true; } else { if (item._glowVisible && item.lineSprite) { this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } }); item._glowVisible=false; } } return; }
+                    if (inRange) { if (item.state !== 'near') { if (item.lineSprite) { item.lineSprite.setVisible(true).setAlpha(0); this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 }); } item.state='near'; } playerInCircle=true; }
+                    else if (item.state === 'near') { if (item.lineSprite) { this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } }); } item.state='idle'; }
                 });
             }
-
-            // [E] prompt — show context label when near special switches
             if (playerInCircle) {
                 this.ePrompt.setPosition(this.player.x, this.player.y - 140);
-                const nearLight = this.interactiveItems.find(i => i.isLightSwitch &&
-                    Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
-                const nearTrack = this.interactiveItems.find(i => i.isTrackSwitch &&
-                    Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x * rw, i.proximityCenter.y * rh) < i.proximityRadius);
-                if (nearLight) {
-                    if (window.timeOfDay === 'night') {
-                        const modeLabel = window.roomLightMode === 'default' ? 'OFF' : window.roomLightMode.toUpperCase();
-                        this.ePrompt.setText('[E] Lights: ' + modeLabel);
-                    } else {
-                        this.ePrompt.setText('[E] Lights');
-                    }
-                } else if (nearTrack) {
-                    this.ePrompt.setText('[E] Apollo: ' + APOLLO_TRACK_NAMES[window.currentTrack]);
-                } else {
-                    this.ePrompt.setText('[E]');
-                }
+                const nearLight = this.interactiveItems.find(i => i.isLightSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
+                const nearTrack = this.interactiveItems.find(i => i.isTrackSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
+                if (nearLight) { this.ePrompt.setText(window.timeOfDay==='night' ? '[E] Lights: '+(window.roomLightMode==='default'?'OFF':window.roomLightMode.toUpperCase()) : '[E] Lights'); }
+                else if (nearTrack) { this.ePrompt.setText('[E] Apollo: '+APOLLO_TRACK_NAMES[window.currentTrack]); }
+                else { this.ePrompt.setText('[E]'); }
                 this.ePrompt.setVisible(true);
-            } else {
-                this.ePrompt.setText('[E]');
-                this.ePrompt.setVisible(false);
-            }
+            } else { this.ePrompt.setText('[E]'); this.ePrompt.setVisible(false); }
         }
     }
 
-    // --- КОНФИГУРАЦИЯ ---
     const config = {
         type: Phaser.AUTO,
         backgroundColor: '#000000',
@@ -1568,7 +742,6 @@
         render: { antialias: false, pixelArt: true },
         scene: [MenuScene, MainScene, StudioScene]
     };
-
     const game = new Phaser.Game(config);
 </script>
 </body>
