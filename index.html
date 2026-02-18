@@ -34,6 +34,19 @@
     const APOLLO_TRACK_NAMES = { 'off': 'OFF', 'track1': 'TRACK 1', 'track2': 'TRACK 2' };
     const TV_GAMES = ['off', 'fortnite', 'mortal_kombat', 'naruto'];
     const TV_GAME_TEXTURES = { 'fortnite': 'tv_fortnite', 'mortal_kombat': 'tv_mortal_kombat', 'naruto': 'tv_naruto' };
+    // --- WARDROBE (модный шкафчик) ---
+    const WARDROBE_ITEMS = [
+        { key: 'wardrobe_1', texture: 'ward_1', label: 'Ricky Owens', description: 'Flexiing, green and fresh' },
+        { key: 'wardrobe_2', texture: 'ward_2', label: 'Vase', description: 'Сгонять за цветами надо бы..' },
+        { key: 'wardrobe_3', texture: 'ward_3', label: 'Stanley', description: 'Обожаю пить с этого засранца' },
+        { key: 'wardrobe_4', texture: 'ward_4', label: 'Eifel Tower', description: 'Может Париж и лучший город в мире..' },
+        { key: 'wardrobe_5', texture: 'ward_5', label: 'Fashion Books', description: 'Тут Chanel, Balenciaga и Dior' },
+		{ key: 'wardrobe_6', texture: 'ward_6', label: 'Prada', description: 'Одену их завтра' },
+		{ key: 'wardrobe_7', texture: 'ward_7', label: 'Monro', description: 'У неё определённо талант..' },
+		{ key: 'wardrobe_8', texture: 'ward_8', label: 'Golden Goose', description: 'Не помню от чего этот пакет' },
+		{ key: 'wardrobe_9', texture: 'ward_9', label: 'Bear Brick', description: 'E-e. brickyboy' },
+    ];
+    window.wardrobeIndex = -1; // -1 = nothing shown
     function getStyleFolder() { return 'assets/' + (window.mapStyle || 'default') + '/'; }
     const PERSON_TEXTURES = { 'default': 'playerSprite', 'blue': 'playerSprite_blue', 'pink': 'playerSprite_pink', 'green': 'playerSprite_green' };
 
@@ -340,6 +353,7 @@
             }
             if (nearestItem.state === 'near') {
                 if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(true);
+                if (nearestItem.lineSprite) nearestItem.lineSprite.setVisible(true).setAlpha(1);
                 if (nearestItem.soundKey) {
                     try {
                         if (window.activeAudio && window.activeAudio.sound) { window.activeAudio.sound.stop(); window.activeAudio.sound.destroy(); }
@@ -458,6 +472,17 @@
             this.load.image('room2_day', folder + 'room2_day.png'); this.load.image('room2_night', folder + 'room2_night.png');
             this.load.image('line_audio_interface', 'assets/interaction/action_audio_interface.png');
             this.load.image('line_rick_owens', 'assets/interaction/action_rick_owens.png');
+            // Wardrobe overlays
+            this.load.image('ward_1', 'assets/interaction/action_rick_owens.png');
+            this.load.image('ward_2', 'assets/interaction/action_vase.png');
+            this.load.image('ward_3', 'assets/interaction/action_stanley.png');
+            this.load.image('ward_4', 'assets/interaction/action_eifel_tower.png');
+            this.load.image('ward_5', 'assets/interaction/action_books.png');
+			this.load.image('ward_6', 'assets/interaction/action_prada.png');
+			this.load.image('ward_7', 'assets/interaction/action_monro.png');
+			this.load.image('ward_8', 'assets/interaction/action_golden_goose.png');
+			this.load.image('ward_9', 'assets/interaction/action_brickbear.png');
+
             this.load.image('room2_blue', folder + 'room2_blue.png'); this.load.image('room2_pink', folder + 'room2_pink.png'); this.load.image('room2_green', folder + 'room2_green.png');
             this.load.audio('sound_guitar', 'assets/sound/sound_guitar.mp3'); this.load.audio('sound_audio_interface', 'assets/sound/sound_audio_interface.mp3');
             this.load.on('loaderror', (file) => { console.error('ОШИБКА загрузки (Studio): ' + file.key, file.url); });
@@ -531,18 +556,42 @@
             this.chairPolygon = [{ x: 0.40, y: 0.66 }, { x: 0.47, y: 0.60 }, { x: 0.54, y: 0.66 }, { x: 0.47, y: 0.70 }];
             this.roomWidth = roomWidth; this.roomHeight = roomHeight;
             this.greenLineStart = { x: 0.26, y: 0.85 }; this.greenLineEnd = { x: 0.72, y: 0.67 };
-            this.lockedDoorPoly = [{ x: 0.04, y: 0.58 }, { x: 0.14, y: 0.52 }, { x: 0.14, y: 0.62 }, { x: 0.04, y: 0.68 }];
-            this.lockedDoorContainer = this.add.container(roomWidth * 0.12, roomHeight * 0.48).setDepth(100).setAlpha(0);
+            this.lockedDoorPoly = [{ x: 0.06, y: 0.64 }, { x: 0.20, y: 0.60 }, { x: 0.20, y: 0.74 }, { x: 0.06, y: 0.76 }];
+            this.lockedDoorContainer = this.add.container(roomWidth * 0.14, roomHeight * 0.58).setDepth(100).setAlpha(0);
             const msgBg2 = this.add.graphics();
             msgBg2.fillStyle(0x000000, 0.75); msgBg2.fillRoundedRect(-160, -30, 320, 60, 16);
             msgBg2.lineStyle(1, 0xffffff, 0.15); msgBg2.strokeRoundedRect(-160, -30, 320, 60, 16);
             this.lockedDoorContainer.add([msgBg2, this.add.text(0, 0, 'Еще не время...', { fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5)]);
             this.lockedDoorShowing = false;
 
+            // --- WARDROBE MESSAGE (same style as locked door) ---
+            this.wardrobeContainer = this.add.container(roomWidth * 0.60, roomHeight * 0.48).setDepth(100).setAlpha(0);
+            const wdBg = this.add.graphics();
+            const wdW = 420, wdH = 60, wdR = 16;
+            wdBg.fillStyle(0x000000, 0.75); wdBg.fillRoundedRect(-wdW/2, -wdH/2, wdW, wdH, wdR);
+            wdBg.lineStyle(1, 0xffffff, 0.15); wdBg.strokeRoundedRect(-wdW/2, -wdH/2, wdW, wdH, wdR);
+            this.wardrobeText = this.add.text(0, 0, '', { fontSize: '26px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+            this.wardrobeContainer.add([wdBg, this.wardrobeText]);
+            this.wardrobeShowing = false;
+            this.wardrobeAutoHideTimer = null;
+
+            // --- WARDROBE OVERLAY SPRITES ---
+            this.wardrobeSprites = {};
+            WARDROBE_ITEMS.forEach(wi => {
+                if (this.textures.exists(wi.texture)) {
+                    this.wardrobeSprites[wi.key] = this.add.image(0, 0, wi.texture).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5);
+                }
+            });
+            // Restore wardrobe state if re-entering scene
+            if (window.wardrobeIndex >= 0 && window.wardrobeIndex < WARDROBE_ITEMS.length) {
+                const wk = WARDROBE_ITEMS[window.wardrobeIndex].key;
+                if (this.wardrobeSprites[wk]) this.wardrobeSprites[wk].setVisible(true);
+            }
+
             // === INTERACTION SYSTEM ===
             this.interactiveItems = [
                 { id: 'audio_interface', proximityCenter: { x: 0.35, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_audio_interface', actionOverlay: null, soundKey: null, isTrackSwitch: true },
-                { id: 'rick_owens', proximityCenter: { x: 0.60, y: 0.53 }, proximityRadius: 90, lineOverlay: 'line_rick_owens', actionOverlay: null, soundKey: null },
+                { id: 'wardrobe', proximityCenter: { x: 0.60, y: 0.53 }, proximityRadius: 90, lineOverlay: 'line_rick_owens', actionOverlay: null, soundKey: null, isWardrobeSwitch: true },
                 { id: 'lights', proximityCenter: { x: 0.67, y: 0.63 }, proximityRadius: 90, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
             ];
             this.interactiveItems.forEach(item => {
@@ -551,6 +600,11 @@
                     item.lineSprite = (item.lineOverlay && this.textures.exists(item.lineOverlay)) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
                     item.actionSprite = null;
                     item.state = (window.currentTrack !== 'off') ? 'active' : 'idle'; item._glowVisible = false; return;
+                }
+                if (item.isWardrobeSwitch) {
+                    item.lineSprite = (item.lineOverlay && this.textures.exists(item.lineOverlay)) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
+                    item.actionSprite = null;
+                    item.state = (window.wardrobeIndex >= 0) ? 'active' : 'idle'; item._glowVisible = false; return;
                 }
                 item.lineSprite = (item.lineOverlay && this.textures.exists(item.lineOverlay)) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
                 item.actionSprite = (item.actionOverlay && this.textures.exists(item.actionOverlay)) ? this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
@@ -613,6 +667,31 @@
                 if (window.currentTrack !== 'off') window.activeItems[nearestItem.id] = true; else delete window.activeItems[nearestItem.id];
                 this.interactionCooldown = 500; return;
             }
+            // --- WARDROBE SWITCH ---
+            if (nearestItem.isWardrobeSwitch) {
+                // If message is currently showing → hide it, don't advance
+                if (this.wardrobeShowing) {
+                    this._hideWardrobeMsg();
+                    this.interactionCooldown = 300;
+                    return;
+                }
+                // Hide previous overlay
+                if (window.wardrobeIndex >= 0) {
+                    const prevKey = WARDROBE_ITEMS[window.wardrobeIndex].key;
+                    if (this.wardrobeSprites[prevKey]) this.wardrobeSprites[prevKey].setVisible(false);
+                }
+                // Advance to next (cycles: 0→1→2→3→4→0→...)
+                window.wardrobeIndex = (window.wardrobeIndex + 1) % WARDROBE_ITEMS.length;
+                const wi = WARDROBE_ITEMS[window.wardrobeIndex];
+                // Show new overlay
+                if (this.wardrobeSprites[wi.key]) this.wardrobeSprites[wi.key].setVisible(true);
+                // Show label
+                this._showWardrobeMsg(wi.description);
+                nearestItem.state = 'active';
+                window.activeItems[nearestItem.id] = true;
+                this.interactionCooldown = 500;
+                return;
+            }
             if (nearestItem.state === 'active') {
                 if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(false);
                 if (nearestItem.lineSprite) nearestItem.lineSprite.setVisible(false);
@@ -622,6 +701,7 @@
             }
             if (nearestItem.state === 'near') {
                 if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(true);
+                if (nearestItem.lineSprite) nearestItem.lineSprite.setVisible(true).setAlpha(1);
                 if (nearestItem.soundKey) {
                     try {
                         if (window.activeAudio && window.activeAudio.sound) { window.activeAudio.sound.stop(); window.activeAudio.sound.destroy(); }
@@ -631,9 +711,25 @@
                         } else { console.warn('Audio not loaded:', nearestItem.soundKey); }
                     } catch(e) { console.warn('Sound error:', e); }
                 }
-                if (nearestItem.id === 'rick_owens') this.showToast('Сладкие и зелёные');
                 window.activeItems[nearestItem.id] = true; nearestItem.state = 'active'; nearestItem._glowVisible = true;
             }
+        }
+        _showWardrobeMsg(label) {
+            this.wardrobeText.setText(label);
+            this.wardrobeShowing = true;
+            this.tweens.killTweensOf(this.wardrobeContainer);
+            if (this.wardrobeAutoHideTimer) { this.wardrobeAutoHideTimer.remove(); this.wardrobeAutoHideTimer = null; }
+            this.wardrobeContainer.setScale(0.8).setAlpha(0);
+            this.tweens.add({ targets: this.wardrobeContainer, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' });
+            // Auto-hide after 3 seconds
+            this.wardrobeAutoHideTimer = this.time.delayedCall(3000, () => { this._hideWardrobeMsg(); });
+        }
+        _hideWardrobeMsg() {
+            if (!this.wardrobeShowing) return;
+            this.wardrobeShowing = false;
+            if (this.wardrobeAutoHideTimer) { this.wardrobeAutoHideTimer.remove(); this.wardrobeAutoHideTimer = null; }
+            this.tweens.killTweensOf(this.wardrobeContainer);
+            this.tweens.add({ targets: this.wardrobeContainer, alpha: 0, scale: 0.8, duration: 200, ease: 'Sine.easeIn' });
         }
         showToast(message) {
             this.toastText.setText(message); this.tweens.killTweensOf(this.toastContainer);
@@ -699,6 +795,9 @@
                 const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x*rw, this.greenLineStart.y*rh, this.greenLineEnd.x*rw, this.greenLineEnd.y*rh);
                 if (dist < 30) {
                     this.isTransitioning = true; this.player.body.setVelocity(0, 0);
+                    if (this.wardrobeShowing) this._hideWardrobeMsg();
+                    // Hide wardrobe overlays on transition
+                    Object.values(this.wardrobeSprites).forEach(s => s.setVisible(false));
                     this.interactiveItems.forEach(item => { if (item.state === 'active') { if (item.actionSprite) item.actionSprite.setVisible(false); if (item.lineSprite) item.lineSprite.setVisible(false); if (item.tvSprites) Object.values(item.tvSprites).forEach(s => s.setVisible(false)); item._glowVisible = false; } });
                     this.scene.transition({ target: 'MainScene', data: { fromStudio: true }, duration: 800, moveBelow: true, onUpdate: (p) => { this.cameras.main.setAlpha(1-p); } });
                 }
@@ -716,6 +815,8 @@
                     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
                     const inRange = dist < item.proximityRadius;
                     if (item.isLightSwitch) { if (inRange) { if (item.state==='idle') item.state='near'; playerInCircle=true; } else { if (item.state==='near') item.state='idle'; } return; }
+                    // Wardrobe: always interactive when in range
+                    if (item.isWardrobeSwitch) { if (inRange) { if (item.state==='idle') item.state='near'; playerInCircle=true; } else { if (item.state==='near') item.state='idle'; if (this.wardrobeShowing) this._hideWardrobeMsg(); } return; }
                     if (item.state === 'active') { if (inRange) { if (!item._glowVisible && item.lineSprite) { item.lineSprite.setVisible(true).setAlpha(0); this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 }); item._glowVisible=true; } playerInCircle=true; } else { if (item._glowVisible && item.lineSprite) { this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } }); item._glowVisible=false; } } return; }
                     if (inRange) { if (item.state !== 'near') { if (item.lineSprite) { item.lineSprite.setVisible(true).setAlpha(0); this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 }); } item.state='near'; } playerInCircle=true; }
                     else if (item.state === 'near') { if (item.lineSprite) { this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } }); } item.state='idle'; }
@@ -725,8 +826,10 @@
                 this.ePrompt.setPosition(this.player.x, this.player.y - 140);
                 const nearLight = this.interactiveItems.find(i => i.isLightSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
                 const nearTrack = this.interactiveItems.find(i => i.isTrackSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
+                const nearWardrobe = this.interactiveItems.find(i => i.isWardrobeSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
                 if (nearLight) { this.ePrompt.setText(window.timeOfDay==='night' ? '[E] Lights: '+(window.roomLightMode==='default'?'OFF':window.roomLightMode.toUpperCase()) : '[E] Lights'); }
                 else if (nearTrack) { this.ePrompt.setText('[E] Apollo: '+APOLLO_TRACK_NAMES[window.currentTrack]); }
+                else if (nearWardrobe) { const wLabel = window.wardrobeIndex >= 0 ? WARDROBE_ITEMS[window.wardrobeIndex].label : '...'; this.ePrompt.setText('[E] ' + wLabel); }
                 else { this.ePrompt.setText('[E]'); }
                 this.ePrompt.setVisible(true);
             } else { this.ePrompt.setText('[E]'); this.ePrompt.setVisible(false); }
