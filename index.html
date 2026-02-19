@@ -29,9 +29,9 @@
     window.nightTriggered = false;
     window.currentTrack = 'off';
     const LIGHT_MODES = ['default', 'blue', 'pink', 'green'];
-    const APOLLO_TRACKS = ['off', 'track1', 'track2'];
-    const APOLLO_TRACK_KEYS = { 'track1': 'sound_audio_interface', 'track2': 'sound_guitar' };
-    const APOLLO_TRACK_NAMES = { 'off': 'OFF', 'track1': 'TRACK 1', 'track2': 'TRACK 2' };
+    const APOLLO_TRACKS = ['off', 'track1', 'track2', 'track3'];
+    const APOLLO_TRACK_KEYS = { 'track1': 'sound_audio_interface', 'track2': 'sound_right', 'track3': 'sound_legend_part1' };
+    const APOLLO_TRACK_NAMES = { 'off': 'OFF', 'track1': 'SWAG', 'track2': 'RIGHT', 'track3': 'LEGEND' };
     const TV_GAMES = ['off', 'fortnite', 'mortal_kombat', 'naruto'];
     const TV_GAME_TEXTURES = { 'fortnite': 'tv_fortnite', 'mortal_kombat': 'tv_mortal_kombat', 'naruto': 'tv_naruto' };
     // --- WARDROBE (модный шкафчик) ---
@@ -41,15 +41,23 @@
         { key: 'wardrobe_3', texture: 'ward_3', label: 'Stanley', description: 'Обожаю пить с этого засранца' },
         { key: 'wardrobe_4', texture: 'ward_4', label: 'Eifel Tower', description: 'Может Париж и лучший город в мире..' },
         { key: 'wardrobe_5', texture: 'ward_5', label: 'Fashion Books', description: 'Тут Chanel, Balenciaga и Dior' },
-		{ key: 'wardrobe_6', texture: 'ward_6', label: 'Prada', description: 'Одену их завтра' },
-		{ key: 'wardrobe_7', texture: 'ward_7', label: 'Monro', description: 'У неё определённо талант..' },
-		{ key: 'wardrobe_8', texture: 'ward_8', label: 'Golden Goose', description: 'Не помню от чего этот пакет' },
-		{ key: 'wardrobe_9', texture: 'ward_9', label: 'Bear Brick', description: 'E-e. brickyboy' },
+        { key: 'wardrobe_6', texture: 'ward_6', label: 'Prada', description: 'Одену их завтра' },
+        { key: 'wardrobe_7', texture: 'ward_7', label: 'Monro', description: 'У неё определённо талант..' },
+        { key: 'wardrobe_8', texture: 'ward_8', label: 'Golden Goose', description: 'Не помню от чего этот пакет' },
+        { key: 'wardrobe_9', texture: 'ward_9', label: 'Bear Brick', description: 'E-e. brickyboy' },
     ];
-    window.wardrobeIndex = -1; // -1 = nothing shown
+    window.wardrobeIndex = 0;
+    // wardrobePhase: 'label' = showing label (waiting for E to show description), 'desc' = showing description (auto-hide then advance)
+    window.wardrobePhase = 'label';
     function getStyleFolder() { return 'assets/' + (window.mapStyle || 'default') + '/'; }
     const PERSON_TEXTURES = { 'default': 'playerSprite', 'blue': 'playerSprite_blue', 'pink': 'playerSprite_pink', 'green': 'playerSprite_green' };
-
+    // --- SOCIAL LINKS ---
+    const SOCIAL_LINKS = {
+        'TG': 'https://telegram.werypeas.com/',
+        'IG': 'https://instagram.werypeas.com/',
+        'YT': 'https://youtube.werypeas.com/',
+        'SC': 'https://soundcloud.werypeas.com/'
+    };
     // --- START MENU SCENE ---
     class MenuScene extends Phaser.Scene {
         constructor() { super('MenuScene'); }
@@ -62,72 +70,208 @@
             const bg = this.add.image(width / 2, height / 2, 'menuBg');
             const bgScale = Math.max(width / bg.width, height / bg.height);
             bg.setScale(bgScale);
+            // Slow subtle zoom on background
+            this.tweens.add({ targets: bg, scaleX: bgScale * 1.05, scaleY: bgScale * 1.05, duration: 20000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            // Dark overlay with vignette feel
             const overlay = this.add.graphics();
-            overlay.fillStyle(0x000000, 0.45);
+            overlay.fillStyle(0x000000, 0.55);
             overlay.fillRect(0, 0, width, height);
-            const panelW = 580, panelH = 520, panelX = width / 2, panelY = height * 0.46, panelR = 30;
+            // Floating particles — slow, dreamy
+            for (let i = 0; i < 30; i++) {
+                const px = Phaser.Math.Between(0, width), py = Phaser.Math.Between(0, height);
+                const size = Phaser.Math.FloatBetween(1, 3.5);
+                const startAlpha = Phaser.Math.FloatBetween(0.02, 0.10);
+                const particle = this.add.circle(px, py, size, 0xffffff, startAlpha);
+                this.tweens.add({
+                    targets: particle,
+                    y: particle.y - Phaser.Math.Between(80, 300),
+                    x: particle.x + Phaser.Math.Between(-40, 40),
+                    alpha: 0,
+                    duration: Phaser.Math.Between(5000, 12000),
+                    delay: Phaser.Math.Between(0, 6000),
+                    repeat: -1,
+                    onRepeat: () => {
+                        particle.setPosition(Phaser.Math.Between(0, width), height + 20);
+                        particle.setAlpha(Phaser.Math.FloatBetween(0.02, 0.10));
+                    }
+                });
+            }
+            // === MAIN PANEL ===
+            const panelW = 640, panelH = 600, panelX = width / 2, panelY = height * 0.44, panelR = 32;
             const panelGfx = this.add.graphics();
-            panelGfx.fillStyle(0x0a0a0f, 0.65);
+            // Soft outer glow
+            panelGfx.fillStyle(0xffffff, 0.02);
+            panelGfx.fillRoundedRect(panelX - panelW/2 - 10, panelY - panelH/2 - 10, panelW + 20, panelH + 20, panelR + 10);
+            panelGfx.fillStyle(0xffffff, 0.03);
+            panelGfx.fillRoundedRect(panelX - panelW/2 - 4, panelY - panelH/2 - 4, panelW + 8, panelH + 8, panelR + 4);
+            // Main panel body
+            panelGfx.fillStyle(0x080810, 0.75);
             panelGfx.fillRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, panelR);
-            panelGfx.lineStyle(1, 0xffffff, 0.12);
+            // Top glass highlight
+            panelGfx.fillStyle(0xffffff, 0.04);
+            panelGfx.fillRoundedRect(panelX - panelW/2 + 2, panelY - panelH/2 + 2, panelW - 4, panelH * 0.22, { tl: panelR, tr: panelR, bl: 0, br: 0 });
+            // Thin border
+            panelGfx.lineStyle(1, 0xffffff, 0.08);
             panelGfx.strokeRoundedRect(panelX - panelW/2, panelY - panelH/2, panelW, panelH, panelR);
-            panelGfx.fillStyle(0xffffff, 0.06);
-            panelGfx.fillRoundedRect(panelX - panelW/2 + 1, panelY - panelH/2 + 1, panelW - 2, panelH * 0.3, { tl: panelR, tr: panelR, bl: 0, br: 0 });
-            const title = this.add.text(width / 2, panelY - panelH/2 + 80, 'WERYPEAS', {
-                fontSize: '72px', fontFamily: 'Courier New, monospace', color: '#ffffff', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4,
-            }).setOrigin(0.5);
-            this.tweens.add({ targets: title, alpha: { from: 0.85, to: 1 }, duration: 2500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            panelGfx.setAlpha(0);
+            // === TITLE ===
+            const title = this.add.text(width / 2, panelY - panelH/2 + 95, 'WERYPEAS', {
+                fontSize: '80px', fontFamily: 'Courier New, monospace', color: '#ffffff', fontStyle: 'bold',
+                stroke: '#000000', strokeThickness: 6
+            }).setOrigin(0.5).setAlpha(0);
+            // Subtitle
+            const subtitle = this.add.text(width / 2, panelY - panelH/2 + 155, 'studio memory', {
+                fontSize: '19px', fontFamily: 'Courier New', color: '#ffffff'
+            }).setOrigin(0.5).setAlpha(0);
+            // Decorative lines (left + right of center)
             const lineGfx = this.add.graphics();
-            lineGfx.fillStyle(0xffffff, 0.15);
-            lineGfx.fillRect(width / 2 - 140, panelY - panelH/2 + 125, 280, 1);
-            const btnY = panelY - panelH/2 + 210;
-            this.createGlassButton(width / 2, btnY, 400, 68, 'START GAME', () => {
+            const lineY = panelY - panelH/2 + 188;
+            // Left line
+            lineGfx.fillStyle(0xffffff, 0.08);
+            lineGfx.fillRect(panelX - 200, lineY, 130, 1);
+            // Center dot
+            lineGfx.fillStyle(0xffffff, 0.20);
+            lineGfx.fillCircle(panelX, lineY, 2);
+            // Right line
+            lineGfx.fillStyle(0xffffff, 0.08);
+            lineGfx.fillRect(panelX + 70, lineY, 130, 1);
+            lineGfx.setAlpha(0);
+            // === START BUTTON ===
+            const btnY = panelY - panelH/2 + 265;
+            const btnElements = this._createGlassButton(width / 2, btnY, 440, 76, 'START GAME', () => {
                 this.cameras.main.fadeOut(500, 0, 0, 0);
                 this.time.delayedCall(500, () => { this.scene.start('MainScene'); });
             });
-            const socialY = panelY - panelH/2 + 340, socialSpacing = 110;
-            const socials = [{ label: 'TG', color: 0x26A5E4 }, { label: 'IG', color: 0xE1306C }, { label: 'YT', color: 0xFF0000 }, { label: 'SC', color: 0xFF5500 }];
+            btnElements.forEach(e => e.setAlpha(0));
+            // === SOCIAL SECTION ===
+            const socialY = panelY - panelH/2 + 420, socialSpacing = 115;
+            const socials = [
+                { label: 'TG', color: 0x26A5E4, url: SOCIAL_LINKS['TG'] },
+                { label: 'IG', color: 0xE1306C, url: SOCIAL_LINKS['IG'] },
+                { label: 'YT', color: 0xFF0000, url: SOCIAL_LINKS['YT'] },
+                { label: 'SC', color: 0xFF5500, url: SOCIAL_LINKS['SC'] }
+            ];
             const totalSocialW = (socials.length - 1) * socialSpacing;
             const startX = width / 2 - totalSocialW / 2;
-            socials.forEach((s, i) => { this.createSocialButton(startX + i * socialSpacing, socialY, 80, s.label, s.color); });
-            this.add.text(width / 2, socialY - 60, 'FOLLOW US', { fontSize: '20px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5).setAlpha(0.35);
-            this.cameras.main.fadeIn(800, 0, 0, 0);
+            // "FOLLOW US" label with small lines
+            const followGfx = this.add.graphics();
+            const followLabelY = socialY - 52;
+            followGfx.fillStyle(0xffffff, 0.06);
+            followGfx.fillRect(panelX - 180, followLabelY, 100, 1);
+            followGfx.fillRect(panelX + 80, followLabelY, 100, 1);
+            followGfx.setAlpha(0);
+            const followText = this.add.text(width / 2, followLabelY, 'FOLLOW US', {
+                fontSize: '16px', fontFamily: 'Courier New', color: '#ffffff'
+            }).setOrigin(0.5).setAlpha(0);
+            const socialElements = [];
+            socials.forEach((s, i) => {
+                const els = this._createSocialButton(startX + i * socialSpacing, socialY, 72, s.label, s.color, s.url);
+                socialElements.push(...els);
+            });
+            socialElements.forEach(e => e.setAlpha(0));
+            // === BOTTOM SECTION ===
+            const bottomY = panelY + panelH/2 - 35;
+            const ver = this.add.text(width / 2, bottomY, 'v0.1', {
+                fontSize: '14px', fontFamily: 'Courier New', color: '#ffffff'
+            }).setOrigin(0.5).setAlpha(0);
+            // === STAGGERED ENTRANCE ===
+            this.cameras.main.fadeIn(500, 0, 0, 0);
+            // Panel
+            this.tweens.add({ targets: panelGfx, alpha: 1, duration: 700, delay: 150, ease: 'Sine.easeOut' });
+            // Title — drops in with bounce
+            title.setY(title.y - 40);
+            this.tweens.add({ targets: title, alpha: 1, y: title.y + 40, duration: 600, delay: 350, ease: 'Back.easeOut' });
+            // Title subtle breath
+            this.tweens.add({ targets: title, alpha: { from: 0.90, to: 1 }, scaleX: { from: 1, to: 1.01 }, scaleY: { from: 1, to: 1.01 }, duration: 3000, delay: 950, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            // Subtitle
+            this.tweens.add({ targets: subtitle, alpha: 0.30, duration: 500, delay: 550, ease: 'Sine.easeOut' });
+            // Decorative line
+            this.tweens.add({ targets: lineGfx, alpha: 1, duration: 400, delay: 650, ease: 'Sine.easeOut' });
+            // Button — each element fades in
+            btnElements.forEach((e, i) => {
+                this.tweens.add({ targets: e, alpha: 1, duration: 400, delay: 750, ease: 'Sine.easeOut' });
+            });
+            // Follow section
+            this.tweens.add({ targets: followGfx, alpha: 1, duration: 400, delay: 950, ease: 'Sine.easeOut' });
+            this.tweens.add({ targets: followText, alpha: 0.25, duration: 400, delay: 950, ease: 'Sine.easeOut' });
+            // Socials — stagger per button (3 elements each: gfx, text, hitArea)
+            socials.forEach((s, i) => {
+                const base = i * 3;
+                for (let j = 0; j < 3 && (base + j) < socialElements.length; j++) {
+                    this.tweens.add({ targets: socialElements[base + j], alpha: 1, duration: 350, delay: 1050 + i * 80, ease: 'Sine.easeOut' });
+                }
+            });
+            // Version
+            this.tweens.add({ targets: ver, alpha: 0.15, duration: 400, delay: 1300, ease: 'Sine.easeOut' });
         }
-        createGlassButton(x, y, w, h, text, callback) {
+        _createGlassButton(x, y, w, h, text, callback) {
             const r = h / 2;
             const gfx = this.add.graphics();
             const drawGlass = (fillAlpha, borderAlpha, highlightAlpha) => {
                 gfx.clear();
-                gfx.fillStyle(0xffffff, borderAlpha * 0.15); gfx.fillRoundedRect(x - w/2 - 2, y - h/2 - 2, w + 4, h + 4, r + 2);
-                gfx.fillStyle(0xffffff, fillAlpha); gfx.fillRoundedRect(x - w/2, y - h/2, w, h, r);
-                gfx.fillStyle(0xffffff, highlightAlpha); gfx.fillRoundedRect(x - w/2 + 6, y - h/2 + 3, w - 12, h * 0.35, { tl: r - 3, tr: r - 3, bl: 0, br: 0 });
-                gfx.lineStyle(1, 0xffffff, borderAlpha * 0.3); gfx.strokeRoundedRect(x - w/2, y - h/2, w, h, r);
+                // Outer glow
+                gfx.fillStyle(0xffffff, borderAlpha * 0.08);
+                gfx.fillRoundedRect(x - w/2 - 3, y - h/2 - 3, w + 6, h + 6, r + 3);
+                // Main fill
+                gfx.fillStyle(0xffffff, fillAlpha);
+                gfx.fillRoundedRect(x - w/2, y - h/2, w, h, r);
+                // Top highlight
+                gfx.fillStyle(0xffffff, highlightAlpha);
+                gfx.fillRoundedRect(x - w/2 + 8, y - h/2 + 3, w - 16, h * 0.32, { tl: r - 4, tr: r - 4, bl: 0, br: 0 });
+                // Border
+                gfx.lineStyle(1, 0xffffff, borderAlpha * 0.25);
+                gfx.strokeRoundedRect(x - w/2, y - h/2, w, h, r);
             };
-            drawGlass(0.12, 0.25, 0.08);
-            const btnText = this.add.text(x, y, text, { fontSize: '34px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+            drawGlass(0.10, 0.25, 0.06);
+            const btnText = this.add.text(x, y, text, {
+                fontSize: '32px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5);
             const hitArea = this.add.rectangle(x, y, w, h, 0x000000, 0).setInteractive({ useHandCursor: true });
-            hitArea.on('pointerover', () => { drawGlass(0.20, 0.4, 0.14); });
-            hitArea.on('pointerout', () => { drawGlass(0.12, 0.25, 0.08); });
-            hitArea.on('pointerdown', () => { drawGlass(0.08, 0.15, 0.04); this.tweens.add({ targets: [gfx, hitArea, btnText], scaleX: 0.96, scaleY: 0.96, duration: 80, yoyo: true, onComplete: callback }); });
+            hitArea.on('pointerover', () => { drawGlass(0.18, 0.4, 0.12); });
+            hitArea.on('pointerout', () => { drawGlass(0.10, 0.25, 0.06); });
+            hitArea.on('pointerdown', () => {
+                drawGlass(0.06, 0.15, 0.03);
+                this.tweens.add({ targets: [gfx, hitArea, btnText], scaleX: 0.96, scaleY: 0.96, duration: 80, yoyo: true, onComplete: callback });
+            });
+            return [gfx, btnText, hitArea];
         }
-        createSocialButton(x, y, size, label, accentColor) {
+        _createSocialButton(x, y, size, label, accentColor, url) {
             const r = size / 2;
             const gfx = this.add.graphics();
             const drawCircle = (fillAlpha, borderAlpha) => {
                 gfx.clear();
-                gfx.lineStyle(2, accentColor, borderAlpha); gfx.strokeCircle(x, y, r + 1);
-                gfx.fillStyle(0xffffff, fillAlpha); gfx.fillCircle(x, y, r);
-                gfx.fillStyle(0xffffff, fillAlpha * 0.6); gfx.fillEllipse(x, y - r * 0.25, size * 0.6, size * 0.35);
+                // Colored ring
+                gfx.lineStyle(2, accentColor, borderAlpha);
+                gfx.strokeCircle(x, y, r + 1);
+                // Glass fill
+                gfx.fillStyle(0xffffff, fillAlpha);
+                gfx.fillCircle(x, y, r);
+                // Top highlight
+                gfx.fillStyle(0xffffff, fillAlpha * 0.5);
+                gfx.fillEllipse(x, y - r * 0.28, size * 0.55, size * 0.30);
             };
-            drawCircle(0.10, 0.4);
-            const btnText = this.add.text(x, y, label, { fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+            drawCircle(0.08, 0.35);
+            const btnText = this.add.text(x, y, label, {
+                fontSize: '26px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold'
+            }).setOrigin(0.5);
             const hitArea = this.add.circle(x, y, r, 0x000000, 0).setInteractive({ useHandCursor: true });
-            hitArea.on('pointerover', () => { drawCircle(0.20, 0.7); btnText.setStyle({ color: Phaser.Display.Color.IntegerToColor(accentColor).rgba }); });
-            hitArea.on('pointerout', () => { drawCircle(0.10, 0.4); btnText.setColor('#ffffff'); });
-            hitArea.on('pointerdown', () => { this.tweens.add({ targets: [gfx, hitArea, btnText], scaleX: 0.90, scaleY: 0.90, duration: 100, yoyo: true }); });
+            hitArea.on('pointerover', () => {
+                drawCircle(0.18, 0.7);
+                btnText.setStyle({ color: Phaser.Display.Color.IntegerToColor(accentColor).rgba });
+            });
+            hitArea.on('pointerout', () => {
+                drawCircle(0.08, 0.35);
+                btnText.setColor('#ffffff');
+            });
+            hitArea.on('pointerdown', () => {
+                this.tweens.add({
+                    targets: [gfx, hitArea, btnText], scaleX: 0.88, scaleY: 0.88, duration: 100, yoyo: true,
+                    onComplete: () => { if (url) window.open(url, '_blank'); }
+                });
+            });
+            return [gfx, btnText, hitArea];
         }
     }
-
     // --- ГЛАВНАЯ СЦЕНА (ГОСТИНАЯ) ---
     class MainScene extends Phaser.Scene {
         constructor() { super('MainScene'); }
@@ -166,11 +310,7 @@
             const roomWidth = bg.width * scale;
             const roomHeight = bg.height * scale;
             this.physics.world.setBounds(0, 0, roomWidth, roomHeight);
-
-            // Store scale for overlays
             this.bgScale = scale;
-
-            // Create animations
             const personVariants = ['playerSprite', 'playerSprite_blue', 'playerSprite_pink', 'playerSprite_green'];
             personVariants.forEach(spriteKey => {
                 const suffix = spriteKey === 'playerSprite' ? '' : spriteKey.replace('playerSprite', '');
@@ -204,7 +344,6 @@
             this.targetX = null; this.targetY = null; this.isTransitioning = false;
             this.cursors = this.input.keyboard.createCursorKeys();
             this.wasd = this.input.keyboard.addKeys({ up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S, left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D });
-
             // --- MOBILE VIRTUAL JOYSTICK ---
             this.virtualInput = { x: 0, y: 0 };
             const joyX = 350, joyY = screenHeight - 500, joyR = 100;
@@ -219,7 +358,6 @@
             joyHit.on('pointerdown', (pointer) => { this.joyActive = true; this.joyPointerId = pointer.id; this.joyThumbGlow.setFillStyle(0xffffff, 0.2); this._updateJoystick(pointer); });
             this.input.on('pointermove', (pointer) => { if (this.joyActive && pointer.id === this.joyPointerId) this._updateJoystick(pointer); });
             this.input.on('pointerup', (pointer) => { if (this.joyActive && pointer.id === this.joyPointerId) { this.joyActive = false; this.joyPointerId = -1; this.joyThumb.setPosition(joyX, joyY); this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0); this.virtualInput = { x: 0, y: 0 }; } });
-
             // --- MOBILE ACTION BUTTON (E) ---
             const actX = screenWidth - 300, actY = screenHeight - 450;
             const actBtnGfx = this.add.graphics().setScrollFactor(0).setDepth(190);
@@ -238,7 +376,6 @@
                 this.targetX = worldPoint.x; this.targetY = worldPoint.y;
                 this.physics.moveToObject(this.player, worldPoint, 250);
             });
-
             this.walkablePolygon = [
                 { x: 0.21, y: 0.60 }, { x: 0.38, y: 0.51 }, { x: 0.42, y: 0.50 }, { x: 0.475, y: 0.505 }, { x: 0.67, y: 0.60 },
                 { x: 0.74, y: 0.57 }, { x: 0.90, y: 0.65 }, { x: 0.50, y: 0.80 },
@@ -248,7 +385,6 @@
             this.roomWidth = roomWidth; this.roomHeight = roomHeight;
             this.greenLineStart = { x: 0.50, y: 0.80 }; this.greenLineEnd = { x: 0.90, y: 0.65 };
             this.lockedDoorPoly = [{ x: 0.74, y: 0.48 }, { x: 0.86, y: 0.52 }, { x: 0.86, y: 0.62 }, { x: 0.74, y: 0.58 }];
-
             // --- STYLED LOCKED DOOR MESSAGE ---
             this.lockedDoorContainer = this.add.container(roomWidth * 0.80, roomHeight * 0.42).setDepth(100).setAlpha(0);
             const msgBg = this.add.graphics();
@@ -258,7 +394,6 @@
             const msgText = this.add.text(0, 0, 'Еще не время...', { fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
             this.lockedDoorContainer.add([msgBg, msgText]);
             this.lockedDoorShowing = false;
-
             // === INTERACTION SYSTEM ===
             this.interactiveItems = [
                 { id: 'guitar', proximityCenter: { x: 0.25, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_guitar', actionOverlay: null, soundKey: 'sound_guitar' },
@@ -285,21 +420,15 @@
             this.ePrompt = this.add.text(0, 0, '[E]', { fontSize: '36px', fontFamily: 'Courier New', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 12, y: 6 }, fontStyle: 'bold' }).setOrigin(0.5).setDepth(150).setVisible(false);
             this.tweens.add({ targets: this.ePrompt, alpha: { from: 0.6, to: 1 }, scaleX: { from: 0.95, to: 1.05 }, scaleY: { from: 0.95, to: 1.05 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
             this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-
-            // --- TOAST ---
-            this.toastContainer = this.add.container(screenWidth / 2, 120).setScrollFactor(0).setDepth(300).setAlpha(0);
-            const toastW = 400, toastH = 56, toastR = 14;
-            const toastBgGfx = this.add.graphics();
-            toastBgGfx.fillStyle(0x0a0a0f, 0.8); toastBgGfx.fillRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
-            toastBgGfx.lineStyle(1, 0xffffff, 0.12); toastBgGfx.strokeRoundedRect(-toastW/2, -toastH/2, toastW, toastH, toastR);
-            this.toastText = this.add.text(0, 0, '', { fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-            this.toastContainer.add([toastBgGfx, this.toastText]);
+            // --- TOAST (world-space, positioned above player) ---
+            this.toastContainer = this.add.container(0, 0).setDepth(300).setAlpha(0);
+            this.toastBg = this.add.graphics();
+            this.toastText = this.add.text(0, 0, '', { fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold', align: 'center' }).setOrigin(0.5);
+            this.toastContainer.add([this.toastBg, this.toastText]);
             this.toastTimer = null;
             this.player.setCollideWorldBounds(false);
-
             const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000).setScrollFactor(0).setDepth(9999);
             this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
-
             if (window.timeOfDay === 'day' && !window.nightTriggered) {
                 this.time.delayedCall(10000, () => {
                     if (window.nightTriggered) return;
@@ -368,11 +497,20 @@
         }
         showToast(message) {
             this.toastText.setText(message);
+            const pad = 24, r = 16;
+            const tw = this.toastText.width + pad * 2;
+            const th = this.toastText.height + pad;
+            this.toastBg.clear();
+            this.toastBg.fillStyle(0x000000, 0.78); this.toastBg.fillRoundedRect(-tw/2, -th/2, tw, th, r);
+            this.toastBg.lineStyle(1, 0xffffff, 0.15); this.toastBg.strokeRoundedRect(-tw/2, -th/2, tw, th, r);
+            this.toastContainer.setPosition(this.player.x, this.player.y - 180);
             this.tweens.killTweensOf(this.toastContainer);
             if (this.toastTimer) { this.toastTimer.remove(); this.toastTimer = null; }
-            this.toastContainer.setY(80).setAlpha(0).setScale(0.9);
-            this.tweens.add({ targets: this.toastContainer, alpha: 1, y: 120, scale: 1, duration: 350, ease: 'Back.easeOut' });
-            this.toastTimer = this.time.delayedCall(2500, () => { this.tweens.add({ targets: this.toastContainer, alpha: 0, y: 80, scale: 0.9, duration: 250, ease: 'Sine.easeIn' }); });
+            this.toastContainer.setScale(0.85).setAlpha(0);
+            this.tweens.add({ targets: this.toastContainer, alpha: 1, scale: 1, duration: 250, ease: 'Back.easeOut' });
+            this.toastTimer = this.time.delayedCall(2500, () => {
+                this.tweens.add({ targets: this.toastContainer, alpha: 0, scale: 0.85, duration: 180, ease: 'Sine.easeIn' });
+            });
         }
         _updateJoystick(pointer) {
             const dx = pointer.x - this.joyCenter.x, dy = pointer.y - this.joyCenter.y;
@@ -463,7 +601,6 @@
             } else { this.ePrompt.setText('[E]'); this.ePrompt.setVisible(false); }
         }
     }
-
     // --- СТУДИЯ ---
     class StudioScene extends Phaser.Scene {
         constructor() { super('StudioScene'); }
@@ -478,13 +615,15 @@
             this.load.image('ward_3', 'assets/interaction/action_stanley.png');
             this.load.image('ward_4', 'assets/interaction/action_eifel_tower.png');
             this.load.image('ward_5', 'assets/interaction/action_books.png');
-			this.load.image('ward_6', 'assets/interaction/action_prada.png');
-			this.load.image('ward_7', 'assets/interaction/action_monro.png');
-			this.load.image('ward_8', 'assets/interaction/action_golden_goose.png');
-			this.load.image('ward_9', 'assets/interaction/action_brickbear.png');
-
+            this.load.image('ward_6', 'assets/interaction/action_prada.png');
+            this.load.image('ward_7', 'assets/interaction/action_monro.png');
+            this.load.image('ward_8', 'assets/interaction/action_golden_goose.png');
+            this.load.image('ward_9', 'assets/interaction/action_brickbear.png');
             this.load.image('room2_blue', folder + 'room2_blue.png'); this.load.image('room2_pink', folder + 'room2_pink.png'); this.load.image('room2_green', folder + 'room2_green.png');
-            this.load.audio('sound_guitar', 'assets/sound/sound_guitar.mp3'); this.load.audio('sound_audio_interface', 'assets/sound/sound_audio_interface.mp3');
+            this.load.audio('sound_guitar', 'assets/sound/sound_guitar.mp3');
+            this.load.audio('sound_audio_interface', 'assets/sound/sound_audio_interface.mp3');
+            this.load.audio('sound_right', 'assets/sound/right.mp3');
+            this.load.audio('sound_legend_part1', 'assets/sound/legend_part1.mp3');
             this.load.on('loaderror', (file) => { console.error('ОШИБКА загрузки (Studio): ' + file.key, file.url); });
         }
         create() {
@@ -516,7 +655,6 @@
             this.targetX = null; this.targetY = null; this.isTransitioning = false;
             this.cursors = this.input.keyboard.createCursorKeys();
             this.wasd = this.input.keyboard.addKeys({ up: Phaser.Input.Keyboard.KeyCodes.W, down: Phaser.Input.Keyboard.KeyCodes.S, left: Phaser.Input.Keyboard.KeyCodes.A, right: Phaser.Input.Keyboard.KeyCodes.D });
-
             // --- MOBILE VIRTUAL JOYSTICK ---
             this.virtualInput = { x: 0, y: 0 };
             const joyX = 350, joyY = screenHeight - 500, joyR = 100;
@@ -531,7 +669,6 @@
             joyHit2.on('pointerdown', (pointer) => { this.joyActive = true; this.joyPointerId = pointer.id; this.joyThumbGlow.setFillStyle(0xffffff, 0.2); this._updateJoystick(pointer); });
             this.input.on('pointermove', (pointer) => { if (this.joyActive && pointer.id === this.joyPointerId) this._updateJoystick(pointer); });
             this.input.on('pointerup', (pointer) => { if (this.joyActive && pointer.id === this.joyPointerId) { this.joyActive = false; this.joyPointerId = -1; this.joyThumb.setPosition(joyX, joyY); this.joyThumbGlow.setPosition(joyX, joyY).setFillStyle(0xffffff, 0); this.virtualInput = { x: 0, y: 0 }; } });
-
             const actX = screenWidth - 300, actY = screenHeight - 450;
             const actBtnGfx2 = this.add.graphics().setScrollFactor(0).setDepth(190);
             actBtnGfx2.fillStyle(0xffffff, 0.2); actBtnGfx2.fillCircle(actX, actY, 68);
@@ -564,15 +701,12 @@
             this.lockedDoorContainer.add([msgBg2, this.add.text(0, 0, 'Еще не время...', { fontSize: '28px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5)]);
             this.lockedDoorShowing = false;
 
-            // --- WARDROBE MESSAGE (same style as locked door) ---
+            // --- WARDROBE DESCRIPTION BUBBLE (world-space, hidden by default) ---
             this.wardrobeContainer = this.add.container(roomWidth * 0.60, roomHeight * 0.48).setDepth(100).setAlpha(0);
-            const wdBg = this.add.graphics();
-            const wdW = 420, wdH = 60, wdR = 16;
-            wdBg.fillStyle(0x000000, 0.75); wdBg.fillRoundedRect(-wdW/2, -wdH/2, wdW, wdH, wdR);
-            wdBg.lineStyle(1, 0xffffff, 0.15); wdBg.strokeRoundedRect(-wdW/2, -wdH/2, wdW, wdH, wdR);
-            this.wardrobeText = this.add.text(0, 0, '', { fontSize: '26px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-            this.wardrobeContainer.add([wdBg, this.wardrobeText]);
-            this.wardrobeShowing = false;
+            this.wardrobeBg = this.add.graphics();
+            this.wardrobeText = this.add.text(0, 0, '', { fontSize: '22px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold', wordWrap: { width: 440 }, align: 'center' }).setOrigin(0.5);
+            this.wardrobeContainer.add([this.wardrobeBg, this.wardrobeText]);
+            this.wardrobeDescShowing = false;
             this.wardrobeAutoHideTimer = null;
 
             // --- WARDROBE OVERLAY SPRITES ---
@@ -582,16 +716,14 @@
                     this.wardrobeSprites[wi.key] = this.add.image(0, 0, wi.texture).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5);
                 }
             });
-            // Restore wardrobe state if re-entering scene
-            if (window.wardrobeIndex >= 0 && window.wardrobeIndex < WARDROBE_ITEMS.length) {
-                const wk = WARDROBE_ITEMS[window.wardrobeIndex].key;
-                if (this.wardrobeSprites[wk]) this.wardrobeSprites[wk].setVisible(true);
-            }
+            // Wardrobe overlays start hidden — they only appear when player enters proximity
+            // Track whether wardrobe overlay is currently visible (for proximity hide/show)
+            this._wardrobeOverlayVisible = false;
 
             // === INTERACTION SYSTEM ===
             this.interactiveItems = [
                 { id: 'audio_interface', proximityCenter: { x: 0.35, y: 0.60 }, proximityRadius: 90, lineOverlay: 'line_audio_interface', actionOverlay: null, soundKey: null, isTrackSwitch: true },
-                { id: 'wardrobe', proximityCenter: { x: 0.60, y: 0.53 }, proximityRadius: 90, lineOverlay: 'line_rick_owens', actionOverlay: null, soundKey: null, isWardrobeSwitch: true },
+                { id: 'wardrobe', proximityCenter: { x: 0.60, y: 0.53 }, proximityRadius: 90, lineOverlay: null, actionOverlay: null, soundKey: null, isWardrobeSwitch: true },
                 { id: 'lights', proximityCenter: { x: 0.67, y: 0.63 }, proximityRadius: 90, lineOverlay: null, actionOverlay: null, soundKey: null, isLightSwitch: true },
             ];
             this.interactiveItems.forEach(item => {
@@ -602,9 +734,8 @@
                     item.state = (window.currentTrack !== 'off') ? 'active' : 'idle'; item._glowVisible = false; return;
                 }
                 if (item.isWardrobeSwitch) {
-                    item.lineSprite = (item.lineOverlay && this.textures.exists(item.lineOverlay)) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
-                    item.actionSprite = null;
-                    item.state = (window.wardrobeIndex >= 0) ? 'active' : 'idle'; item._glowVisible = false; return;
+                    item.lineSprite = null; item.actionSprite = null;
+                    item.state = 'idle'; item._glowVisible = false; return;
                 }
                 item.lineSprite = (item.lineOverlay && this.textures.exists(item.lineOverlay)) ? this.add.image(0, 0, item.lineOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
                 item.actionSprite = (item.actionOverlay && this.textures.exists(item.actionOverlay)) ? this.add.image(0, 0, item.actionOverlay).setOrigin(0, 0).setScale(scale).setVisible(false).setDepth(5) : null;
@@ -615,16 +746,12 @@
             this.ePrompt = this.add.text(0, 0, '[E]', { fontSize: '36px', fontFamily: 'Courier New', color: '#ffffff', backgroundColor: '#000000aa', padding: { x: 12, y: 6 }, fontStyle: 'bold' }).setOrigin(0.5).setDepth(150).setVisible(false);
             this.tweens.add({ targets: this.ePrompt, alpha: { from: 0.6, to: 1 }, scaleX: { from: 0.95, to: 1.05 }, scaleY: { from: 0.95, to: 1.05 }, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
             this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-
-            this.toastContainer = this.add.container(screenWidth / 2, 120).setScrollFactor(0).setDepth(300).setAlpha(0);
-            const toastBgGfx = this.add.graphics();
-            toastBgGfx.fillStyle(0x0a0a0f, 0.8); toastBgGfx.fillRoundedRect(-200, -28, 400, 56, 14);
-            toastBgGfx.lineStyle(1, 0xffffff, 0.12); toastBgGfx.strokeRoundedRect(-200, -28, 400, 56, 14);
-            this.toastText = this.add.text(0, 0, '', { fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
-            this.toastContainer.add([toastBgGfx, this.toastText]);
+            this.toastContainer = this.add.container(0, 0).setDepth(300).setAlpha(0);
+            this.toastBg = this.add.graphics();
+            this.toastText = this.add.text(0, 0, '', { fontSize: '24px', fontFamily: 'Courier New', color: '#ffffff', fontStyle: 'bold', align: 'center' }).setOrigin(0.5);
+            this.toastContainer.add([this.toastBg, this.toastText]);
             this.toastTimer = null;
             this.player.setCollideWorldBounds(false);
-
             const blackCover = this.add.rectangle(screenWidth / 2, screenHeight / 2, screenWidth * 2, screenHeight * 2, 0x000000).setScrollFactor(0).setDepth(9999);
             this.tweens.add({ targets: blackCover, alpha: 0, duration: 1000, onComplete: () => { blackCover.destroy(); } });
             if (window.timeOfDay === 'day' && !window.nightTriggered) {
@@ -649,15 +776,18 @@
                 this.updatePlayerSprite(); nearestItem.state = (window.roomLightMode !== 'default') ? 'active' : 'idle'; this.interactionCooldown = 500; return;
             }
             if (nearestItem.isTrackSwitch) {
+                // Stop current audio
                 try {
                     if (window.activeAudio && window.activeAudio.sound) { window.activeAudio.sound.stop(); window.activeAudio.sound.destroy(); window.activeAudio = null; }
                 } catch(e) { window.activeAudio = null; }
+                // Advance track
                 const nextIdx = (APOLLO_TRACKS.indexOf(window.currentTrack) + 1) % APOLLO_TRACKS.length;
                 window.currentTrack = APOLLO_TRACKS[nextIdx];
+                // Play new track if not off
                 if (window.currentTrack !== 'off') {
                     try {
                         const sk = APOLLO_TRACK_KEYS[window.currentTrack];
-                        if (this.cache.audio.exists(sk)) {
+                        if (sk && this.cache.audio.exists(sk)) {
                             const snd = this.sound.add(sk, { loop: true, volume: 0.5 }); snd.play();
                             window.activeAudio = { itemId: nearestItem.id, soundKey: sk, sound: snd };
                         } else { console.warn('Audio not loaded:', sk); }
@@ -668,29 +798,26 @@
                 this.interactionCooldown = 500; return;
             }
             // --- WARDROBE SWITCH ---
+            // Workflow:
+            // Phase 'label': player sees [E] <label> + overlay highlight. Press E → show description bubble, hide [E] prompt. Phase becomes 'desc'.
+            // Phase 'desc': description is showing. Press E → hide description early, advance to next item, show its overlay, phase becomes 'label'.
+            // Auto-hide after 3s also advances to next item automatically.
             if (nearestItem.isWardrobeSwitch) {
-                // If message is currently showing → hide it, don't advance
-                if (this.wardrobeShowing) {
-                    this._hideWardrobeMsg();
-                    this.interactionCooldown = 300;
+                if (window.wardrobePhase === 'label') {
+                    // Show description for current item
+                    const wi = WARDROBE_ITEMS[window.wardrobeIndex];
+                    this._showWardrobeDesc(wi.description);
+                    window.wardrobePhase = 'desc';
+                    this.interactionCooldown = 400;
                     return;
                 }
-                // Hide previous overlay
-                if (window.wardrobeIndex >= 0) {
-                    const prevKey = WARDROBE_ITEMS[window.wardrobeIndex].key;
-                    if (this.wardrobeSprites[prevKey]) this.wardrobeSprites[prevKey].setVisible(false);
+                if (window.wardrobePhase === 'desc') {
+                    // Hide description early, advance to next
+                    this._hideWardrobeDesc();
+                    this._advanceWardrobe();
+                    this.interactionCooldown = 400;
+                    return;
                 }
-                // Advance to next (cycles: 0→1→2→3→4→0→...)
-                window.wardrobeIndex = (window.wardrobeIndex + 1) % WARDROBE_ITEMS.length;
-                const wi = WARDROBE_ITEMS[window.wardrobeIndex];
-                // Show new overlay
-                if (this.wardrobeSprites[wi.key]) this.wardrobeSprites[wi.key].setVisible(true);
-                // Show label
-                this._showWardrobeMsg(wi.description);
-                nearestItem.state = 'active';
-                window.activeItems[nearestItem.id] = true;
-                this.interactionCooldown = 500;
-                return;
             }
             if (nearestItem.state === 'active') {
                 if (nearestItem.actionSprite) nearestItem.actionSprite.setVisible(false);
@@ -714,29 +841,93 @@
                 window.activeItems[nearestItem.id] = true; nearestItem.state = 'active'; nearestItem._glowVisible = true;
             }
         }
-        _showWardrobeMsg(label) {
-            this.wardrobeText.setText(label);
-            this.wardrobeShowing = true;
-            this.tweens.killTweensOf(this.wardrobeContainer);
-            if (this.wardrobeAutoHideTimer) { this.wardrobeAutoHideTimer.remove(); this.wardrobeAutoHideTimer = null; }
-            this.wardrobeContainer.setScale(0.8).setAlpha(0);
-            this.tweens.add({ targets: this.wardrobeContainer, alpha: 1, scale: 1, duration: 300, ease: 'Back.easeOut' });
-            // Auto-hide after 3 seconds
-            this.wardrobeAutoHideTimer = this.time.delayedCall(3000, () => { this._hideWardrobeMsg(); });
+        // Advance wardrobe to next item (called after description hides)
+        _advanceWardrobe() {
+            // Hide current overlay
+            const prevKey = WARDROBE_ITEMS[window.wardrobeIndex].key;
+            if (this.wardrobeSprites[prevKey]) this.wardrobeSprites[prevKey].setVisible(false);
+            // Advance
+            window.wardrobeIndex = (window.wardrobeIndex + 1) % WARDROBE_ITEMS.length;
+            window.wardrobePhase = 'label';
+            // Only show new overlay if player is still in the wardrobe zone
+            const wardItem = this.interactiveItems.find(i => i.isWardrobeSwitch);
+            if (wardItem) {
+                const cx = wardItem.proximityCenter.x * this.roomWidth, cy = wardItem.proximityCenter.y * this.roomHeight;
+                const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
+                if (dist < wardItem.proximityRadius) {
+                    const wi = WARDROBE_ITEMS[window.wardrobeIndex];
+                    if (this.wardrobeSprites[wi.key]) this.wardrobeSprites[wi.key].setVisible(true);
+                    this._wardrobeOverlayVisible = true;
+                } else {
+                    this._wardrobeOverlayVisible = false;
+                }
+            }
         }
-        _hideWardrobeMsg() {
-            if (!this.wardrobeShowing) return;
-            this.wardrobeShowing = false;
+        _showWardrobeDesc(text) {
+            this.wardrobeText.setText(text);
+            // Dynamically resize background to fit text
+            const pad = 24, r = 16;
+            const tw = this.wardrobeText.width + pad * 2;
+            const th = this.wardrobeText.height + pad;
+            this.wardrobeBg.clear();
+            this.wardrobeBg.fillStyle(0x000000, 0.78); this.wardrobeBg.fillRoundedRect(-tw/2, -th/2, tw, th, r);
+            this.wardrobeBg.lineStyle(1, 0xffffff, 0.15); this.wardrobeBg.strokeRoundedRect(-tw/2, -th/2, tw, th, r);
+            this.wardrobeDescShowing = true;
+            this.tweens.killTweensOf(this.wardrobeContainer);
+            if (this.wardrobeAutoHideTimer) { this.wardrobeAutoHideTimer.remove(); this.wardrobeAutoHideTimer = null; }
+            this.wardrobeContainer.setScale(0.85).setAlpha(0);
+            this.tweens.add({ targets: this.wardrobeContainer, alpha: 1, scale: 1, duration: 250, ease: 'Back.easeOut' });
+            // Auto-hide after 3 seconds → advance to next item
+            this.wardrobeAutoHideTimer = this.time.delayedCall(3000, () => {
+                this._hideWardrobeDesc();
+                this._advanceWardrobe();
+            });
+        }
+        _hideWardrobeDesc() {
+            if (!this.wardrobeDescShowing) return;
+            this.wardrobeDescShowing = false;
             if (this.wardrobeAutoHideTimer) { this.wardrobeAutoHideTimer.remove(); this.wardrobeAutoHideTimer = null; }
             this.tweens.killTweensOf(this.wardrobeContainer);
-            this.tweens.add({ targets: this.wardrobeContainer, alpha: 0, scale: 0.8, duration: 200, ease: 'Sine.easeIn' });
+            this.tweens.add({ targets: this.wardrobeContainer, alpha: 0, scale: 0.85, duration: 180, ease: 'Sine.easeIn' });
+        }
+        // Show/hide the wardrobe overlay sprite for current index
+        _showCurrentWardrobeOverlay() {
+            if (window.wardrobeIndex < 0 || window.wardrobeIndex >= WARDROBE_ITEMS.length) return;
+            const wi = WARDROBE_ITEMS[window.wardrobeIndex];
+            const spr = this.wardrobeSprites[wi.key];
+            if (spr) {
+                this.tweens.killTweensOf(spr);
+                spr.setVisible(true).setAlpha(0);
+                this.tweens.add({ targets: spr, alpha: 1, duration: 250 });
+            }
+            this._wardrobeOverlayVisible = true;
+        }
+        _hideCurrentWardrobeOverlay() {
+            if (window.wardrobeIndex < 0 || window.wardrobeIndex >= WARDROBE_ITEMS.length) return;
+            const wi = WARDROBE_ITEMS[window.wardrobeIndex];
+            const spr = this.wardrobeSprites[wi.key];
+            if (spr) {
+                this.tweens.killTweensOf(spr);
+                this.tweens.add({ targets: spr, alpha: 0, duration: 200, onComplete: () => { spr.setVisible(false); } });
+            }
+            this._wardrobeOverlayVisible = false;
         }
         showToast(message) {
-            this.toastText.setText(message); this.tweens.killTweensOf(this.toastContainer);
+            this.toastText.setText(message);
+            const pad = 24, r = 16;
+            const tw = this.toastText.width + pad * 2;
+            const th = this.toastText.height + pad;
+            this.toastBg.clear();
+            this.toastBg.fillStyle(0x000000, 0.78); this.toastBg.fillRoundedRect(-tw/2, -th/2, tw, th, r);
+            this.toastBg.lineStyle(1, 0xffffff, 0.15); this.toastBg.strokeRoundedRect(-tw/2, -th/2, tw, th, r);
+            this.toastContainer.setPosition(this.player.x, this.player.y - 180);
+            this.tweens.killTweensOf(this.toastContainer);
             if (this.toastTimer) { this.toastTimer.remove(); this.toastTimer = null; }
-            this.toastContainer.setY(80).setAlpha(0).setScale(0.9);
-            this.tweens.add({ targets: this.toastContainer, alpha: 1, y: 120, scale: 1, duration: 350, ease: 'Back.easeOut' });
-            this.toastTimer = this.time.delayedCall(2500, () => { this.tweens.add({ targets: this.toastContainer, alpha: 0, y: 80, scale: 0.9, duration: 250, ease: 'Sine.easeIn' }); });
+            this.toastContainer.setScale(0.85).setAlpha(0);
+            this.tweens.add({ targets: this.toastContainer, alpha: 1, scale: 1, duration: 250, ease: 'Back.easeOut' });
+            this.toastTimer = this.time.delayedCall(2500, () => {
+                this.tweens.add({ targets: this.toastContainer, alpha: 0, scale: 0.85, duration: 180, ease: 'Sine.easeIn' });
+            });
         }
         _updateJoystick(pointer) {
             const dx = pointer.x - this.joyCenter.x, dy = pointer.y - this.joyCenter.y;
@@ -795,8 +986,7 @@
                 const dist = this.pointToLineDistance(this.player.x, this.player.y, this.greenLineStart.x*rw, this.greenLineStart.y*rh, this.greenLineEnd.x*rw, this.greenLineEnd.y*rh);
                 if (dist < 30) {
                     this.isTransitioning = true; this.player.body.setVelocity(0, 0);
-                    if (this.wardrobeShowing) this._hideWardrobeMsg();
-                    // Hide wardrobe overlays on transition
+                    if (this.wardrobeDescShowing) this._hideWardrobeDesc();
                     Object.values(this.wardrobeSprites).forEach(s => s.setVisible(false));
                     this.interactiveItems.forEach(item => { if (item.state === 'active') { if (item.actionSprite) item.actionSprite.setVisible(false); if (item.lineSprite) item.lineSprite.setVisible(false); if (item.tvSprites) Object.values(item.tvSprites).forEach(s => s.setVisible(false)); item._glowVisible = false; } });
                     this.scene.transition({ target: 'MainScene', data: { fromStudio: true }, duration: 800, moveBelow: true, onUpdate: (p) => { this.cameras.main.setAlpha(1-p); } });
@@ -815,8 +1005,24 @@
                     const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cx, cy);
                     const inRange = dist < item.proximityRadius;
                     if (item.isLightSwitch) { if (inRange) { if (item.state==='idle') item.state='near'; playerInCircle=true; } else { if (item.state==='near') item.state='idle'; } return; }
-                    // Wardrobe: always interactive when in range
-                    if (item.isWardrobeSwitch) { if (inRange) { if (item.state==='idle') item.state='near'; playerInCircle=true; } else { if (item.state==='near') item.state='idle'; if (this.wardrobeShowing) this._hideWardrobeMsg(); } return; }
+                    // Wardrobe proximity: show/hide overlay when entering/leaving zone
+                    if (item.isWardrobeSwitch) {
+                        if (inRange) {
+                            playerInCircle = true;
+                            if (item.state === 'idle') item.state = 'near';
+                            // Show overlay when entering zone (if not already visible)
+                            if (!this._wardrobeOverlayVisible) this._showCurrentWardrobeOverlay();
+                        } else {
+                            if (item.state === 'near') item.state = 'idle';
+                            // Hide overlay + description when leaving zone
+                            if (this._wardrobeOverlayVisible) this._hideCurrentWardrobeOverlay();
+                            if (this.wardrobeDescShowing) {
+                                this._hideWardrobeDesc();
+                                window.wardrobePhase = 'label';
+                            }
+                        }
+                        return;
+                    }
                     if (item.state === 'active') { if (inRange) { if (!item._glowVisible && item.lineSprite) { item.lineSprite.setVisible(true).setAlpha(0); this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 }); item._glowVisible=true; } playerInCircle=true; } else { if (item._glowVisible && item.lineSprite) { this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } }); item._glowVisible=false; } } return; }
                     if (inRange) { if (item.state !== 'near') { if (item.lineSprite) { item.lineSprite.setVisible(true).setAlpha(0); this.tweens.add({ targets: item.lineSprite, alpha: 1, duration: 300 }); } item.state='near'; } playerInCircle=true; }
                     else if (item.state === 'near') { if (item.lineSprite) { this.tweens.add({ targets: item.lineSprite, alpha: 0, duration: 200, onComplete: () => { item.lineSprite.setVisible(false); } }); } item.state='idle'; }
@@ -827,15 +1033,28 @@
                 const nearLight = this.interactiveItems.find(i => i.isLightSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
                 const nearTrack = this.interactiveItems.find(i => i.isTrackSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
                 const nearWardrobe = this.interactiveItems.find(i => i.isWardrobeSwitch && Phaser.Math.Distance.Between(this.player.x, this.player.y, i.proximityCenter.x*rw, i.proximityCenter.y*rh) < i.proximityRadius);
-                if (nearLight) { this.ePrompt.setText(window.timeOfDay==='night' ? '[E] Lights: '+(window.roomLightMode==='default'?'OFF':window.roomLightMode.toUpperCase()) : '[E] Lights'); }
-                else if (nearTrack) { this.ePrompt.setText('[E] Apollo: '+APOLLO_TRACK_NAMES[window.currentTrack]); }
-                else if (nearWardrobe) { const wLabel = window.wardrobeIndex >= 0 ? WARDROBE_ITEMS[window.wardrobeIndex].label : '...'; this.ePrompt.setText('[E] ' + wLabel); }
-                else { this.ePrompt.setText('[E]'); }
-                this.ePrompt.setVisible(true);
+                if (nearLight) {
+                    this.ePrompt.setText(window.timeOfDay==='night' ? '[E] Lights: '+(window.roomLightMode==='default'?'OFF':window.roomLightMode.toUpperCase()) : '[E] Lights');
+                    this.ePrompt.setVisible(true);
+                }
+                else if (nearTrack) {
+                    this.ePrompt.setText('[E] Apollo: '+APOLLO_TRACK_NAMES[window.currentTrack]);
+                    this.ePrompt.setVisible(true);
+                }
+                else if (nearWardrobe) {
+                    // Only show [E] prompt during 'label' phase, hide during 'desc' phase
+                    if (window.wardrobePhase === 'label') {
+                        this.ePrompt.setText('[E] ' + WARDROBE_ITEMS[window.wardrobeIndex].label);
+                        this.ePrompt.setVisible(true);
+                    } else {
+                        // Description is showing — hide [E] prompt so they don't overlap
+                        this.ePrompt.setVisible(false);
+                    }
+                }
+                else { this.ePrompt.setText('[E]'); this.ePrompt.setVisible(true); }
             } else { this.ePrompt.setText('[E]'); this.ePrompt.setVisible(false); }
         }
     }
-
     const config = {
         type: Phaser.AUTO,
         backgroundColor: '#000000',
