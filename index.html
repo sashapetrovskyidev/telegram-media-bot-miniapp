@@ -30,8 +30,8 @@
     window.currentTrack = 'off';
     const LIGHT_MODES = ['default', 'blue', 'pink', 'green'];
     const APOLLO_TRACKS = ['off', 'track1', 'track2', 'track3'];
-    const APOLLO_TRACK_KEYS = { 'track1': 'sound_audio_interface', 'track2': 'sound_right', 'track3': 'sound_legend_part1' };
-    const APOLLO_TRACK_NAMES = { 'off': 'OFF', 'track1': 'SWAG', 'track2': 'RIGHT', 'track3': 'LEGEND' };
+    const APOLLO_TRACK_KEYS = { 'track1': 'sound_audio_interface', 'track2': 'sound_star', 'track3': 'sound_kalibri' };
+    const APOLLO_TRACK_NAMES = { 'off': 'OFF', 'track1': 'SWAG', 'track2': 'STAR', 'track3': 'KALIBRI' };
     const TV_GAMES = ['off', 'fortnite', 'mortal_kombat', 'naruto'];
     const TV_GAME_TEXTURES = { 'fortnite': 'tv_fortnite', 'mortal_kombat': 'tv_mortal_kombat', 'naruto': 'tv_naruto' };
     // --- WARDROBE (модный шкафчик) ---
@@ -622,8 +622,8 @@
             this.load.image('room2_blue', folder + 'room2_blue.png'); this.load.image('room2_pink', folder + 'room2_pink.png'); this.load.image('room2_green', folder + 'room2_green.png');
             this.load.audio('sound_guitar', 'assets/sound/sound_guitar.mp3');
             this.load.audio('sound_audio_interface', 'assets/sound/sound_audio_interface.mp3');
-            this.load.audio('sound_right', 'assets/sound/right.mp3');
-            this.load.audio('sound_legend_part1', 'assets/sound/legend_part1.mp3');
+            this.load.audio('sound_star', 'assets/sound/star.mp3');
+            this.load.audio('sound_kalibri', 'assets/sound/kalibri.mp3');
             this.load.on('loaderror', (file) => { console.error('ОШИБКА загрузки (Studio): ' + file.key, file.url); });
         }
         create() {
