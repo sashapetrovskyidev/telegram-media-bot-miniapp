@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>WERYPEAS</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -1055,8 +1056,12 @@
             } else { this.ePrompt.setText('[E]'); this.ePrompt.setVisible(false); }
         }
     }
+    if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+    }
     const config = {
-        type: Phaser.AUTO,
+        type: Phaser.CANVAS,
         backgroundColor: '#000000',
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 1080, height: 1920 },
         input: { activePointers: 3 },
